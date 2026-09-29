@@ -9,7 +9,7 @@ import { climberFocus, useClimb } from '../state/climb';
 import { useGame } from '../state/store';
 import { Climber } from './Climber';
 import { holdGeometry, holdMesh } from './holdGeometry';
-import { HOLD_COLOR, PALETTE } from './palette';
+import { PALETTE, routeColor } from './palette';
 import { BetaOverlay } from './BetaOverlay';
 import { ChalkDust } from './Chalk';
 import { Gym } from './Gym';
@@ -190,6 +190,7 @@ function WallView({ day }: { day: Day }) {
   const placed = useGame((s) => s.placed);
   const viewing = useGame((s) => s.viewing);
   const holds = viewing ?? placed;
+  const tint = routeColor(day).hex;
   return (
     <group>
       {frames.map((f) => (
@@ -197,14 +198,14 @@ function WallView({ day }: { day: Day }) {
       ))}
       <Bolts wall={day.wall} frames={frames} />
       {[...day.start, day.finish].map((h) => (
-        <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed />
+        <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed tint={tint} />
       ))}
       {day.start.map((h) => (
         <Tape key={`t-${h.id}`} hold={h} wall={day.wall} frames={frames} kind="start" />
       ))}
       <Tape hold={day.finish} wall={day.wall} frames={frames} kind="finish" />
       {holds.map((h) => (
-        <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed={!!viewing} />
+        <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed={!!viewing} tint={tint} />
       ))}
       <GhostHold wall={day.wall} frames={frames} />
     </group>
@@ -297,7 +298,19 @@ function variantOf(id: string) {
   return Math.abs(h);
 }
 
-function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frames: PanelFrame[]; fixed?: boolean }) {
+function HoldMesh({
+  hold,
+  wall,
+  frames,
+  fixed,
+  tint,
+}: {
+  hold: Hold;
+  wall: Wall;
+  frames: PanelFrame[];
+  fixed?: boolean;
+  tint: string;
+}) {
   const selected = useGame((s) => s.selectedId === hold.id);
   const dragging = useGame((s) => s.draggingId === hold.id);
   const startDrag = useGame((s) => s.startDrag);
@@ -308,8 +321,8 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
   // Used holds get chalky.
   const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
   const color = useMemo(
-    () => new THREE.Color(HOLD_COLOR[hold.type]).lerp(new THREE.Color('#f4f2ec'), Math.min(0.5, chalk * 0.1)),
-    [hold.type, chalk],
+    () => new THREE.Color(tint).lerp(new THREE.Color('#f4f2ec'), Math.min(0.5, chalk * 0.1)),
+    [tint, chalk],
   );
 
   return (

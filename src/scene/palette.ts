@@ -1,4 +1,4 @@
-import type { HoldType } from '../solver/types';
+import type { Day, HoldType } from '../solver/types';
 
 /** Muted, neutral scene palette. UI colors mirror these in styles.css. */
 export const PALETTE = {
@@ -17,17 +17,31 @@ export const PALETTE = {
   climberDark: '#8a8174',
 };
 
-/** Gym-plastic colours: bright enough to read like real holds, a touch softened for the scene. */
-export const HOLD_COLOR: Record<HoldType, string> = {
-  jug: '#e2b33c',
-  edge: '#3f7cc0',
-  crimp: '#d4553f',
-  sloper: '#4fa878',
-  pinch: '#8f5cc0',
-  pocket: '#e07aa6',
-  foot: '#2f3034',
-  jib: '#8a8e95',
-};
+/**
+ * Route colours. Like a commercial gym, every hold on a route (start, finish,
+ * feet) is one colour; type is read from shape. All chosen to stand out
+ * against the plywood — no creams or beiges.
+ */
+export const ROUTE_COLORS = [
+  { name: 'red', hex: '#d4553f' },
+  { name: 'blue', hex: '#3f7cc0' },
+  { name: 'green', hex: '#3f9a6c' },
+  { name: 'purple', hex: '#8f5cc0' },
+  { name: 'pink', hex: '#dd6597' },
+  { name: 'orange', hex: '#e0822f' },
+  { name: 'teal', hex: '#2f969c' },
+  { name: 'black', hex: '#2f3034' },
+  { name: 'yellow', hex: '#e8b92f' },
+];
+
+/** The route colour for a day (practice walls: from their seed). Stable across reloads. */
+export function routeColor(day: Pick<Day, 'number' | 'wall'>) {
+  const key = day.number > 0 ? day.number * 7 : day.wall.seed;
+  return ROUTE_COLORS[Math.abs(key) % ROUTE_COLORS.length];
+}
+
+/** Neutral swatch for type icons outside a route (help legend). */
+export const NEUTRAL_HOLD = '#8a8e95';
 
 export const HOLD_NAME: Record<HoldType, string> = {
   jug: 'Jug',

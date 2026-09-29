@@ -41,29 +41,32 @@ interface Profile {
 
 /** Real-hold shapes, drawn as a side profile and extruded across the width. */
 const PROFILES: Partial<Record<HoldType, Profile>> = {
-  // A bucket: bulging body, a thick lip curling up and over a deep scoop.
+  // A bucket: rounded belly, a thick rim, and a deep scoop whose mouth tilts up
+  // and out (the back wall rises above the rim), so you can see into it from level.
   jug: {
     pts: [
-      [0, -0.048],
-      [0.02, -0.047],
-      [0.038, -0.04],
-      [0.052, -0.024],
-      [0.06, -0.004],
-      [0.062, 0.018],
-      [0.058, 0.036],
-      [0.048, 0.048],
-      [0.038, 0.046],
-      [0.034, 0.03],
-      [0.028, 0.01],
-      [0.014, 0.004],
-      [0.008, 0.022],
-      [0, 0.03],
+      [0, -0.05],
+      [0.024, -0.05],
+      [0.044, -0.04],
+      [0.06, -0.022],
+      [0.07, 0.0],
+      [0.074, 0.018],
+      [0.07, 0.03],
+      [0.06, 0.034],
+      [0.052, 0.024],
+      [0.04, 0.01],
+      [0.026, 0.006],
+      [0.014, 0.018],
+      [0.008, 0.042],
+      [0.004, 0.06],
+      [0, 0.064],
     ],
-    width: 0.16,
-    taper: 0.75,
-    bend: 0.04,
-    heightTaper: 0.5,
-    shade: (_x, y, z) => (y > -0.004 && y < 0.04 && z < 0.036 && z > 0.002 ? 0.5 : 1),
+    width: 0.17,
+    taper: 0.7,
+    bend: 0.035,
+    heightTaper: 0.45,
+    // Inside the scoop reads dark; the rim and belly stay bright.
+    shade: (_x, y, z) => (y > 0.002 && y < 0.05 && z > 0.01 && z < 0.056 ? 0.42 : 1),
   },
   // Flat-topped ledge with a slight incut.
   edge: {
@@ -265,7 +268,9 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   const k = v / (VARIANTS - 1);
   const profile = PROFILES[type];
   if (profile) {
-    const data = finish(profileGeometry(profile, SIZE[size], k, r), r, spec.bolt, (x, y, z) => profile.shade?.(x, y, z) ?? 1);
+    const S = SIZE[size];
+    // Shade tests are written in profile units, so undo the size scale.
+    const data = finish(profileGeometry(profile, S, k, r), r, spec.bolt, (x, y, z) => profile.shade?.(x / S, y / S, z / S) ?? 1);
     cache.set(key, data);
     return data;
   }

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
-import { HOLD_COLOR, HOLD_HINT, HOLD_NAME } from '../scene/palette';
+import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, routeColor } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -10,7 +10,7 @@ import { remaining, testLimit, useGame } from '../state/store';
 
 const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L' };
 
-export function HoldIcon({ type, size = 'm' }: { type: HoldType; size?: HoldSize }) {
+export function HoldIcon({ type, size = 'm', color = NEUTRAL_HOLD }: { type: HoldType; size?: HoldSize; color?: string }) {
   const s = size === 's' ? 0.8 : size === 'l' ? 1.15 : 1;
   const paths: Record<HoldType, string> = {
     jug: 'M4 14c0-5 4-9 8-9s8 4 8 9c-2-2-5-3-8-3s-6 1-8 3z',
@@ -25,7 +25,7 @@ export function HoldIcon({ type, size = 'm' }: { type: HoldType; size?: HoldSize
   return (
     <svg className="hold-icon" viewBox="0 0 24 24" aria-hidden="true">
       <g transform={`translate(12 12) scale(${s}) translate(-12 -12)`}>
-        <path d={paths[type]} fill={HOLD_COLOR[type]} fillRule="evenodd" stroke="rgba(0,0,0,.25)" strokeWidth="0.8" />
+        <path d={paths[type]} fill={color} fillRule="evenodd" stroke="rgba(0,0,0,.25)" strokeWidth="0.8" />
       </g>
     </svg>
   );
@@ -112,6 +112,13 @@ export function Brief() {
           </dd>
         </div>
         <div>
+          <dt>Holds</dt>
+          <dd className="route-chip">
+            <span className="swatch" style={{ background: routeColor(day).hex }} />
+            {routeColor(day).name}
+          </dd>
+        </div>
+        <div>
           <dt>Par</dt>
           <dd className="mono">{day.par > 0 ? nHolds(day.par) : '—'}</dd>
         </div>
@@ -173,7 +180,7 @@ export function Tray() {
                 }}
                 title={HOLD_HINT[slot.type]}
               >
-                <HoldIcon type={slot.type} size={slot.size} />
+                <HoldIcon type={slot.type} size={slot.size} color={routeColor(day).hex} />
                 <span className="slot-name">
                   {HOLD_NAME[slot.type]}
                   {slot.type !== 'foot' && slot.type !== 'jib' && <span className="size">{SIZE_LABEL[slot.size]}</span>}

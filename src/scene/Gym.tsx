@@ -5,7 +5,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { rng } from '../gen/rng';
 import type { Wall } from '../solver/types';
-import { HOLD_COLOR, PALETTE } from './palette';
+import { PALETTE, ROUTE_COLORS } from './palette';
 
 const none = () => null;
 
@@ -21,7 +21,7 @@ interface Section {
 function sections(wall: Wall): Section[] {
   const r = rng(wall.seed ^ 0x5eed);
   const edge = wall.width / 200;
-  const colors = Object.values(HOLD_COLOR).concat(['#c7b7a0', '#8b9aa3', '#a6978c']);
+  const colors = ROUTE_COLORS.map((c) => c.hex);
   const make = (side: -1 | 1): Section => {
     const width = 3.4;
     const holds: Section['holds'] = [];
