@@ -3,7 +3,7 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
 import { HOLD_COLOR, HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
-import { remaining, useGame } from '../state/store';
+import { remaining, testLimit, useGame } from '../state/store';
 
 const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L' };
 
@@ -32,29 +32,39 @@ function formatDate(iso: string) {
 
 export function TopBar() {
   const day = useGame((s) => s.day)!;
+  const mode = useGame((s) => s.mode);
   const setModal = useGame((s) => s.setModal);
-  const lookAround = useGame((s) => s.lookAround);
-  const setLookAround = useGame((s) => s.setLookAround);
+  const resetView = useGame((s) => s.resetView);
   const done = useGame((s) => s.done);
   return (
     <header className="topbar">
       <div className="brand">
         <span className="wordmark">Topout</span>
         <span className="meta mono">
-          #{day.number} · {formatDate(day.date)}
+          {mode === 'practice' ? 'Practice' : `#${day.number} · ${formatDate(day.date)}`}
+          {mode === 'archive' && ' · replay'}
         </span>
       </div>
       <nav className="topbar-actions">
-        <button
-          className={`icon-btn ${lookAround ? 'on' : ''}`}
-          onClick={() => setLookAround(!lookAround)}
-          aria-pressed={lookAround}
-          title="Look around (orbit the wall)"
-        >
+        {mode !== 'daily' && (
+          <a className="icon-btn" href={location.pathname} title="Back to today's puzzle">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14z" />
+            </svg>
+            <span className="label">Today</span>
+          </a>
+        )}
+        <button className="icon-btn" onClick={() => setModal('practice')} title="Practice on any wall">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 5c-5 0-9 4-10 7 1 3 5 7 10 7s9-4 10-7c-1-3-5-7-10-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" />
+            <path d="M3 21 10 5l4 8 3-4 4 12z" />
           </svg>
-          <span className="label">{lookAround ? 'Done' : 'Look'}</span>
+          <span className="label">Practice</span>
+        </button>
+        <button className="icon-btn" onClick={resetView} title="Reset the camera to the front view">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
+          </svg>
+          <span className="label">Reset view</span>
         </button>
         <button className="icon-btn" onClick={() => setModal('help')} title="How to play">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -77,11 +87,14 @@ export function TopBar() {
 
 export function Brief() {
   const day = useGame((s) => s.day)!;
+  const mode = useGame((s) => s.mode);
   const style = wallStyleOf(day.wall);
   const angles = day.wall.panels.map((p) => `${p.angle > 0 ? '+' : ''}${p.angle}°`).join(' / ');
   return (
     <section className="card brief" aria-label="Today's brief">
-      <div className="eyebrow">Today’s brief</div>
+      <div className="eyebrow">
+        {mode === 'practice' ? 'Practice wall' : mode === 'archive' ? `Replaying #${day.number}` : 'Today’s brief'}
+      </div>
       <h1>
         Set a <span className="grade">V{day.targetGrade}</span>
       </h1>
@@ -97,7 +110,11 @@ export function Brief() {
           <dd className="mono">{day.par > 0 ? nHolds(day.par) : '—'}</dd>
         </div>
       </dl>
-      {day.twist && <div className="twist">Weekend twist · {TWIST_LABEL[day.twist]}</div>}
+      {day.twist && (
+        <div className="twist">
+          {mode === 'practice' ? 'Twist' : 'Weekend twist'} · {TWIST_LABEL[day.twist]}
+        </div>
+      )}
     </section>
   );
 }
@@ -105,14 +122,11 @@ export function Brief() {
 export function Controls() {
   const armed = useGame((s) => s.armed);
   const selected = useGame((s) => s.selectedId);
-  const lookAround = useGame((s) => s.lookAround);
-  const text = lookAround
-    ? 'Drag to orbit · scroll to zoom'
-    : armed
+  const text = armed
       ? `Click the wall to place · Q / E or scroll to rotate · Esc to cancel`
       : selected
         ? 'Drag to move · Q / E to rotate · Delete to remove'
-        : 'Pick a hold from the tray · drag placed holds · right-click removes';
+        : 'Pick a hold from the tray · right-drag or Space-drag to look around · scroll to zoom';
   return <p className="controls">{text}</p>;
 }
 
@@ -122,7 +136,7 @@ export function Tray() {
   const placed = useGame((s) => s.placed);
   const armed = useGame((s) => s.armed);
   const arm = useGame((s) => s.arm);
-  const locked = useGame((s) => s.done || !!s.viewing || s.phase !== 'setting' || s.lookAround);
+  const locked = useGame((s) => s.done || !!s.viewing || s.phase !== 'setting');
   return (
     <section className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray">
       <div className="eyebrow">
@@ -196,13 +210,16 @@ export function ActionBar() {
   const s = useGame();
   const day = s.day!;
   if (s.viewing) return null;
-  const left = MAX_TESTS - s.tests.length;
+  const practice = s.mode === 'practice';
+  const left = testLimit(s.mode) - s.tests.length;
+  // Practice has unlimited tests: show the latest three.
+  const shown = practice ? s.tests.slice(-MAX_TESTS) : s.tests;
   const busy = s.phase === 'solving' || s.phase === 'climbing';
   return (
     <footer className="actionbar">
-      <div className="pips" aria-label={`${left} test climbs left`}>
+      <div className="pips" aria-label={practice ? 'Recent tests' : `${left} test climbs left`}>
         {Array.from({ length: MAX_TESTS }, (_, i) => {
-          const t = s.tests[i];
+          const t = shown[i];
           return (
             <span key={i} className={`pip ${t ? t.verdict : ''}`} title={t ? (t.result.ok ? `V${t.result.grade.toFixed(1)}` : 'No send') : 'Unused'}>
               {t ? SQUARE[t.verdict] : ''}
@@ -229,13 +246,13 @@ export function ActionBar() {
               Clear
             </button>
           )}
-          {s.tests.length > 0 && (
+          {s.tests.length > 0 && !practice && (
             <button className="btn ghost" onClick={() => s.finish()} disabled={busy}>
               Lock in
             </button>
           )}
-          <button className="btn primary" onClick={() => s.testClimb()} disabled={busy || left <= 0 || s.lookAround}>
-            {s.phase === 'solving' ? 'Reading the route…' : s.phase === 'climbing' ? 'Climbing…' : `Test climb (${left} left)`}
+          <button className="btn primary" onClick={() => s.testClimb()} disabled={busy || left <= 0}>
+            {s.phase === 'solving' ? 'Reading the route…' : s.phase === 'climbing' ? 'Climbing…' : practice ? 'Test climb' : `Test climb (${left} left)`}
           </button>
         </>
       )}

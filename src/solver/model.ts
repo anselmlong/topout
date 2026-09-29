@@ -14,6 +14,9 @@ export const BODY = {
   stride: 150,
   /** Beyond static reach a move becomes a dyno, up to this multiple. */
   dynoLimit: 1.18,
+  /** How far (cm) the left hand may sit right of the right hand (a cross-through). */
+  maxHandCross: 30,
+  maxFootCross: 20,
 };
 
 interface GripSpec {

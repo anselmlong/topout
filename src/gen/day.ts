@@ -126,19 +126,60 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   return [...slots, { type: 'foot', size: 'm', count: feet }];
 }
 
+/** Angle range per style for practice (for two-panel walls, the steep top panel). */
+export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
+  slab: [-25, -5],
+  vertical: [0, 8],
+  overhang: [10, 28],
+  steep: [28, 50],
+  headwall: [20, 45],
+  kicker: [15, 40],
+};
+
+export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];
+
+/** Practice mode picks the wall itself; empty overrides reproduce the daily puzzle. */
+export interface DayOverrides {
+  style?: WallStyle;
+  angle?: number;
+  grade?: number;
+  /** null = explicitly no twist. */
+  twist?: Twist | null;
+  tray?: 'practice';
+}
+
+function practiceTray(twist?: Twist): TraySlot[] {
+  const slots: TraySlot[] = [
+    { type: 'jug', size: 'l', count: 2 },
+    { type: 'jug', size: 'm', count: 2 },
+    { type: 'pocket', size: 'm', count: 2 },
+    { type: 'pinch', size: 'm', count: 2 },
+    { type: 'pinch', size: 's', count: 1 },
+    { type: 'sloper', size: 'm', count: 2 },
+    { type: 'crimp', size: 'l', count: 2 },
+    { type: 'crimp', size: 'm', count: 3 },
+    { type: 'crimp', size: 's', count: 2 },
+    { type: 'foot', size: 'm', count: 12 },
+  ];
+  return twist === 'no-jugs' ? slots.filter((s) => s.type !== 'jug') : slots;
+}
+
 /** Generate an uncurated day. `variant` lets curation reroll unsolvable days. */
-export function generateDay(n: number, variant = 0): Omit<Day, 'par'> & { par: number } {
+export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<Day, 'par'> & { par: number } {
   const date = dateOf(n);
   const weekday = new Date(date + 'T12:00:00Z').getUTCDay();
   const r = rng(hash(n, variant, 0x70b0));
   const weekend = weekday === 0 || weekday === 6;
-  const twist: Twist | undefined = weekend ? r.pick(['no-jugs', 'traverse', 'no-smear'] as const) : undefined;
+  const twistDraw: Twist | undefined = weekend ? r.pick(['no-jugs', 'traverse', 'no-smear'] as const) : undefined;
+  const twist = o.twist !== undefined ? (o.twist ?? undefined) : twistDraw;
 
-  const style = r.pick(STYLE_BY_WEEKDAY[weekday]);
+  const style = o.style ?? r.pick(STYLE_BY_WEEKDAY[weekday]);
   const wall = makeWall(r, style, hash(n, variant));
+  if (o.angle !== undefined) wall.panels[wall.panels.length - 1].angle = o.angle;
   const height = wall.panels.reduce((h, p) => h + p.length, 0);
   let targetGrade = WEEKDAY_GRADE[weekday] + (style === 'slab' ? -1 : style === 'steep' ? 1 : 0);
   targetGrade = Math.max(0, Math.min(8, targetGrade + r.pick([-1, 0, 0, 1])));
+  if (o.grade !== undefined) targetGrade = o.grade;
 
   const margin = 50;
   let start: Hold[];
@@ -179,7 +220,7 @@ export function generateDay(n: number, variant = 0): Omit<Day, 'par'> & { par: n
     wall,
     start,
     finish,
-    tray: makeTray(r, style, targetGrade, twist),
+    tray: o.tray === 'practice' ? practiceTray(twist) : makeTray(r, style, targetGrade, twist),
     targetGrade,
     twist,
     par: 0,

@@ -6,11 +6,22 @@ as few holds as you can. See [SPEC.md](SPEC.md) for the design.
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173  (?day=N to jump to a day)
+npm run dev        # http://localhost:5173  (?day=N opens any day in dev; prod clamps to today)
 npm test           # solver + rules tests
 npm run build      # typecheck + production build to dist/
 npm run curate -- --from 1 --days 120   # regenerate public/days/*.json
 ```
+
+## Controls
+
+Left-click places/selects/drags holds. Right-drag or Space+drag orbits, middle-drag
+or Shift+right-drag pans, the wheel zooms (or rotates the armed/selected hold).
+Q/E rotate, right-click (without dragging) removes. On touch: tap to place, two
+fingers to orbit/zoom.
+
+**Practice** (top bar) builds any wall style, angle, grade and twist with a full
+tray and unlimited tests. The wall is encoded in the URL
+(`?practice=style.angle.grade.twist.seed`), so it survives reloads and can be shared.
 
 ## Layout
 

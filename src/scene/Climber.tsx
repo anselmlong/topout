@@ -54,11 +54,17 @@ function poseFrom(
   const feetMid = on.length
     ? on.reduce((s, f) => s.add(f), V()).multiplyScalar(1 / on.length)
     : handsMid.clone().add(V(0, -1.35, 0));
-  const hip = feetMid.clone().lerp(handsMid, 0.4).addScaledVector(normal, 0.24);
-  const up = handsMid.clone().sub(hip);
-  const torsoDir = up.lengthSq() > 1e-6 ? up.normalize() : V(0, 1, 0);
-  const chest = hip.clone().addScaledVector(torsoDir, TORSO);
-  const lateral = V().crossVectors(torsoDir, normal).normalize().multiplyScalar(-1);
+  const span = handsMid.clone().sub(feetMid);
+  const handsToFeet = span.length();
+  const bodyDir = handsToFeet > 1e-3 ? span.normalize() : V(0, 1, 0);
+  // Hang long-armed: chest sits most of an arm's length below the hands.
+  const chest = handsMid.clone().addScaledVector(bodyDir, -0.42).addScaledVector(normal, 0.14);
+  // Bunched up (feet close to hands): sit the hips back off the wall instead of squashing.
+  const lean = Math.max(0, Math.min(1, (1.3 - handsToFeet) / 0.6));
+  const torsoDir = bodyDir.clone().addScaledVector(normal, -0.9 * lean).normalize();
+  const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
+  // Climber's right. We see their back, so this is +x on screen.
+  const lateral = V().crossVectors(torsoDir, normal).normalize();
   if (lateral.lengthSq() < 0.5) lateral.set(1, 0, 0);
   const head = chest.clone().addScaledVector(torsoDir, 0.2).addScaledVector(normal, 0.05);
   const shoulders: [THREE.Vector3, THREE.Vector3] = [

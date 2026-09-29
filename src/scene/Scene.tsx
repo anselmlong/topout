@@ -1,5 +1,6 @@
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { bestPull, wallHeight } from '../solver/model';
@@ -61,18 +62,24 @@ function wallBounds(wall: Wall) {
 
 function CameraRig({ wall }: { wall: Wall }) {
   const { camera, size } = useThree();
-  const lookAround = useGame((s) => s.lookAround);
+  const controls = useRef<OrbitControlsImpl>(null);
+  const nonce = useGame((s) => s.viewNonce);
+  // The wheel rotates the armed/selected hold; otherwise it zooms.
+  const holdActive = useGame((s) => !!s.armed || !!s.selectedId);
+  const orbitKey = useGame((s) => s.orbitKey);
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const target = useMemo(() => {
     const b = wallBounds(wall);
     return new THREE.Vector3(0, b.height / 2 + 0.05, b.depth / 2);
   }, [wall]);
 
+  // Front-on framing. Only on load / new wall / "Reset view", never mid-orbit.
   useEffect(() => {
-    if (lookAround) return;
     const cam = camera as THREE.PerspectiveCamera;
     const b = wallBounds(wall);
     const vfov = (cam.fov * Math.PI) / 180;
-    const aspect = size.width / size.height;
+    const aspect = sizeRef.current.width / sizeRef.current.height;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     const fitH = (b.height * 0.5 + 0.35 + b.depth * 0.15) / Math.tan(vfov / 2);
     const fitW = (wall.width / 200 + 0.3) / Math.tan(hfov / 2);
@@ -80,9 +87,29 @@ function CameraRig({ wall }: { wall: Wall }) {
     cam.position.set(0.0, target.y + 0.25, target.z + d);
     cam.lookAt(target);
     cam.updateProjectionMatrix();
-  }, [camera, size, wall, target, lookAround]);
+    controls.current?.target.copy(target);
+    controls.current?.update();
+  }, [camera, wall, target, nonce]);
 
-  return lookAround ? <OrbitControls target={target} enableDamping maxPolarAngle={Math.PI * 0.55} minDistance={3} maxDistance={16} /> : null;
+  return (
+    <OrbitControls
+      ref={controls}
+      target={target}
+      enableDamping
+      dampingFactor={0.12}
+      enableZoom={!holdActive}
+      maxPolarAngle={Math.PI * 0.55}
+      minDistance={2.5}
+      maxDistance={18}
+      // Left button belongs to setting (unless Space is held); right orbits, middle pans.
+      mouseButtons={{
+        LEFT: orbitKey ? THREE.MOUSE.ROTATE : (null as unknown as THREE.MOUSE),
+        MIDDLE: THREE.MOUSE.PAN,
+        RIGHT: THREE.MOUSE.ROTATE,
+      }}
+      touches={{ ONE: null as unknown as THREE.TOUCH, TWO: THREE.TOUCH.DOLLY_ROTATE }}
+    />
+  );
 }
 
 function Floor({ wall }: { wall: Wall }) {
@@ -168,7 +195,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
           const d = down.current;
           down.current = null;
           if (!d && s.trayDrag && s.armed) return s.commit();
-          if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
+          if (!d || s.orbitKey || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
           if (s.armed) s.commit();
           else s.select(null);
         }}
@@ -227,6 +254,7 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
   const dragging = useGame((s) => s.draggingId === hold.id);
   const startDrag = useGame((s) => s.startDrag);
   const remove = useGame((s) => s.remove);
+  const rightDown = useRef<{ x: number; y: number } | null>(null);
   const geometry = holdGeometry(hold.type, hold.size, variantOf(hold.id));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot);
 
@@ -237,16 +265,22 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
         castShadow
         receiveShadow
         onPointerDown={(e) => {
-          if (fixed || e.button !== 0) return;
+          if (fixed) return;
+          if (e.button === 2) {
+            rightDown.current = { x: e.clientX, y: e.clientY };
+            return;
+          }
+          if (e.button !== 0 || useGame.getState().orbitKey) return;
           // Don't stop propagation: the wall underneath keeps receiving moves while dragging.
           startDrag(hold.id);
         }}
-        onContextMenu={(e) => {
-          if (fixed) return;
-          e.stopPropagation();
-          e.nativeEvent.preventDefault();
-          remove(hold.id);
+        onPointerUp={(e) => {
+          const d = rightDown.current;
+          rightDown.current = null;
+          if (fixed || e.button !== 2 || !d) return;
+          if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) remove(hold.id);
         }}
+        onContextMenu={(e) => e.nativeEvent.preventDefault()}
         raycast={fixed ? () => null : undefined}
       >
         <meshStandardMaterial color={HOLD_COLOR[hold.type]} flatShading roughness={0.85} transparent={dragging} opacity={dragging ? 0.75 : 1} />

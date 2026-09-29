@@ -39,8 +39,8 @@ function write(key: string, value: unknown) {
   }
 }
 
-export const loadDay = (n: number) => read<DaySave>(`topout:day:${n}`);
-export const saveDay = (n: number, save: DaySave) => write(`topout:day:${n}`, save);
+export const loadDay = (key: string) => read<DaySave>(`topout:day:${key}`);
+export const saveDay = (key: string, save: DaySave) => write(`topout:day:${key}`, save);
 export const loadStats = () => ({ ...EMPTY_STATS, ...read<Stats>('topout:stats') });
 export const saveStats = (s: Stats) => write('topout:stats', s);
 export const seenHelp = () => read<boolean>('topout:help') === true;

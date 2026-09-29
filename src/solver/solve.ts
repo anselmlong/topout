@@ -154,6 +154,8 @@ class Context {
   valid(l: Limbs, slack = BODY.dynoLimit): boolean {
     const p = this.points(l);
     if (dist(p[0], p[1]) > BODY.span * slack) return false;
+    if (p[0].u - p[1].u > BODY.maxHandCross) return false;
+    if (l[2] >= 0 && l[3] >= 0 && p[2].u - p[3].u > BODY.maxFootCross) return false;
     const hiV = Math.max(p[0].v, p[1].v);
     const loV = Math.min(p[0].v, p[1].v);
     for (const f of [2, 3] as const) {
@@ -236,8 +238,12 @@ class Context {
       // charge for re-smearing that far.
       let resmear = 0;
       for (const f of [2, 3]) if (l[f] === SMEAR) resmear += dist(p[f], np[f]) / 100;
+      // Crossing through is awkward: allowed, but it costs.
+      const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
       const d =
-        hold * (0.85 + 0.35 * travel + 0.6 * r + 0.3 * resmear) + catchHard + (dynamic ? 0.4 : 0);
+        hold * (0.85 + 0.35 * travel + 0.6 * r + 0.3 * resmear + 0.5 * cross) +
+        catchHard +
+        (dynamic ? 0.4 : 0);
       return { d, dynamic };
     }
 

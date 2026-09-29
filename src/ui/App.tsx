@@ -3,7 +3,7 @@ import { Scene } from '../scene/Scene';
 import { seenHelp } from '../state/persist';
 import { useGame } from '../state/store';
 import { ActionBar, Brief, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
-import { HelpModal, ResultModal, StatsModal } from './Modals';
+import { HelpModal, PracticeModal, ResultModal, StatsModal } from './Modals';
 
 const ROTATE_STEP = Math.PI / 12;
 
@@ -31,7 +31,9 @@ export function App() {
         if (e.key === 'Escape') s.setModal(null);
         return;
       }
-      if (e.key === 'q' || e.key === 'Q') s.rotate(ROTATE_STEP);
+      if (e.key === ' ') {
+        if (!s.orbitKey) useGame.setState({ orbitKey: true });
+      } else if (e.key === 'q' || e.key === 'Q') s.rotate(ROTATE_STEP);
       else if (e.key === 'e' || e.key === 'E') s.rotate(-ROTATE_STEP);
       else if (e.key === 'Delete' || e.key === 'Backspace') s.remove();
       else if (e.key === 'Escape') {
@@ -40,15 +42,21 @@ export function App() {
       } else return;
       e.preventDefault();
     };
+    const onKeyUp = (e: KeyboardEvent) => e.key === ' ' && useGame.setState({ orbitKey: false });
+    const onBlur = () => useGame.setState({ orbitKey: false });
     const onUp = () => {
       const s = useGame.getState();
       s.endDrag();
       if (s.trayDrag) useGame.setState({ trayDrag: false });
     };
     window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
     window.addEventListener('pointerup', onUp);
     return () => {
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
       window.removeEventListener('pointerup', onUp);
     };
   }, []);
@@ -59,7 +67,8 @@ export function App() {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       const s = useGame.getState();
-      if (s.lookAround || (!s.armed && !s.selectedId)) return;
+      // Otherwise the wheel falls through to the camera zoom.
+      if (!s.armed && !s.selectedId) return;
       e.preventDefault();
       s.rotate(Math.sign(e.deltaY) * -ROTATE_STEP);
     };
@@ -94,6 +103,7 @@ export function App() {
       <HelpModal />
       <ResultModal />
       <StatsModal />
+      <PracticeModal />
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );

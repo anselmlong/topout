@@ -77,6 +77,12 @@ describe('solver', () => {
     expect(solve(wall(0), start, finishAt(380), handsOnly, { noSmear: true }).ok).toBe(false);
   });
 
+  it('does not cross hands on a plain ladder', () => {
+    const r = solve(wall(10), start, finishAt(380), ladder('crimp', 45));
+    if (!r.ok) throw new Error();
+    for (const m of r.moves) expect(m.to.points[0].u).toBeLessThanOrEqual(m.to.points[1].u + 1);
+  });
+
   it('beta ends matched on the finish', () => {
     const r = solve(wall(0), start, finishAt(380), ladder('jug', 40));
     if (!r.ok) throw new Error();

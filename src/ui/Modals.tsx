@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rules';
+import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
+import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
 import { encodeRoute, shareText } from '../game/share';
 import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
-import type { Day, HoldType } from '../solver/types';
-import { loadStats, markHelpSeen } from '../state/persist';
+import type { Day, HoldType, Twist } from '../solver/types';
+import { loadDay, loadStats, markHelpSeen } from '../state/persist';
 import { useGame } from '../state/store';
 import { HoldIcon } from './Hud';
 
@@ -90,14 +92,13 @@ export function ResultModal() {
   const day = s.day;
   if (!day || !test) return null;
   const open = s.modal === 'result';
-  const out = s.tests.length >= MAX_TESTS;
+  const practice = s.mode === 'practice';
+  const out = !practice && s.tests.length >= MAX_TESTS;
   const close = () => s.setModal(null);
   const r = test.result;
   return (
     <Modal open={open} onClose={close} title="Test result">
-      <div className="eyebrow">
-        Test {s.tests.length} of {MAX_TESTS}
-      </div>
+      <div className="eyebrow">{practice ? `Practice test ${s.tests.length}` : `Test ${s.tests.length} of ${MAX_TESTS}`}</div>
       <div className={`verdict ${test.verdict}`}>
         <span className="big mono">{r.ok ? `V${r.grade.toFixed(1)}` : 'No send'}</span>
         <span className="tag">{r.ok ? VERDICT_TEXT[test.verdict] : 'Unclimbable'}</span>
@@ -109,7 +110,11 @@ export function ResultModal() {
       </p>
       {r.ok && <p className="fine">Crux: {cruxLine(day, test)}</p>}
       <div className="row">
-        {out ? (
+        {practice ? (
+          <button className="btn primary wide" onClick={close}>
+            Keep setting
+          </button>
+        ) : out ? (
           <button className="btn primary wide" onClick={() => s.finish()}>
             See summary
           </button>
@@ -223,6 +228,126 @@ export function StatsModal() {
       <p className="fine center">
         Next problem in <span className="mono">{countdown}</span>
       </p>
+    </Modal>
+  );
+}
+
+const GRADES = Array.from({ length: 11 }, (_, i) => i);
+const TWIST_OPTIONS: { value: Twist | null; label: string }[] = [
+  { value: null, label: 'None' },
+  { value: 'no-jugs', label: TWIST_LABEL['no-jugs'] },
+  { value: 'traverse', label: TWIST_LABEL.traverse },
+  { value: 'no-smear', label: TWIST_LABEL['no-smear'] },
+];
+
+function defaultConfig(): PracticeConfig {
+  return parsePractice(new URLSearchParams(location.search).get('practice')) ?? {
+    style: 'overhang',
+    angle: 20,
+    grade: 4,
+    twist: null,
+    seed: 0,
+  };
+}
+
+export function PracticeModal() {
+  const open = useGame((s) => s.modal === 'practice');
+  const setModal = useGame((s) => s.setModal);
+  const [c, setC] = useState(defaultConfig);
+  if (!open) return null;
+
+  const [lo, hi] = ANGLE_RANGE[c.style];
+  const pickStyle = (style: WallStyle) => {
+    const [a, b] = ANGLE_RANGE[style];
+    setC({ ...c, style, angle: Math.round((a + b) / 2) });
+  };
+  const build = () => {
+    location.search = `?practice=${practiceParam({ ...c, seed: randomSeed() })}`;
+  };
+
+  const today = dayNumber(new Date());
+  const past = Array.from({ length: Math.min(60, today - 1) }, (_, i) => today - 1 - i);
+
+  return (
+    <Modal open={open} onClose={() => setModal(null)} title="Practice">
+      <div className="eyebrow">Practice</div>
+      <h2>Build any wall and set on it. Unlimited tests, no stats.</h2>
+
+      <div className="field">
+        <span className="field-label">Wall</span>
+        <div className="chips">
+          {ALL_STYLES.map((st) => (
+            <button key={st} className={`chip ${c.style === st ? 'on' : ''}`} onClick={() => pickStyle(st)}>
+              {STYLE_LABEL[st]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="field">
+        <span className="field-label">
+          {c.style === 'headwall' || c.style === 'kicker' ? 'Top panel angle' : 'Angle'}
+          <span className="mono">
+            {c.angle > 0 ? '+' : ''}
+            {c.angle}°
+          </span>
+        </span>
+        <input
+          type="range"
+          min={lo}
+          max={hi}
+          value={c.angle}
+          onChange={(e) => setC({ ...c, angle: Number(e.target.value) })}
+        />
+      </label>
+
+      <div className="field">
+        <span className="field-label">Target grade</span>
+        <div className="chips grades">
+          {GRADES.map((g) => (
+            <button key={g} className={`chip mono ${c.grade === g ? 'on' : ''}`} onClick={() => setC({ ...c, grade: g })}>
+              V{g}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field-label">Twist</span>
+        <div className="chips">
+          {TWIST_OPTIONS.map((t) => (
+            <button key={t.label} className={`chip ${c.twist === t.value ? 'on' : ''}`} onClick={() => setC({ ...c, twist: t.value })}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button className="btn primary wide" onClick={build}>
+        Build a new wall
+      </button>
+      <p className="fine center">Practice walls aren’t curated, so very hard grades on easy walls may be impossible.</p>
+
+      {past.length > 0 && (
+        <>
+          <div className="eyebrow past-head">Past days</div>
+          <ul className="past">
+            {past.map((n) => {
+              const save = loadDay(String(n));
+              const status = save?.done ? 'Done' : save?.placed.length ? 'In progress' : '';
+              return (
+                <li key={n}>
+                  <a href={`?day=${n}`}>
+                    <span className="mono">#{n}</span>
+                    <span>{new Date(dateOf(n) + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                    <span className="dim">{status}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
     </Modal>
   );
 }
