@@ -75,6 +75,7 @@ function CameraRig({ wall }: { wall: Wall }) {
   const holdActive = useGame((s) => !!s.armed || !!s.selectedId);
   // Decided before the press: over a placed hold (or already dragging one), the mouse edits.
   const editingHold = useGame((s) => !!s.hoverHoldId || !!s.draggingId);
+  if (import.meta.env.DEV) (window as unknown as { __cam: THREE.Camera }).__cam = camera;
   const sizeRef = useRef(size);
   sizeRef.current = size;
   const target = useMemo(() => {
@@ -334,7 +335,13 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
           if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) remove(hold.id);
         }}
         onContextMenu={(e) => e.nativeEvent.preventDefault()}
-        onPointerOver={() => !fixed && useGame.setState({ hoverHoldId: hold.id })}
+        onPointerOver={(e) => {
+          // Only claim the mouse before a press (an orbit sweeping across must keep going),
+          // and only when the hold can actually be edited.
+          const s = useGame.getState();
+          const editable = !s.done && !s.viewing && s.phase === 'setting';
+          if (!fixed && editable && e.buttons === 0) useGame.setState({ hoverHoldId: hold.id });
+        }}
         onPointerOut={() => useGame.getState().hoverHoldId === hold.id && useGame.setState({ hoverHoldId: null })}
         raycast={fixed ? () => null : undefined}
       >

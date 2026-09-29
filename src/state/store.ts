@@ -260,7 +260,7 @@ export const useGame = create<GameState>((set, get) => {
     async testClimb() {
       const s = get();
       if (!editable() || s.tests.length >= testLimit(s.mode)) return;
-      set({ phase: 'solving', armed: null, selectedId: null, ghost: null });
+      set({ phase: 'solving', armed: null, selectedId: null, ghost: null, hoverHoldId: null });
       const holds = s.placed.map((h) => ({ ...h }));
       const result = await solveInWorker(s.day!, holds);
       if (!result.ok && result.reason === 'too-complex') {
