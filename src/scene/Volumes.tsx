@@ -89,7 +89,14 @@ export function VolumeMesh({ vol, wall, frames, fixed }: { vol: Volume; wall: Wa
         castShadow
         receiveShadow
         {...pointer}
+        // Stop here: the wall panel behind would otherwise handle the same event again
+        // (double placement, instant deselect, and (u, v) from behind the volume).
+        onPointerMove={(e) => {
+          e.stopPropagation();
+          pointer.onPointerMove(e);
+        }}
         onPointerDown={(e) => {
+          e.stopPropagation();
           pointer.onPointerDown(e);
           const s = useGame.getState();
           if (fixed || s.armed) return;
@@ -100,6 +107,7 @@ export function VolumeMesh({ vol, wall, frames, fixed }: { vol: Volume; wall: Wa
           if (e.button === 0 && s.hoverHoldId === vol.id) s.startDrag(vol.id);
         }}
         onPointerUp={(e) => {
+          e.stopPropagation();
           const d = rightDown.current;
           rightDown.current = null;
           if (!fixed && e.button === 2 && d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) {

@@ -1,5 +1,6 @@
 // Seeded daily brief: wall shape, fixed start/finish, hold tray, target grade.
 // Curation (scripts/curate.ts) runs this, proves each day solvable, and computes par.
+import { vAtHeight } from '../solver/model';
 import type { Day, Hold, HoldSize, HoldType, Panel, TraySlot, Twist, Wall } from '../solver/types';
 import { hash, rng, type Rng } from './rng';
 
@@ -202,7 +203,8 @@ export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<
   const margin = 50;
   let start: Hold[];
   let finish: Hold;
-  const startV = r.int(125, 160);
+  // Start by real height above the floor: on an overhang, v along the wall sits lower.
+  const startV = Math.round(vAtHeight(wall, r.int(125, 160)));
   if (twist === 'traverse') {
     const leftToRight = r.chance(0.5);
     const su = leftToRight ? r.int(margin, margin + 40) : wall.width - r.int(margin, margin + 40);
