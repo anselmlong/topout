@@ -52,6 +52,7 @@ export const HOLD_NAME: Record<HoldType, string> = {
   edge: 'Edge',
   foot: 'Foot chip',
   jib: 'Jib',
+  volume: 'Volume',
 };
 
 export const HOLD_HINT: Record<HoldType, string> = {
@@ -63,4 +64,8 @@ export const HOLD_HINT: Record<HoldType, string> = {
   edge: 'Flat ledge. Honest, fairly forgiving.',
   foot: 'Feet only. Hands can’t use it.',
   jib: 'Tiny foot nub. Better than nothing.',
+  volume: 'Changes the wall angle. Stand on its top, pull its sides.',
 };
+
+/** Volumes are fibreglass shells: one neutral colour whatever the route. */
+export const VOLUME_COLOR = '#8d959e';

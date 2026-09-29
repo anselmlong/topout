@@ -5,6 +5,7 @@ import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '.
 import { encodeRoute, shareText } from '../game/share';
 import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { Day, HoldType, Twist } from '../solver/types';
+import { contactList } from '../solver/volumes';
 import { loadDay, loadStats, markHelpSeen } from '../state/persist';
 import { useGame } from '../state/store';
 import { HoldIcon } from './Hud';
@@ -23,7 +24,7 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
   );
 }
 
-const TYPES: HoldType[] = ['jug', 'edge', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'jib'];
+const TYPES: HoldType[] = ['jug', 'edge', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'jib', 'volume'];
 
 export function HelpModal() {
   const open = useGame((s) => s.modal === 'help');
@@ -78,9 +79,9 @@ function cruxLine(day: Day, test: TestRun) {
   const moves = test.result.moves;
   const crux = moves.reduce((a, b) => (b.difficulty > a.difficulty ? b : a), moves[0]);
   if (!crux) return null;
-  const holds = [...day.start, day.finish, ...test.holds];
+  const holds = contactList(day.start, day.finish, test.holds, test.volumes, day.wall);
   const idx = crux.to.limbs[crux.limb];
-  const target = idx >= 0 ? HOLD_NAME[holds[idx].type].toLowerCase() : 'a smear';
+  const target = idx >= 0 ? (holds[idx].type === 'volume' ? 'the volume' : HOLD_NAME[holds[idx].type].toLowerCase()) : 'a smear';
   return `${LIMB[crux.limb]} to ${target}${crux.dynamic ? ' (dyno)' : ''} · ${moves.length} moves`;
 }
 
@@ -166,7 +167,7 @@ export function StatsModal() {
       s.showToast('Couldn’t reach the clipboard');
     }
   };
-  const link = best ? `${location.origin}${location.pathname}#${encodeRoute(day.number, best.holds)}` : '';
+  const link = best ? `${location.origin}${location.pathname}#${encodeRoute(day.number, best.holds, best.volumes)}` : '';
 
   const buckets = [-2, -1, 0, 1, 2, 3];
   const counts = buckets.map((b) =>
@@ -221,7 +222,7 @@ export function StatsModal() {
       </ul>
 
       {day.reference && (
-        <button className="btn ghost wide" onClick={() => s.viewRoute(day.reference!, 'Setter’s route')}>
+        <button className="btn ghost wide" onClick={() => s.viewRoute(day.reference!, 'Setter’s route', day.referenceVolumes)}>
           Show the setter’s par route
         </button>
       )}

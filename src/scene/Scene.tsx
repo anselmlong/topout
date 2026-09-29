@@ -4,7 +4,8 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { bestPull, wallHeight } from '../solver/model';
-import type { Day, Hold, Wall } from '../solver/types';
+import type { Day, Hold, Volume, Wall } from '../solver/types';
+import { surfaceAt } from '../solver/volumes';
 import { climberFocus, useClimb } from '../state/climb';
 import { useGame } from '../state/store';
 import { Climber } from './Climber';
@@ -13,7 +14,9 @@ import { PALETTE, routeColor } from './palette';
 import { BetaOverlay } from './BetaOverlay';
 import { ChalkDust } from './Chalk';
 import { Gym } from './Gym';
+import { GhostVolume, VolumeMesh } from './Volumes';
 import { frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
+import { useWallPointer } from './wallPointer';
 
 export function Scene() {
   const day = useGame((s) => s.day);
@@ -189,6 +192,7 @@ function WallView({ day }: { day: Day }) {
   const frames = useMemo(() => panelFrames(day.wall), [day.wall]);
   const placed = useGame((s) => s.placed);
   const viewing = useGame((s) => s.viewing);
+  const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
   const holds = viewing ?? placed;
   const tint = routeColor(day).hex;
   return (
@@ -197,6 +201,9 @@ function WallView({ day }: { day: Day }) {
         <PanelMesh key={f.index} wall={day.wall} frame={f} />
       ))}
       <Bolts wall={day.wall} frames={frames} />
+      {volumes.map((v) => (
+        <VolumeMesh key={v.id} vol={v} wall={day.wall} frames={frames} fixed={!!viewing} />
+      ))}
       {[...day.start, day.finish].map((h) => (
         <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed tint={tint} />
       ))}
@@ -214,41 +221,14 @@ function WallView({ day }: { day: Day }) {
 
 function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
   const geometry = useMemo(() => panelGeometry(wall, frame, wall.seed), [wall, frame]);
-  const hover = useGame((s) => s.hover);
-  const leave = useGame((s) => s.leave);
-  const down = useRef<{ x: number; y: number } | null>(null);
-
-  const toUv = (e: ThreeEvent<PointerEvent>) => worldToUv(wall, frame, e.point);
+  const handlers = useWallPointer((e: ThreeEvent<PointerEvent>) => worldToUv(wall, frame, e.point));
   const length = (frame.v1 - frame.v0) / 100;
   const mid = frame.origin.clone().addScaledVector(frame.up, length / 2).addScaledVector(frame.normal, -0.056);
   const q = holdQuaternion(frame, 0);
 
   return (
     <group>
-      <mesh
-        geometry={geometry}
-        receiveShadow
-        onPointerMove={(e) => {
-          const { u, v } = toUv(e);
-          hover(u, v);
-        }}
-        onPointerOut={() => leave()}
-        onPointerDown={(e) => {
-          down.current = { x: e.clientX, y: e.clientY };
-          const { u, v } = toUv(e);
-          hover(u, v);
-        }}
-        onPointerUp={(e) => {
-          const s = useGame.getState();
-          if (s.draggingId) return s.endDrag();
-          const d = down.current;
-          down.current = null;
-          if (!d && s.trayDrag && s.armed) return s.commit();
-          if (!d || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
-          if (s.armed) s.commit();
-          else s.select(null);
-        }}
-      >
+      <mesh geometry={geometry} receiveShadow {...handlers}>
         <meshStandardMaterial vertexColors flatShading roughness={0.9} />
       </mesh>
       {/* Panel thickness + side rails so the wall reads as a solid object. */}
@@ -287,9 +267,20 @@ function Bolts({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
   );
 }
 
-function placeOnWall(wall: Wall, frames: PanelFrame[], u: number, v: number, rot: number) {
+/** Where a hold sits: on the wall, or up on a volume's face and tilted to match it. */
+function placeOnWall(wall: Wall, frames: PanelFrame[], u: number, v: number, rot: number, volumes?: Volume[]) {
   const f = frameAt(frames, v);
-  return { position: uvToWorld(wall, frames, u, v).addScaledVector(f.normal, 0.004), quaternion: holdQuaternion(f, rot) };
+  const position = uvToWorld(wall, frames, u, v).addScaledVector(f.normal, 0.004);
+  const s = surfaceAt(volumes, u, v);
+  if (!s) return { position, quaternion: holdQuaternion(f, rot) };
+  position.addScaledVector(f.normal, s.height / 100);
+  const base = holdQuaternion(f, 0);
+  const tilt = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(s.normal.u, s.normal.v, s.normal.z),
+  );
+  const spin = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rot);
+  return { position, quaternion: base.multiply(tilt).multiply(spin) };
 }
 
 function variantOf(id: string) {
@@ -317,7 +308,8 @@ function HoldMesh({
   const remove = useGame((s) => s.remove);
   const rightDown = useRef<{ x: number; y: number } | null>(null);
   const { geometry, bolt } = holdMesh(hold.type, hold.size, variantOf(hold.id));
-  const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot);
+  const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
+  const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot, volumes);
   // Used holds get chalky.
   const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
   const color = useMemo(
@@ -414,7 +406,9 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
   const ghost = useGame((s) => s.ghost);
   const rot = useGame((s) => s.ghostRot);
   const dragging = useGame((s) => s.draggingId);
+  const volumes = useGame((s) => s.volumes);
   if (!ghost || (!armed && !dragging)) return null;
+  if (armed?.type === 'volume') return <GhostVolume wall={wall} frames={frames} armed={armed} ghost={ghost} rot={rot} />;
   if (dragging) {
     if (ghost.valid) return null;
     // Show where the invalid drop would be.
@@ -426,7 +420,7 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
       </mesh>
     );
   }
-  const t = placeOnWall(wall, frames, ghost.u, ghost.v, rot);
+  const t = placeOnWall(wall, frames, ghost.u, ghost.v, rot, volumes);
   const color = ghost.valid ? PALETTE.ghostOk : PALETTE.ghostBad;
   return (
     <group position={t.position} quaternion={t.quaternion}>

@@ -10,9 +10,9 @@ import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateDay } from '../src/gen/day';
 import { hash, rng, type Rng } from '../src/gen/rng';
-import { canPlace } from '../src/game/rules';
+import { canPlace, canPlaceVolume } from '../src/game/rules';
 import { solve } from '../src/solver/solve';
-import type { Day, Hold, HoldType, TraySlot } from '../src/solver/types';
+import type { Day, Hold, HoldType, TraySlot, Volume } from '../src/solver/types';
 
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ''), process.argv[i + 1]);
@@ -24,15 +24,25 @@ const OUT = join(import.meta.dirname, '..', 'public', 'days');
 
 type DayDraft = ReturnType<typeof generateDay>;
 
-function gradeOf(day: DayDraft, holds: Hold[]): number | null {
-  const r = solve(day.wall, day.start, day.finish, holds, { noSmear: day.twist === 'no-smear' });
+interface Route {
+  holds: Hold[];
+  volumes: Volume[];
+}
+
+/** Each volume counts as one hold toward par, same as in the game. */
+const size = (r: Route) => r.holds.length + r.volumes.length;
+
+function gradeOf(day: DayDraft, route: Route): number | null {
+  const r = solve(day.wall, day.start, day.finish, route.holds, { noSmear: day.twist === 'no-smear', volumes: route.volumes });
   return r.ok ? r.grade : null;
 }
 
 const onTarget = (g: number | null, target: number) => g !== null && Math.round(g) === target;
 
-function randomRoute(day: DayDraft, r: Rng): Hold[] {
-  const pool = day.tray.flatMap((s: TraySlot) => Array.from({ length: s.count }, () => ({ type: s.type, size: s.size })));
+function randomRoute(day: DayDraft, r: Rng): Route {
+  const pool = day.tray
+    .filter((s) => s.type !== 'volume')
+    .flatMap((s: TraySlot) => Array.from({ length: s.count }, () => ({ type: s.type, size: s.size })));
   const isFoot = (t: HoldType) => t === 'foot' || t === 'jib';
   const hands = pool.filter((p) => !isFoot(p.type));
   const feet = pool.filter((p) => isFoot(p.type));
@@ -48,6 +58,23 @@ function randomRoute(day: DayDraft, r: Rng): Hold[] {
     if (canPlace(day.wall, all(), h)) placed.push(h);
   };
   const lateral = r.range(15, 45);
+
+  // Volumes first (like a real setter), somewhere along the line, sometimes.
+  const volumes: Volume[] = [];
+  for (const slot of day.tray.filter((s) => s.type === 'volume'))
+    for (let i = 0; i < slot.count; i++) {
+      if (!r.chance(0.5)) continue;
+      const t = r.range(0.15, 0.75);
+      const vol: Volume = {
+        id: `v${volumes.length}`,
+        shape: slot.shape!,
+        size: slot.size === 'l' ? 'l' : 's',
+        u: su + (fu - su) * t + r.range(-40, 40),
+        v: sv + (fv - sv) * t - r.range(40, 110),
+        rot: r.pick([0, Math.PI / 4, Math.PI / 2]),
+      };
+      if (canPlaceVolume(day.wall, volumes, [...day.start, day.finish], vol)) volumes.push(vol);
+    }
 
   for (let i = 1; i <= k && hands.length; i++) {
     const t = i / (k + 1);
@@ -76,17 +103,20 @@ function randomRoute(day: DayDraft, r: Rng): Hold[] {
       rot: 0,
     });
   }
-  return placed;
+  return { holds: placed, volumes };
 }
 
-/** Remove holds one at a time while the route stays on target. */
-function strip(day: DayDraft, route: Hold[]): Hold[] {
+/** Remove holds and volumes one at a time while the route stays on target. */
+function strip(day: DayDraft, route: Route): Route {
   let cur = route;
   let changed = true;
   while (changed) {
     changed = false;
-    for (let i = 0; i < cur.length; i++) {
-      const next = cur.filter((_, j) => j !== i);
+    const options: Route[] = [
+      ...cur.holds.map((_, i) => ({ holds: cur.holds.filter((_, j) => j !== i), volumes: cur.volumes })),
+      ...cur.volumes.map((_, i) => ({ holds: cur.holds, volumes: cur.volumes.filter((_, j) => j !== i) })),
+    ];
+    for (const next of options) {
       if (onTarget(gradeOf(day, next), day.targetGrade)) {
         cur = next;
         changed = true;
@@ -101,16 +131,16 @@ function curate(n: number): Day | null {
   for (let variant = 0; variant < MAX_VARIANTS; variant++) {
     const day = generateDay(n, variant);
     const r = rng(hash(n, variant, 0xc0a7));
-    let best: Hold[] | null = null;
+    let best: Route | null = null;
     for (let a = 0; a < ATTEMPTS; a++) {
       const route = randomRoute(day, r);
-      if (best && route.length >= best.length + 3) continue;
+      if (best && size(route) >= size(best) + 3) continue;
       if (!onTarget(gradeOf(day, route), day.targetGrade)) continue;
       const stripped = strip(day, route);
-      if (!best || stripped.length < best.length) best = stripped;
+      if (!best || size(stripped) < size(best)) best = stripped;
     }
     if (best) {
-      return { ...day, par: best.length, reference: best };
+      return { ...day, par: size(best), reference: best.holds, referenceVolumes: best.volumes };
     }
   }
   return null;

@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { dayNumber, generateDay } from '../gen/day';
-import { MAX_TESTS, bestTest, canPlace, verdictOf, type TestRun } from '../game/rules';
+import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, verdictOf, type TestRun } from '../game/rules';
 import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
 import { solveInWorker } from '../solver/client';
-import type { Day, Hold, HoldSize, HoldType, SolveResult } from '../solver/types';
+import type { Day, Hold, HoldSize, HoldType, SolveResult, Volume, VolumeShape } from '../solver/types';
 import { loadDay, recordResult, saveDay } from './persist';
 
 export interface Ghost {
@@ -17,14 +17,22 @@ export interface Playback {
   result: SolveResult;
   /** Bumped per playback so the climber restarts even for identical results. */
   run: number;
-  /** The placed holds this result was solved on (stance indices point into start+finish+these). */
+  /** The placed holds and volumes this was solved on (stance indices point into contactList). */
   holds: Hold[];
+  volumes: Volume[];
 }
 
 type Phase = 'setting' | 'solving' | 'climbing' | 'review';
 
 /** daily = today's puzzle; archive = replaying a past day; practice = free-set wall. */
 export type Mode = 'daily' | 'archive' | 'practice';
+
+/** What's in hand from the tray. `type: 'volume'` carries a shape. */
+export interface Armed {
+  type: HoldType;
+  size: HoldSize;
+  shape?: VolumeShape;
+}
 
 interface GameState {
   status: 'loading' | 'ready' | 'error';
@@ -33,14 +41,16 @@ interface GameState {
   /** localStorage key for this wall's progress. */
   saveKey: string;
   placed: Hold[];
+  volumes: Volume[];
   tests: TestRun[];
   done: boolean;
   phase: Phase;
   /** Viewing someone else's shared route (read-only, doesn't use tests). */
   viewing: Hold[] | null;
+  viewingVolumes: Volume[];
   viewingLabel: string;
 
-  armed: { type: HoldType; size: HoldSize } | null;
+  armed: Armed | null;
   selectedId: string | null;
   draggingId: string | null;
   /** A hold is being dragged straight out of the tray (mouse). */
@@ -49,17 +59,17 @@ interface GameState {
   ghostRot: number;
   /** Bumped to snap the camera back to the default front view. */
   viewNonce: number;
-  /** Placed hold under the mouse: a left-drag here moves it instead of orbiting. */
+  /** Placed hold or volume under the mouse: a left-drag here moves it instead of orbiting. */
   hoverHoldId: string | null;
   playback: Playback | null;
   /** Last solved route, shown as a beta overlay until the route is edited. */
-  beta: { result: SolveResult; holds: Hold[] } | null;
+  beta: { result: SolveResult; holds: Hold[]; volumes: Volume[] } | null;
   lastTest: TestRun | null;
   modal: 'help' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
 
   load: () => Promise<void>;
-  arm: (slot: { type: HoldType; size: HoldSize } | null) => void;
+  arm: (slot: Armed | null) => void;
   hover: (u: number, v: number) => void;
   leave: () => void;
   commit: () => void;
@@ -76,26 +86,35 @@ interface GameState {
   setModal: (m: GameState['modal']) => void;
   resetView: () => void;
   exitViewing: () => void;
-  viewRoute: (holds: Hold[], label: string) => void;
+  viewRoute: (holds: Hold[], label: string, volumes?: Volume[]) => void;
   showToast: (t: string) => void;
 }
 
 let nextId = 1;
 let playRun = 0;
 
+const isVolumeId = (id: string) => id.startsWith('v');
+
 /** Practice has no test limit. */
 export const testLimit = (mode: Mode) => (mode === 'practice' ? Infinity : MAX_TESTS);
 
-export const remaining = (day: Day, placed: Hold[], type: HoldType, size: HoldSize) =>
-  (day.tray.find((s) => s.type === type && s.size === size)?.count ?? 0) -
-  placed.filter((h) => h.type === type && h.size === size).length;
+/** How many of a tray slot are still unplaced. */
+export const remaining = (day: Day, placed: Hold[], volumes: Volume[], slot: Armed) => {
+  const total =
+    day.tray.find((s) => s.type === slot.type && s.size === slot.size && s.shape === slot.shape)?.count ?? 0;
+  const used =
+    slot.type === 'volume'
+      ? volumes.filter((v) => v.shape === slot.shape && v.size === slot.size).length
+      : placed.filter((h) => h.type === slot.type && h.size === slot.size).length;
+  return total - used;
+};
 
 export const useGame = create<GameState>((set, get) => {
   const persist = () => {
-    const { day, placed, tests, done, viewing } = get();
+    const { day, placed, volumes, tests, done, viewing } = get();
     // Drop the move lists (~15KB/test): only the grade is needed after a reload.
     const slim = tests.map((t) => (t.result.ok ? { ...t, result: { ...t.result, moves: [] } } : t));
-    if (day && !viewing) saveDay(get().saveKey, { placed, tests: slim, done });
+    if (day && !viewing) saveDay(get().saveKey, { placed, volumes, tests: slim, done });
   };
   const fixed = () => {
     const d = get().day!;
@@ -105,6 +124,8 @@ export const useGame = create<GameState>((set, get) => {
     const s = get();
     return s.day && !s.done && !s.viewing && s.phase === 'setting';
   };
+  /** Any edit to the route invalidates the last beta. */
+  const edited = (patch: Partial<GameState>) => set({ ...patch, beta: null });
 
   return {
     status: 'loading',
@@ -112,10 +133,12 @@ export const useGame = create<GameState>((set, get) => {
     mode: 'daily',
     saveKey: '',
     placed: [],
+    volumes: [],
     tests: [],
     done: false,
     phase: 'setting',
     viewing: null,
+    viewingVolumes: [],
     viewingLabel: '',
     armed: null,
     selectedId: null,
@@ -159,7 +182,9 @@ export const useGame = create<GameState>((set, get) => {
         saveKey = String(day.number);
       }
       const save = loadDay(saveKey);
-      nextId = 1 + Math.max(0, ...(save?.placed ?? []).map((h) => Number(h.id.replace(/\D/g, '')) || 0));
+      const ids = [...(save?.placed ?? []), ...(save?.volumes ?? [])].map((h) => Number(h.id.replace(/\D/g, '')) || 0);
+      nextId = 1 + Math.max(0, ...ids);
+      const sharedHere = shared && shared.day === day.number;
       set({
         status: 'ready',
         day,
@@ -170,9 +195,11 @@ export const useGame = create<GameState>((set, get) => {
         lastTest: null,
         phase: 'setting',
         placed: save?.placed ?? [],
+        volumes: save?.volumes ?? [],
         tests: save?.tests ?? [],
         done: save?.done ?? false,
-        viewing: shared && shared.day === day.number ? shared.holds : null,
+        viewing: sharedHere ? shared.holds : null,
+        viewingVolumes: sharedHere ? shared.volumes : [],
         viewingLabel: 'Shared route',
       });
     },
@@ -185,18 +212,33 @@ export const useGame = create<GameState>((set, get) => {
     hover(u, v) {
       const s = get();
       if (!editable()) return;
+      const wall = s.day!.wall;
       if (s.draggingId) {
+        if (isVolumeId(s.draggingId)) {
+          const vol = s.volumes.find((p) => p.id === s.draggingId);
+          if (!vol) return;
+          const moved = { ...vol, u, v };
+          const valid = canPlaceVolume(wall, s.volumes, fixed(), moved);
+          set({ ghost: { u, v, valid } });
+          if (valid) edited({ volumes: s.volumes.map((p) => (p.id === vol.id ? moved : p)) });
+          return;
+        }
         const h = s.placed.find((p) => p.id === s.draggingId);
         if (!h) return;
         const moved = { ...h, u, v };
-        const valid = canPlace(s.day!.wall, [...fixed(), ...s.placed], moved);
+        const valid = canPlace(wall, [...fixed(), ...s.placed], moved);
         set({ ghost: { u, v, valid } });
-        if (valid) set({ placed: s.placed.map((p) => (p.id === h.id ? moved : p)), beta: null });
+        if (valid) edited({ placed: s.placed.map((p) => (p.id === h.id ? moved : p)) });
         return;
       }
       if (!s.armed) return;
-      const candidate: Hold = { id: '_ghost', ...s.armed, u, v, rot: s.ghostRot };
-      set({ ghost: { u, v, valid: canPlace(s.day!.wall, [...fixed(), ...s.placed], candidate) } });
+      if (s.armed.type === 'volume') {
+        const vol: Volume = { id: '_ghost', shape: s.armed.shape!, size: s.armed.size === 'l' ? 'l' : 's', u, v, rot: s.ghostRot };
+        set({ ghost: { u, v, valid: canPlaceVolume(wall, s.volumes, fixed(), vol) } });
+        return;
+      }
+      const candidate: Hold = { id: '_ghost', type: s.armed.type, size: s.armed.size, u, v, rot: s.ghostRot };
+      set({ ghost: { u, v, valid: canPlace(wall, [...fixed(), ...s.placed], candidate) } });
     },
 
     leave() {
@@ -206,11 +248,18 @@ export const useGame = create<GameState>((set, get) => {
     commit() {
       const s = get();
       if (!editable() || !s.armed || !s.ghost?.valid) return;
-      if (remaining(s.day!, s.placed, s.armed.type, s.armed.size) <= 0) return;
-      const hold: Hold = { id: `p${nextId++}`, ...s.armed, u: s.ghost.u, v: s.ghost.v, rot: s.ghostRot };
-      const placed = [...s.placed, hold];
-      const left = remaining(s.day!, placed, s.armed.type, s.armed.size);
-      set({ placed, armed: left > 0 ? s.armed : null, ghost: left > 0 ? s.ghost : null, beta: null });
+      if (remaining(s.day!, s.placed, s.volumes, s.armed) <= 0) return;
+      const { u, v } = s.ghost;
+      let placed = s.placed;
+      let volumes = s.volumes;
+      if (s.armed.type === 'volume') {
+        const size = s.armed.size === 'l' ? 'l' : 's';
+        volumes = [...volumes, { id: `v${nextId++}`, shape: s.armed.shape!, size, u, v, rot: s.ghostRot }];
+      } else {
+        placed = [...placed, { id: `p${nextId++}`, type: s.armed.type, size: s.armed.size, u, v, rot: s.ghostRot }];
+      }
+      const left = remaining(s.day!, placed, volumes, s.armed);
+      edited({ placed, volumes, armed: left > 0 ? s.armed : null, ghost: left > 0 ? s.ghost : null });
       persist();
     },
 
@@ -233,10 +282,13 @@ export const useGame = create<GameState>((set, get) => {
     rotate(delta) {
       const s = get();
       if (!editable()) return;
-      // Held hold first, then the selected one, then whatever the mouse is over.
+      // Held item first, then the selected one, then whatever the mouse is over.
       const target = s.armed ? null : (s.selectedId ?? s.hoverHoldId);
-      if (target) {
-        set({ placed: s.placed.map((h) => (h.id === target ? { ...h, rot: h.rot + delta } : h)), beta: null });
+      if (target && isVolumeId(target)) {
+        edited({ volumes: s.volumes.map((v) => (v.id === target ? { ...v, rot: v.rot + delta } : v)) });
+        persist();
+      } else if (target) {
+        edited({ placed: s.placed.map((h) => (h.id === target ? { ...h, rot: h.rot + delta } : h)) });
         persist();
       } else if (s.armed) {
         set({ ghostRot: s.ghostRot + delta });
@@ -249,13 +301,18 @@ export const useGame = create<GameState>((set, get) => {
       const target = id ?? s.selectedId;
       if (!target) return;
       // The removed mesh never fires pointer-out, so clear its hover too.
-      set({ placed: s.placed.filter((h) => h.id !== target), selectedId: null, hoverHoldId: null, beta: null });
+      edited({
+        placed: s.placed.filter((h) => h.id !== target),
+        volumes: s.volumes.filter((v) => v.id !== target),
+        selectedId: null,
+        hoverHoldId: null,
+      });
       persist();
     },
 
     clear() {
       if (!editable()) return;
-      set({ placed: [], selectedId: null, hoverHoldId: null, beta: null });
+      edited({ placed: [], volumes: [], selectedId: null, hoverHoldId: null });
       persist();
     },
 
@@ -264,7 +321,8 @@ export const useGame = create<GameState>((set, get) => {
       if (!editable() || s.tests.length >= testLimit(s.mode)) return;
       set({ phase: 'solving', armed: null, selectedId: null, ghost: null, hoverHoldId: null });
       const holds = s.placed.map((h) => ({ ...h }));
-      const result = await solveInWorker(s.day!, holds);
+      const volumes = s.volumes.map((v) => ({ ...v }));
+      const result = await solveInWorker(s.day!, holds, volumes);
       if (!result.ok && result.reason === 'too-complex') {
         // Our limitation, not the player's: don't spend a test on it.
         set({ phase: 'setting' });
@@ -273,16 +331,18 @@ export const useGame = create<GameState>((set, get) => {
       }
       const test: TestRun = {
         holds,
+        volumes,
         result,
         verdict: verdictOf(result, s.day!.targetGrade),
-        holdCount: holds.length,
+        // Each volume counts as one hold.
+        holdCount: holds.length + volumes.length,
       };
       set({
         tests: [...get().tests, test],
         lastTest: test,
         phase: 'climbing',
-        playback: { result, run: ++playRun, holds },
-        beta: { result, holds },
+        playback: { result, run: ++playRun, holds, volumes },
+        beta: { result, holds, volumes },
       });
       persist();
     },
@@ -290,10 +350,17 @@ export const useGame = create<GameState>((set, get) => {
     async watch() {
       const s = get();
       if (!s.day || s.phase !== 'setting') return;
-      const holds = s.viewing ?? bestTest(s.tests, s.day.targetGrade)?.holds ?? s.placed;
+      const best = bestTest(s.tests, s.day.targetGrade);
+      const holds = s.viewing ?? best?.holds ?? s.placed;
+      const volumes = s.viewing ? s.viewingVolumes : (best?.volumes ?? s.volumes);
       set({ phase: 'solving' });
-      const result = await solveInWorker(s.day, holds);
-      set({ phase: 'climbing', lastTest: null, playback: { result, run: ++playRun, holds }, beta: { result, holds } });
+      const result = await solveInWorker(s.day, holds, volumes);
+      set({
+        phase: 'climbing',
+        lastTest: null,
+        playback: { result, run: ++playRun, holds, volumes },
+        beta: { result, holds, volumes },
+      });
     },
 
     climbFinished() {
@@ -324,13 +391,21 @@ export const useGame = create<GameState>((set, get) => {
       set({ viewNonce: get().viewNonce + 1 });
     },
 
-    viewRoute(holds, label) {
-      set({ viewing: holds, viewingLabel: label, modal: null, playback: null, beta: null, phase: 'setting' });
+    viewRoute(holds, label, volumes = []) {
+      set({
+        viewing: holds,
+        viewingVolumes: volumes,
+        viewingLabel: label,
+        modal: null,
+        playback: null,
+        beta: null,
+        phase: 'setting',
+      });
     },
 
     exitViewing() {
       history.replaceState(null, '', location.pathname + location.search);
-      set({ viewing: null, playback: null, beta: null });
+      set({ viewing: null, viewingVolumes: [], playback: null, beta: null });
     },
 
     showToast(t) {

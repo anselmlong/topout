@@ -3,6 +3,7 @@
 import { Html } from '@react-three/drei';
 import { useMemo } from 'react';
 import type { Day } from '../solver/types';
+import { surfaceAt } from '../solver/volumes';
 import { useClimb } from '../state/climb';
 import { useGame } from '../state/store';
 import { frameAt, panelFrames, uvToWorld } from './wallGeometry';
@@ -39,7 +40,8 @@ export function BetaOverlay({ day }: { day: Day }) {
         const p = m.to.points[m.limb];
         const f = frameAt(frames, p.v);
         const side = m.limb === 0 ? -1 : 1;
-        const pos = uvToWorld(day.wall, frames, p.u + side * 9, p.v + 7).addScaledVector(f.normal, 0.08);
+        const relief = (surfaceAt(beta.volumes, p.u, p.v)?.height ?? 0) / 100;
+        const pos = uvToWorld(day.wall, frames, p.u + side * 9, p.v + 7).addScaledVector(f.normal, 0.08 + relief);
         const strain = m.difficulty / Math.max(crux, 1e-6);
         return { key: i, move: i, n, pos, strain, crux: m.difficulty >= crux - 1e-9, hand: m.limb === 0 ? 'L' : 'R', dyno: m.dynamic };
       });

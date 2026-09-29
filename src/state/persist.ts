@@ -1,10 +1,12 @@
 // localStorage wrappers. Storage can be missing or throw (private mode, blocked
 // site data), so every access is guarded and the game works without it.
 import type { TestRun } from '../game/rules';
-import type { Hold } from '../solver/types';
+import type { Hold, Volume } from '../solver/types';
 
 export interface DaySave {
   placed: Hold[];
+  /** Missing in saves from before volumes existed. */
+  volumes?: Volume[];
   tests: TestRun[];
   done: boolean;
 }

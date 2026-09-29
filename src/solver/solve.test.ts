@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import type { Hold, HoldType, Wall } from './types';
+import type { Hold, HoldType, Volume, Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
 
@@ -82,6 +82,31 @@ describe('solver', () => {
     const r = solve(wall(10), start, finishAt(380), ladder('crimp', 45));
     if (!r.ok) throw new Error();
     for (const m of r.moves) expect(m.to.points[0].u).toBeLessThanOrEqual(m.to.points[1].u + 1);
+  });
+
+  it('a volume gives the feet somewhere to stand on an overhang', () => {
+    const steep = wall(35);
+    const hands = ladder('edge', 45).filter((h) => h.type !== 'foot');
+    const without = solve(steep, start, finishAt(380), hands);
+    const pyramid: Volume = { id: 'vol', shape: 'pyramid', size: 'l', u: 200, v: 75, rot: 0 };
+    const withVol = solve(steep, start, finishAt(380), hands, { volumes: [pyramid] });
+    if (!withVol.ok) throw new Error(withVol.message);
+    if (without.ok) expect(withVol.grade).toBeLessThan(without.grade);
+    // Some position has a foot on one of the volume's faces (indices after start, finish, placed).
+    const firstFace = start.length + 1 + hands.length;
+    const stances = [withVol.start, ...withVol.moves.map((m) => m.to)];
+    expect(stances.some((s) => s.limbs[2] >= firstFace || s.limbs[3] >= firstFace)).toBe(true);
+  });
+
+  it('holds on an up-facing volume face act less steep', () => {
+    const steep = wall(30);
+    const crimps = ladder('crimp', 45);
+    const plain = solve(steep, start, finishAt(380), crimps);
+    // A big wedge under the lower crimps tilts them back toward vertical.
+    const wedge: Volume = { id: 'w', shape: 'wedge', size: 'l', u: 200, v: 215, rot: 0 };
+    const tilted = solve(steep, start, finishAt(380), crimps, { volumes: [wedge] });
+    if (!plain.ok || !tilted.ok) throw new Error('expected both to send');
+    expect(tilted.grade).toBeLessThanOrEqual(plain.grade);
   });
 
   it('beta ends matched on the finish', () => {

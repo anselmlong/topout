@@ -89,7 +89,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   // Easier days and steeper walls get kinder holds.
   const steep = style === 'steep' || style === 'kicker' || style === 'headwall';
   // Jugs are a treat, not the default: a couple on easy or steep days, few otherwise.
-  const weights: Record<Exclude<HoldType, 'foot' | 'jib'>, number> = {
+  const weights: Record<Exclude<HoldType, 'foot' | 'jib' | 'volume'>, number> = {
     jug: Math.max(0.15, 1.6 - grade * 0.4) + (steep ? 0.4 : 0),
     edge: 2 + (steep ? 0.6 : 0),
     crimp: 1 + grade * 0.5 + (style === 'vertical' || style === 'slab' ? 1 : 0),
@@ -126,7 +126,17 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   const slots = [...counts.values()].sort(
     (a, b) => order.indexOf(a.type) - order.indexOf(b.type) || sizes.indexOf(a.size) - sizes.indexOf(b.size),
   );
-  return [...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
+  // A volume or two most days; they change the wall under the route.
+  const volumes: TraySlot[] = [];
+  const nVol = r.pick([0, 1, 1, 2]);
+  for (let i = 0; i < nVol; i++) {
+    const shape = r.pick(['pyramid', 'wedge'] as const);
+    const size = r.pick(['s', 'l'] as const);
+    const slot = volumes.find((v) => v.shape === shape && v.size === size);
+    if (slot) slot.count++;
+    else volumes.push({ type: 'volume', shape, size, count: 1 });
+  }
+  return [...volumes, ...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
 }
 
 /** Angle range per style for practice (for two-panel walls, the steep top panel). */
@@ -153,6 +163,9 @@ export interface DayOverrides {
 
 function practiceTray(twist?: Twist): TraySlot[] {
   const slots: TraySlot[] = [
+    { type: 'volume', shape: 'pyramid', size: 'l', count: 1 },
+    { type: 'volume', shape: 'pyramid', size: 's', count: 1 },
+    { type: 'volume', shape: 'wedge', size: 'l', count: 1 },
     { type: 'jug', size: 'm', count: 2 },
     { type: 'edge', size: 'l', count: 2 },
     { type: 'edge', size: 'm', count: 3 },

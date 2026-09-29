@@ -70,6 +70,8 @@ export class Ragdoll {
     private frames: PanelFrame[],
     private wallHalfWidth: number,
     private ground: Ground,
+    /** Extra wall thickness (m) at wall-plane (u, v) cm — the volumes. */
+    private relief: (u: number, v: number) => number = () => 0,
   ) {
     this.reset(init);
     const d = (a: number, b: number) => init[a].distanceTo(init[b]);
@@ -176,7 +178,8 @@ export class Ragdoll {
       }
       // Free feet still want to hang roughly under the hips, a little.
       this.ends.forEach((e, n) => {
-        if (e.mode === 'free' && n >= 2) pos[ENDS[n]].lerp(posture[ENDS[n]], 0.01 * this.tone);
+        // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat.
+        if (e.mode === 'free' && n >= 2) pos[ENDS[n]].lerp(posture[ENDS[n]], 0.06 * this.tone);
       });
     }
     if (this.tremble > 0) {
@@ -240,8 +243,11 @@ export class Ragdoll {
           const along = rel.dot(f.up);
           if (along < -0.05 || along > (f.v1 - f.v0) / 100 + 0.05) continue;
           const depth = rel.dot(f.normal);
-          if (depth < r && depth > -0.4) {
-            p.addScaledVector(f.normal, r - depth);
+          // Volumes stand proud of the wall: collide with their surface instead.
+          const u = rel.x * 100 + this.wallHalfWidth * 100;
+          const surface = this.relief(u, f.v0 + along * 100);
+          if (depth < r + surface && depth > -0.4) {
+            p.addScaledVector(f.normal, r + surface - depth);
             // Friction against the wall.
             this.prev[i].lerp(p, 0.3);
           }

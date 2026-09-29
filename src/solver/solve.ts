@@ -16,10 +16,13 @@ import {
   handGrip,
   handMatchable,
   handLoad,
+  heightAt,
+  vAtHeight,
   toGrade,
   GRIP,
 } from './model';
 import { Heap } from './heap';
+import { contactList } from './volumes';
 import {
   OFF,
   SMEAR,
@@ -44,7 +47,7 @@ export function solve(
   placed: Hold[],
   opts: SolveOptions = {},
 ): SolveResult {
-  const ctx = new Context(wall, [...start, finish, ...placed], opts);
+  const ctx = new Context(wall, contactList(start, finish, placed, opts.volumes, wall), opts);
   const finishIdx = start.length;
 
   const starts = ctx.startStates(start.length === 1 ? [0, 0] : orderHands(start));
@@ -109,6 +112,8 @@ const dist = (a: Point, b: Point) => Math.hypot(a.u - b.u, a.v - b.v);
 class Context {
   handIdx: number[];
   footVals: number[];
+  /** Wall v where the surface meets the top of the crash pad. */
+  padV: number;
   constructor(
     readonly wall: Wall,
     readonly holds: Hold[],
@@ -116,6 +121,7 @@ class Context {
   ) {
     this.handIdx = holds.map((h, i) => (GRIP[h.type].hand ? i : -1)).filter((i) => i >= 0);
     this.footVals = [...holds.map((_, i) => i), SMEAR, OFF];
+    this.padV = vAtHeight(wall, PAD);
   }
 
   key(l: Limbs): number {
@@ -134,8 +140,8 @@ class Context {
       if (val >= 0) return { u: h[val].u, v: h[val].v };
       // Low on the wall, smear higher / tuck the legs rather than touch the mat.
       // If that bunches the body up too much, valid() calls it a dab (hip check).
-      if (val === SMEAR) return { u: midU + side * 18, v: Math.max(lowV - 118, PAD + 12) };
-      return { u: midU + side * 12, v: Math.max(lowV - 150, PAD + 8) };
+      if (val === SMEAR) return { u: midU + side * 18, v: Math.max(lowV - 118, this.padV + 12) };
+      return { u: midU + side * 12, v: Math.max(lowV - 150, this.padV + 8) };
     };
     return [
       { u: lh.u, v: lh.v },
@@ -176,8 +182,10 @@ class Context {
         continue;
       }
       const fp = p[f];
+      // Nothing to stand on (e.g. the underside of a volume).
+      if (footQuality(this.holds[val]) < 0.05) return false;
       // A foothold under the crash pad is the mat: that's a dab.
-      if (fp.v < PAD) return false;
+      if (fp.v < this.padV) return false;
       if (fp.v > loV + 15 || fp.v > hiV - 50) return false;
       for (const hp of [p[0], p[1]]) {
         const d = dist(fp, hp);
@@ -190,7 +198,13 @@ class Context {
     const handsV = (p[0].v + p[1].v) / 2;
     const feetV = on.length ? on.reduce((s, f) => s + p[f].v, 0) / on.length : handsV - 150;
     const chestDrop = Math.max(12, Math.min(42, handsV - feetV - 75));
-    if (handsV - chestDrop - 50 < PAD + 15) return false;
+    // Real hip height: on an overhang the hips hang out from the wall, and so lower.
+    const hipV = handsV - chestDrop - 50;
+    const sag = 30 * Math.max(0, Math.sin((angleAt(this.wall, hipV) * Math.PI) / 180));
+    const hipH = heightAt(this.wall, hipV) - sag;
+    if (hipH < PAD + 15) return false;
+    // A foot hanging free needs the hips high enough to keep it off the mat.
+    if ((l[2] === OFF || l[3] === OFF) && hipH - 45 < PAD) return false;
     // A smear or tucked foot needs room between it and the hands.
     for (const f of [2, 3]) if (l[f] < 0 && handsV - p[f].v < 75) return false;
     // Campusing (both feet off) only makes sense on real overhangs.

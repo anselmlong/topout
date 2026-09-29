@@ -1,5 +1,5 @@
 import type { SolveRequest } from './worker';
-import type { Day, Hold, SolveResult } from './types';
+import type { Day, Hold, SolveResult, Volume } from './types';
 
 let worker: Worker | null = null;
 let seq = 0;
@@ -16,7 +16,7 @@ function getWorker() {
   return worker;
 }
 
-export function solveInWorker(day: Day, placed: Hold[]): Promise<SolveResult> {
+export function solveInWorker(day: Day, placed: Hold[], volumes: Volume[] = []): Promise<SolveResult> {
   const id = ++seq;
   const req: SolveRequest = {
     id,
@@ -24,7 +24,7 @@ export function solveInWorker(day: Day, placed: Hold[]): Promise<SolveResult> {
     start: day.start,
     finish: day.finish,
     placed,
-    opts: { noSmear: day.twist === 'no-smear' },
+    opts: { noSmear: day.twist === 'no-smear', volumes },
   };
   return new Promise((resolve) => {
     pending.set(id, resolve);

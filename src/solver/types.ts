@@ -2,7 +2,20 @@
 // u = cm from the wall's left edge, v = cm along the wall surface from the floor.
 // 3D positions are derived (see src/scene/wallGeometry.ts).
 
-export type HoldType = 'jug' | 'crimp' | 'sloper' | 'pinch' | 'pocket' | 'edge' | 'foot' | 'jib';
+export type HoldType = 'jug' | 'crimp' | 'sloper' | 'pinch' | 'pocket' | 'edge' | 'foot' | 'jib' | 'volume';
+
+export type VolumeShape = 'pyramid' | 'wedge';
+
+/** A big bolt-on shape that changes the wall's angle locally. Holds can sit on it. */
+export interface Volume {
+  id: string;
+  shape: VolumeShape;
+  size: 's' | 'l';
+  u: number;
+  v: number;
+  /** Radians about the wall normal. */
+  rot: number;
+}
 export type HoldSize = 's' | 'm' | 'l';
 
 export interface Hold {
@@ -15,6 +28,13 @@ export interface Hold {
   rot: number;
   /** Fixed start/finish holds are not movable and don't count toward the hold total. */
   role?: 'start' | 'finish';
+  /**
+   * Solver-only overrides, set for a volume's face contacts and for holds bolted onto
+   * a volume: hand grip, foot quality, and the effective wall angle (degrees) there.
+   */
+  grip?: number;
+  foot?: number;
+  angle?: number;
 }
 
 export interface Panel {
@@ -37,6 +57,8 @@ export interface TraySlot {
   type: HoldType;
   size: HoldSize;
   count: number;
+  /** For type 'volume'. Volumes come in 's' and 'l' only. */
+  shape?: VolumeShape;
 }
 
 export interface Day {
@@ -51,6 +73,7 @@ export interface Day {
   par: number;
   /** A curated reference route (the one par came from), revealed after the day is done. */
   reference?: Hold[];
+  referenceVolumes?: Volume[];
 }
 
 /** A foot can be on a hold (index), smearing, or off the wall. */
@@ -95,4 +118,5 @@ export type SolveResult =
 
 export interface SolveOptions {
   noSmear?: boolean;
+  volumes?: Volume[];
 }

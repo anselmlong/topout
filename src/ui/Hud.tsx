@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
-import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, routeColor } from '../scene/palette';
+import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -21,6 +21,7 @@ export function HoldIcon({ type, size = 'm', color = NEUTRAL_HOLD }: { type: Hol
     edge: 'M3 11h18v3l-2 2H5l-2-2z',
     foot: 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0z',
     jib: 'M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0z',
+    volume: 'M3 19 12 5l9 14z',
   };
   return (
     <svg className="hold-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -147,6 +148,7 @@ export function Tray() {
   const wasActive = useRef(false);
   const day = useGame((s) => s.day)!;
   const placed = useGame((s) => s.placed);
+  const volumes = useGame((s) => s.volumes);
   const armed = useGame((s) => s.armed);
   const arm = useGame((s) => s.arm);
   const locked = useGame((s) => s.done || !!s.viewing || s.phase !== 'setting');
@@ -156,14 +158,16 @@ export function Tray() {
   return (
     <section className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray">
       <div className="eyebrow">
-        Hold set <span className="mono dim">{placed.length} placed</span>
+        Hold set <span className="mono dim">{placed.length + volumes.length} placed</span>
       </div>
       <ul>
         {day.tray.map((slot) => {
-          const left = remaining(day, placed, slot.type, slot.size);
-          const active = armed?.type === slot.type && armed.size === slot.size;
+          const pick = { type: slot.type, size: slot.size, shape: slot.shape };
+          const left = remaining(day, placed, volumes, pick);
+          const active = armed?.type === slot.type && armed.size === slot.size && armed.shape === slot.shape;
+          const isVolume = slot.type === 'volume';
           return (
-            <li key={`${slot.type}${slot.size}`}>
+            <li key={`${slot.type}${slot.shape ?? ''}${slot.size}`} className={isVolume ? 'volume-slot' : undefined}>
               <button
                 className={`slot ${active ? 'active' : ''}`}
                 disabled={locked || left <= 0}
@@ -171,18 +175,18 @@ export function Tray() {
                   // Press-and-drag onto the wall places directly; a plain click toggles.
                   wasActive.current = active;
                   if (e.pointerType !== 'mouse') return;
-                  if (!active) arm({ type: slot.type, size: slot.size });
+                  if (!active) arm(pick);
                   useGame.setState({ trayDrag: true });
                 }}
                 onClick={() => {
                   if (wasActive.current) arm(null);
-                  else if (!active) arm({ type: slot.type, size: slot.size });
+                  else if (!active) arm(pick);
                 }}
                 title={HOLD_HINT[slot.type]}
               >
-                <HoldIcon type={slot.type} size={slot.size} color={routeColor(day).hex} />
+                <HoldIcon type={slot.type} size={slot.size} color={isVolume ? VOLUME_COLOR : routeColor(day).hex} />
                 <span className="slot-name">
-                  {HOLD_NAME[slot.type]}
+                  {isVolume ? (slot.shape === 'wedge' ? 'Wedge' : 'Pyramid') : HOLD_NAME[slot.type]}
                   {slot.type !== 'foot' && slot.type !== 'jib' && <span className="size">{SIZE_LABEL[slot.size]}</span>}
                 </span>
                 <span className="count mono">
@@ -244,7 +248,11 @@ export function ActionBar() {
         })}
       </div>
       <div className="holdcount mono">
-        {s.placed.length} <span className="dim">{s.placed.length === 1 ? 'hold' : 'holds'}{day.par > 0 ? ` · par ${day.par}` : ''}</span>
+        {s.placed.length + s.volumes.length}{' '}
+        <span className="dim">
+          {s.placed.length + s.volumes.length === 1 ? 'hold' : 'holds'}
+          {day.par > 0 ? ` · par ${day.par}` : ''}
+        </span>
       </div>
       {s.done ? (
         <>

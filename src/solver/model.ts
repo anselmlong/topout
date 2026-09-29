@@ -43,6 +43,8 @@ export const GRIP: Record<HoldType, GripSpec> = {
   crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.1, hand: true, foot: 0.75 },
   foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7 },
   jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5 },
+  // A volume's face; real grip/foot values come per face (see volumes.ts).
+  volume: { grip: 0.5, tolerance: 0.35, steepLoss: 0.4, hand: true, foot: 0.5 },
 };
 
 export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15 };
@@ -57,6 +59,31 @@ export function angleAt(wall: Wall, v: number): number {
     if (v < top) return p.angle;
   }
   return wall.panels[wall.panels.length - 1].angle;
+}
+
+/** Real height above the floor (cm) of the wall point at v: overhangs lean out, so less than v. */
+export function heightAt(wall: Wall, v: number): number {
+  let h = 0;
+  let top = 0;
+  for (const p of wall.panels) {
+    const seg = Math.max(0, Math.min(v, top + p.length) - top);
+    h += seg * Math.cos(rad(p.angle));
+    top += p.length;
+    if (v <= top) break;
+  }
+  return h;
+}
+
+/** The wall v (cm) at which the wall surface is `height` above the floor. */
+export function vAtHeight(wall: Wall, height: number): number {
+  let lo = 0;
+  let hi = wallHeight(wall);
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (heightAt(wall, mid) < height) lo = mid;
+    else hi = mid;
+  }
+  return hi;
 }
 
 export function wallHeight(wall: Wall): number {
@@ -85,14 +112,16 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const c = (du * best.u + dv * best.v) / len;
   const t = spec.tolerance;
   const orient = Math.max(0, Math.min(1, (c + t) / (1 + t)));
-  const steep = Math.max(0, Math.sin(rad(angleAt(wall, hold.v))));
+  // Holds on a volume use that face's angle rather than the panel's.
+  const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v))));
   const steepFactor = 1 - spec.steepLoss * steep;
-  return spec.grip * SIZE_GRIP[hold.size] * orient * steepFactor;
+  const base = hold.grip ?? spec.grip * SIZE_GRIP[hold.size];
+  return base * orient * steepFactor;
 }
 
 /** Room for both hands on it? Finish (and a single start) are always matchable. */
 export function handMatchable(hold: Hold): boolean {
-  if (hold.role) return true;
+  if (hold.role || hold.type === 'volume') return true;
   if (hold.type === 'jug') return true;
   if (hold.type === 'edge' || hold.type === 'sloper') return hold.size === 'l';
   return false;
@@ -100,11 +129,15 @@ export function handMatchable(hold: Hold): boolean {
 
 /** Room for both feet on it? Only big holds; foot chips and jibs are one-toe affairs. */
 export function footMatchable(hold: Hold): boolean {
+  if (hold.type === 'volume') return true;
   return (hold.type === 'jug' && hold.size !== 's') || (hold.type === 'edge' && hold.size === 'l');
 }
 
 export function footQuality(hold: Hold): number {
-  return GRIP[hold.type].foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1);
+  if (hold.foot !== undefined) return hold.foot;
+  // A foothold on an up-facing volume face is easier to stand on.
+  const tilt = hold.angle !== undefined ? Math.max(0, -Math.sin(rad(hold.angle))) * 0.2 : 0;
+  return Math.min(1, GRIP[hold.type].foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) + tilt);
 }
 
 /**

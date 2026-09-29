@@ -244,6 +244,13 @@ const SHAPES: Record<HoldType, Shape> = {
     jitter: 0.12,
     bolt: false,
   },
+  // Never drawn as a hold: volumes have their own mesh (see Volumes.tsx).
+  volume: {
+    scale: [0.05, 0.05, 0.03],
+    detail: 0,
+    jitter: 0,
+    bolt: false,
+  },
 };
 
 // Drawn ~20% larger than life so holds read at game zoom. Keep in step with holdRadius.

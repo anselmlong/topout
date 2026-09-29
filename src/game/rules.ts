@@ -1,6 +1,7 @@
 // Placement and scoring rules shared by the game UI and the curation script.
-import { PAD, wallHeight } from '../solver/model';
-import type { Hold, HoldSize, HoldType, SolveResult, Wall } from '../solver/types';
+import { PAD, vAtHeight, wallHeight } from '../solver/model';
+import type { Hold, HoldSize, HoldType, SolveResult, Volume, Wall } from '../solver/types';
+import { volumeRadius } from '../solver/volumes';
 
 const BASE_RADIUS: Record<HoldType, number> = {
   // Roughly the drawn half-width (see holdGeometry SIZE); keep the two in step.
@@ -12,6 +13,7 @@ const BASE_RADIUS: Record<HoldType, number> = {
   edge: 9,
   foot: 3.5,
   jib: 2.5,
+  volume: 0,
 };
 const SIZE_SCALE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25 };
 
@@ -25,11 +27,36 @@ export function canPlace(wall: Wall, others: Hold[], h: Hold): boolean {
   const r = holdRadius(h);
   if (h.u < EDGE + r || h.u > wall.width - EDGE - r) return false;
   // Nothing below the crash pad.
-  if (h.v < PAD + 2 + r || h.v > wallHeight(wall) - EDGE - r) return false;
+  if (h.v < vAtHeight(wall, PAD) + 2 + r || h.v > wallHeight(wall) - EDGE - r) return false;
   for (const o of others) {
     if (o.id === h.id) continue;
     if (Math.hypot(o.u - h.u, o.v - h.v) < r + holdRadius(o) + MIN_GAP) return false;
   }
+  return true;
+}
+
+/**
+ * Volumes: inside the wall and above the pad, on a single panel (not across the
+ * headwall kink), clear of other volumes and of the fixed start/finish holds.
+ * Placed holds may sit on a volume; they're not in `fixed`.
+ */
+export function canPlaceVolume(wall: Wall, volumes: Volume[], fixed: Hold[], vol: Volume): boolean {
+  const r = volumeRadius(vol);
+  if (vol.u < EDGE + r * 0.75 || vol.u > wall.width - EDGE - r * 0.75) return false;
+  if (vol.v - r * 0.75 < vAtHeight(wall, PAD) + 4 || vol.v + r * 0.75 > wallHeight(wall) - EDGE) return false;
+  let top = 0;
+  for (const p of wall.panels) {
+    const bottom = top;
+    top += p.length;
+    const lo = vol.v - r * 0.75;
+    const hi = vol.v + r * 0.75;
+    if (lo < top && hi > bottom && (lo < bottom || hi > top)) return false;
+  }
+  for (const o of volumes) {
+    if (o.id === vol.id) continue;
+    if (Math.hypot(o.u - vol.u, o.v - vol.v) < (r + volumeRadius(o)) * 0.8) return false;
+  }
+  for (const h of fixed) if (Math.hypot(h.u - vol.u, h.v - vol.v) < r * 0.8 + holdRadius(h)) return false;
   return true;
 }
 
@@ -41,8 +68,11 @@ export type Verdict = 'exact' | 'pass' | 'fail';
 
 export interface TestRun {
   holds: Hold[];
+  /** Volumes on the wall when this was solved (older saves have none). */
+  volumes?: Volume[];
   result: SolveResult;
   verdict: Verdict;
+  /** Holds plus volumes: each volume counts as one. */
   holdCount: number;
 }
 

@@ -8,6 +8,7 @@ import { sfx } from '../audio/sfx';
 import { bestPull } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
+import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, useClimb } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
@@ -90,7 +91,8 @@ function poseFrom(
   };
   const leg = (i: 0 | 1) => {
     const side = i === 0 ? -1 : 1;
-    const target = feet[i] ?? pelvis[i].clone().add(V(side * 0.12, -0.75, 0.12));
+    // A foot with no hold is tucked up, knee bent, clear of the mat.
+    const target = feet[i] ?? pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
     const pole = normal.clone().addScaledVector(lateral, side * 0.7);
     return ik(pelvis[i], target, LEG, pole);
   };
@@ -282,9 +284,12 @@ export function Climber({ day }: { day: Day }) {
   const shrug = useRef(0);
   const rig = useRef<RigHandle>(null);
 
+  const volumes = playback?.volumes ?? [];
+  /** A contact point in the world, standing out by any volume's surface there. */
   const toWorld = (p: Point, out: number) => {
     const f = frameAt(frames, p.v);
-    return uvToWorld(day.wall, frames, p.u, p.v).addScaledVector(f.normal, out);
+    const relief = (surfaceAt(volumes, p.u, p.v)?.height ?? 0) / 100;
+    return uvToWorld(day.wall, frames, p.u, p.v).addScaledVector(f.normal, out + relief);
   };
   const normalAt = (p: Point) => frameAt(frames, p.v).normal;
 
@@ -308,16 +313,25 @@ export function Climber({ day }: { day: Day }) {
     const feet = first.feet.map((p) => (p ? toWorld(p, 0.06) : null)) as [THREE.Vector3 | null, THREE.Vector3 | null];
     const init = poseToArray(poseFrom(frames, hands, feet, Math.max(0, (first.hands[0].v + first.hands[1].v) / 2 - 80)));
     const pad = padBox(day.wall);
-    const sim = new Ragdoll(init, frames, day.wall.width / 200, {
-      padTop: pad.top,
-      padMinX: -pad.width / 2,
-      padMaxX: pad.width / 2,
-      padMinZ: pad.minZ,
-      padMaxZ: pad.maxZ,
-    });
+    const vols = pb.volumes;
+    const sim = new Ragdoll(
+      init,
+      frames,
+      day.wall.width / 200,
+      {
+        padTop: pad.top,
+        padMinX: -pad.width / 2,
+        padMaxX: pad.width / 2,
+        padMinZ: pad.minZ,
+        padMaxZ: pad.maxZ,
+      },
+      (u, v) => (surfaceAt(vols, u, v)?.height ?? 0) / 100,
+    );
     first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
     useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
-    return { sim, timeline, holds: [...day.start, day.finish, ...pb.holds], t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    // Same list the solver indexed into, so chalk and hand direction hit the right holds.
+    const holds = contactList(day.start, day.finish, pb.holds, pb.volumes, day.wall);
+    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
