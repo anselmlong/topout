@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { dayNumber, generateDay } from '../gen/day';
+import { dayNumber, generateDay, withVolumes } from '../gen/day';
 import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, verdictOf, type TestRun } from '../game/rules';
 import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
@@ -173,7 +173,7 @@ export const useGame = create<GameState>((set, get) => {
         try {
           const res = await fetch(`${import.meta.env.BASE_URL}days/${n}.json`);
           if (!res.ok) throw new Error(String(res.status));
-          day = await res.json();
+          day = withVolumes(await res.json());
         } catch {
           // Past the curated archive: fall back to an uncurated generated day.
           day = generateDay(n);

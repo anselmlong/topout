@@ -86,6 +86,29 @@ const STYLE_BY_WEEKDAY: WallStyle[][] = [
   ['overhang', 'steep', 'headwall'], // Sat
 ];
 
+/** One or two volumes for a day's tray; they change the wall under the route. */
+function volumeSlots(r: Rng): TraySlot[] {
+  const volumes: TraySlot[] = [];
+  const n = r.pick([1, 1, 2]);
+  for (let i = 0; i < n; i++) {
+    const shape = r.pick(['pyramid', 'wedge'] as const);
+    const size = r.pick(['s', 'l'] as const);
+    const slot = volumes.find((v) => v.shape === shape && v.size === size);
+    if (slot) slot.count++;
+    else volumes.push({ type: 'volume', shape, size, count: 1 });
+  }
+  return volumes;
+}
+
+/**
+ * Days curated before volumes existed have none in their tray. Give them a
+ * deterministic set (same for everyone on that day) until they're regenerated.
+ */
+export function withVolumes(day: Day): Day {
+  if (day.tray.some((s) => s.type === 'volume')) return day;
+  return { ...day, tray: [...volumeSlots(rng(hash(day.number, 0x7011))), ...day.tray] };
+}
+
 function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
   // Easier days and steeper walls get kinder holds.
   const steep = style === 'steep' || style === 'kicker' || style === 'headwall';
@@ -127,17 +150,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   const slots = [...counts.values()].sort(
     (a, b) => order.indexOf(a.type) - order.indexOf(b.type) || sizes.indexOf(a.size) - sizes.indexOf(b.size),
   );
-  // A volume or two most days; they change the wall under the route.
-  const volumes: TraySlot[] = [];
-  const nVol = r.pick([0, 1, 1, 2]);
-  for (let i = 0; i < nVol; i++) {
-    const shape = r.pick(['pyramid', 'wedge'] as const);
-    const size = r.pick(['s', 'l'] as const);
-    const slot = volumes.find((v) => v.shape === shape && v.size === size);
-    if (slot) slot.count++;
-    else volumes.push({ type: 'volume', shape, size, count: 1 });
-  }
-  return [...volumes, ...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
+  return [...volumeSlots(r), ...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
 }
 
 /** Angle range per style for practice (for two-panel walls, the steep top panel). */
