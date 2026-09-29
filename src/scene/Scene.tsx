@@ -1,15 +1,19 @@
 import { OrbitControls } from '@react-three/drei';
-import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { bestPull, wallHeight } from '../solver/model';
 import type { Day, Hold, Wall } from '../solver/types';
+import { climberFocus, useClimb } from '../state/climb';
 import { useGame } from '../state/store';
 import { Climber } from './Climber';
 import { holdGeometry } from './holdGeometry';
 import { HOLD_COLOR, PALETTE } from './palette';
-import { frameAt, holdQuaternion, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
+import { BetaOverlay } from './BetaOverlay';
+import { ChalkDust } from './Chalk';
+import { Gym } from './Gym';
+import { frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
 
 export function Scene() {
   const day = useGame((s) => s.day);
@@ -23,11 +27,14 @@ export function Scene() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <color attach="background" args={[PALETTE.sky]} />
-      <fog attach="fog" args={[PALETTE.sky, 14, 30]} />
+      <fog attach="fog" args={[PALETTE.sky, 16, 34]} />
       <Lights />
       <WallView day={day} />
       <Climber day={day} />
+      <ChalkDust />
+      <BetaOverlay day={day} />
       <Floor wall={day.wall} />
+      <Gym wall={day.wall} />
       <CameraRig wall={day.wall} />
     </Canvas>
   );
@@ -75,6 +82,33 @@ function CameraRig({ wall }: { wall: Wall }) {
     return new THREE.Vector3(0, b.height / 2 + 0.05, b.depth / 2);
   }, [wall]);
 
+  // Follow the climber up the wall during a playback, until the user takes the camera.
+  const playRun = useGame((s) => s.playback?.run ?? 0);
+  const userMoved = useRef(false);
+  useEffect(() => {
+    userMoved.current = false;
+  }, [playRun]);
+  useEffect(() => {
+    const c = controls.current;
+    if (!c) return;
+    const onStart = () => (userMoved.current = true);
+    c.addEventListener('start', onStart);
+    return () => c.removeEventListener('start', onStart);
+  }, []);
+  useFrame(() => {
+    const c = controls.current;
+    if (!c || userMoved.current) return;
+    const b = wallBounds(wall);
+    // Track the climber; once they're off the wall, drift back to the home framing.
+    const want = climberFocus.active
+      ? Math.max(target.y - 0.4, Math.min(b.height - 0.9, climberFocus.pos.y - 0.2))
+      : target.y;
+    if (Math.abs(want - c.target.y) < 1e-4) return;
+    const dy = (want - c.target.y) * 0.03;
+    c.target.y += dy;
+    camera.position.y += dy;
+  });
+
   // Front-on framing. Only on load / new wall / "Reset view", never mid-orbit.
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
@@ -100,6 +134,9 @@ function CameraRig({ wall }: { wall: Wall }) {
       dampingFactor={0.12}
       enableZoom={!holdActive}
       maxPolarAngle={Math.PI * 0.55}
+      // Stay in front of the wall: there's nothing to see behind it.
+      minAzimuthAngle={-1.25}
+      maxAzimuthAngle={1.25}
       minDistance={2.5}
       maxDistance={18}
       // Left button belongs to setting (unless Space is held); right orbits, middle pans.
@@ -112,9 +149,9 @@ function CameraRig({ wall }: { wall: Wall }) {
 }
 
 function Floor({ wall }: { wall: Wall }) {
-  const { depth } = wallBounds(wall);
-  const padDepth = Math.max(2, depth + 1.4);
-  const w = wall.width / 100 + 0.6;
+  const pad = padBox(wall);
+  const padDepth = pad.length;
+  const w = pad.width;
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.001, 3]} receiveShadow>
@@ -256,6 +293,12 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
   const rightDown = useRef<{ x: number; y: number } | null>(null);
   const geometry = holdGeometry(hold.type, hold.size, variantOf(hold.id));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot);
+  // Used holds get chalky.
+  const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
+  const color = useMemo(
+    () => new THREE.Color(HOLD_COLOR[hold.type]).lerp(new THREE.Color('#f4f2ec'), Math.min(0.5, chalk * 0.1)),
+    [hold.type, chalk],
+  );
 
   return (
     <group position={t.position} quaternion={t.quaternion}>
@@ -284,7 +327,7 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
         onPointerOut={() => useGame.getState().hoverHoldId === hold.id && useGame.setState({ hoverHoldId: null })}
         raycast={fixed ? () => null : undefined}
       >
-        <meshStandardMaterial color={HOLD_COLOR[hold.type]} flatShading roughness={0.85} transparent={dragging} opacity={dragging ? 0.75 : 1} />
+        <meshStandardMaterial color={color} flatShading roughness={0.85 + chalk * 0.02} transparent={dragging} opacity={dragging ? 0.75 : 1} />
       </mesh>
       {selected && <Selection hold={hold} />}
     </group>

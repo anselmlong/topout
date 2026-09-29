@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { unlockAudio } from '../audio/sfx';
 import { Scene } from '../scene/Scene';
 import { seenHelp } from '../state/persist';
 import { useGame } from '../state/store';
-import { ActionBar, Brief, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
+import { ActionBar, Brief, ClimbTicker, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
 import { HelpModal, PracticeModal, ResultModal, StatsModal } from './Modals';
 
 const ROTATE_STEP = Math.PI / 12;
@@ -40,6 +41,7 @@ export function App() {
       } else return;
       e.preventDefault();
     };
+    const onDown = () => unlockAudio();
     const onUp = () => {
       const s = useGame.getState();
       s.endDrag();
@@ -47,9 +49,11 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointerdown', onDown);
     return () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointerdown', onDown);
     };
   }, []);
 
@@ -90,6 +94,7 @@ export function App() {
         <Tray />
       </div>
       <SelectionBar />
+      <ClimbTicker />
       <ActionBar />
       <ViewingBanner />
       <HelpModal />

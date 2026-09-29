@@ -17,6 +17,8 @@ export interface Playback {
   result: SolveResult;
   /** Bumped per playback so the climber restarts even for identical results. */
   run: number;
+  /** The placed holds this result was solved on (stance indices point into start+finish+these). */
+  holds: Hold[];
 }
 
 type Phase = 'setting' | 'solving' | 'climbing' | 'review';
@@ -50,6 +52,8 @@ interface GameState {
   /** Placed hold under the mouse: a left-drag here moves it instead of orbiting. */
   hoverHoldId: string | null;
   playback: Playback | null;
+  /** Last solved route, shown as a beta overlay until the route is edited. */
+  beta: { result: SolveResult; holds: Hold[] } | null;
   lastTest: TestRun | null;
   modal: 'help' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
@@ -122,6 +126,7 @@ export const useGame = create<GameState>((set, get) => {
     viewNonce: 0,
     hoverHoldId: null,
     playback: null,
+    beta: null,
     lastTest: null,
     modal: null,
     toast: null,
@@ -161,6 +166,7 @@ export const useGame = create<GameState>((set, get) => {
         mode,
         saveKey,
         playback: null,
+        beta: null,
         lastTest: null,
         phase: 'setting',
         placed: save?.placed ?? [],
@@ -185,7 +191,7 @@ export const useGame = create<GameState>((set, get) => {
         const moved = { ...h, u, v };
         const valid = canPlace(s.day!.wall, [...fixed(), ...s.placed], moved);
         set({ ghost: { u, v, valid } });
-        if (valid) set({ placed: s.placed.map((p) => (p.id === h.id ? moved : p)) });
+        if (valid) set({ placed: s.placed.map((p) => (p.id === h.id ? moved : p)), beta: null });
         return;
       }
       if (!s.armed) return;
@@ -204,7 +210,7 @@ export const useGame = create<GameState>((set, get) => {
       const hold: Hold = { id: `p${nextId++}`, ...s.armed, u: s.ghost.u, v: s.ghost.v, rot: s.ghostRot };
       const placed = [...s.placed, hold];
       const left = remaining(s.day!, placed, s.armed.type, s.armed.size);
-      set({ placed, armed: left > 0 ? s.armed : null, ghost: left > 0 ? s.ghost : null });
+      set({ placed, armed: left > 0 ? s.armed : null, ghost: left > 0 ? s.ghost : null, beta: null });
       persist();
     },
 
@@ -228,7 +234,7 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       if (!editable()) return;
       if (s.selectedId) {
-        set({ placed: s.placed.map((h) => (h.id === s.selectedId ? { ...h, rot: h.rot + delta } : h)) });
+        set({ placed: s.placed.map((h) => (h.id === s.selectedId ? { ...h, rot: h.rot + delta } : h)), beta: null });
         persist();
       } else if (s.armed) {
         set({ ghostRot: s.ghostRot + delta });
@@ -241,13 +247,13 @@ export const useGame = create<GameState>((set, get) => {
       const target = id ?? s.selectedId;
       if (!target) return;
       // The removed mesh never fires pointer-out, so clear its hover too.
-      set({ placed: s.placed.filter((h) => h.id !== target), selectedId: null, hoverHoldId: null });
+      set({ placed: s.placed.filter((h) => h.id !== target), selectedId: null, hoverHoldId: null, beta: null });
       persist();
     },
 
     clear() {
       if (!editable()) return;
-      set({ placed: [], selectedId: null, hoverHoldId: null });
+      set({ placed: [], selectedId: null, hoverHoldId: null, beta: null });
       persist();
     },
 
@@ -269,7 +275,13 @@ export const useGame = create<GameState>((set, get) => {
         verdict: verdictOf(result, s.day!.targetGrade),
         holdCount: holds.length,
       };
-      set({ tests: [...get().tests, test], lastTest: test, phase: 'climbing', playback: { result, run: ++playRun } });
+      set({
+        tests: [...get().tests, test],
+        lastTest: test,
+        phase: 'climbing',
+        playback: { result, run: ++playRun, holds },
+        beta: { result, holds },
+      });
       persist();
     },
 
@@ -279,7 +291,7 @@ export const useGame = create<GameState>((set, get) => {
       const holds = s.viewing ?? bestTest(s.tests, s.day.targetGrade)?.holds ?? s.placed;
       set({ phase: 'solving' });
       const result = await solveInWorker(s.day, holds);
-      set({ phase: 'climbing', lastTest: null, playback: { result, run: ++playRun } });
+      set({ phase: 'climbing', lastTest: null, playback: { result, run: ++playRun, holds }, beta: { result, holds } });
     },
 
     climbFinished() {
@@ -311,12 +323,12 @@ export const useGame = create<GameState>((set, get) => {
     },
 
     viewRoute(holds, label) {
-      set({ viewing: holds, viewingLabel: label, modal: null, playback: null, phase: 'setting' });
+      set({ viewing: holds, viewingLabel: label, modal: null, playback: null, beta: null, phase: 'setting' });
     },
 
     exitViewing() {
       history.replaceState(null, '', location.pathname + location.search);
-      set({ viewing: null, playback: null });
+      set({ viewing: null, playback: null, beta: null });
     },
 
     showToast(t) {

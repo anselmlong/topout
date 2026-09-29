@@ -1,8 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
 import { HOLD_COLOR, HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
+import { isMuted, setMuted } from '../audio/sfx';
+import { strainColor } from '../scene/BetaOverlay';
+import { useClimb } from '../state/climb';
 import { remaining, testLimit, useGame } from '../state/store';
 
 const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L' };
@@ -60,6 +63,7 @@ export function TopBar() {
           </svg>
           <span className="label">Practice</span>
         </button>
+        <MuteButton />
         <button className="icon-btn" onClick={resetView} title="Reset the camera to the front view">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z" />
@@ -278,6 +282,48 @@ export function ViewingBanner() {
       <button className="btn ghost" onClick={exit}>
         Back to mine
       </button>
+    </div>
+  );
+}
+
+function MuteButton() {
+  const [muted, set] = useState(isMuted);
+  return (
+    <button
+      className="icon-btn"
+      onClick={() => {
+        setMuted(!muted);
+        set(!muted);
+      }}
+      aria-pressed={muted}
+      title={muted ? 'Sound off' : 'Sound on'}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        {muted ? (
+          <path d="M3 9v6h4l5 5V4L7 9zm13.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z" />
+        ) : (
+          <path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" />
+        )}
+      </svg>
+    </button>
+  );
+}
+
+/** Live move-by-move readout while the climber is on the wall. */
+export function ClimbTicker() {
+  const phase = useGame((s) => s.phase);
+  const feed = useClimb();
+  if (phase !== 'climbing') return null;
+  return (
+    <div className={`card ticker ${feed.status}`} role="status" aria-live="polite">
+      <div className="row1">
+        <span>{feed.move >= 0 ? `Move ${feed.move + 1} / ${feed.total}` : 'Starting'}</span>
+        <span>Strain</span>
+      </div>
+      <div className="label">{feed.label}</div>
+      <div className="strain">
+        <span style={{ width: `${Math.round(feed.strain * 100)}%`, background: strainColor(feed.strain) }} />
+      </div>
     </div>
   );
 }

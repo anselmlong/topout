@@ -28,6 +28,24 @@ export function panelFrames(wall: Wall): PanelFrame[] {
   return frames;
 }
 
+/** The crash pad under the wall (metres). Shared by the floor mesh and the ragdoll. */
+export function padBox(wall: Wall) {
+  const frames = panelFrames(wall);
+  const top = frames[frames.length - 1];
+  const depth = top.origin.clone().addScaledVector(top.up, (top.v1 - top.v0) / 100).z;
+  const length = Math.max(2, depth + 1.4);
+  return { width: wall.width / 100 + 0.6, top: 0.3, minZ: -0.05, maxZ: length - 0.05, length };
+}
+
+/** Approximate wall v (cm) for a world point, by projecting onto the panel stack. */
+export function worldV(frames: PanelFrame[], p: THREE.Vector3): number {
+  for (const f of frames) {
+    const along = p.clone().sub(f.origin).dot(f.up) * 100;
+    if (along <= f.v1 - f.v0 || f === frames[frames.length - 1]) return f.v0 + Math.max(0, along);
+  }
+  return 0;
+}
+
 export function frameAt(frames: PanelFrame[], v: number): PanelFrame {
   return frames.find((f) => v < f.v1) ?? frames[frames.length - 1];
 }

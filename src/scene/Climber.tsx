@@ -1,13 +1,18 @@
-// A faceless low-poly climber. Poses come from the solver's stances; limbs are
-// solved with two-bone IK and the body is interpolated between stances.
+// A faceless low-poly climber. The solver's beta drives where hands and feet go;
+// the body in between is a Verlet ragdoll (see ragdoll.ts), pulled toward an
+// IK-posed skeleton by soft "muscles", so it hangs, sways, swings and falls.
 import { useFrame } from '@react-three/fiber';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import type { Day, Point, SolveResult, Stance, Wall } from '../solver/types';
+import { sfx } from '../audio/sfx';
+import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
-import { useGame } from '../state/store';
+import { chalkHold, climberFocus, useClimb } from '../state/climb';
+import { useGame, type Playback } from '../state/store';
+import { puff } from './Chalk';
 import { PALETTE } from './palette';
-import { frameAt, panelFrames, uvToWorld, type PanelFrame } from './wallGeometry';
+import { J, JOINTS, Ragdoll } from './ragdoll';
+import { frameAt, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -127,35 +132,51 @@ const contactsOf = (s: Stance): Contacts => ({
 });
 
 interface Keyframe {
-  from: Contacts;
   to: Contacts;
+  /** Hold index each limb lands on (for chalk), -1/-2 for smear/off. */
+  holds: number[];
   limb: number;
   duration: number;
   dynamic?: boolean;
+  /** Difficulty relative to the route's crux, 0..1. */
+  strain: number;
+  move: number;
 }
 
 interface Timeline {
   frames: Keyframe[];
   ending: 'top' | 'fall' | 'shrug';
   total: number;
+  /** Extra time after the last frame for the ending to play out. */
+  tail: number;
 }
 
 function buildTimeline(result: SolveResult, day: Day): Timeline {
   const frames: Keyframe[] = [];
   if (result.ok) {
-    const s0 = contactsOf(result.start);
-    frames.push({ from: s0, to: s0, limb: -1, duration: 0.7 });
-    for (const m of result.moves) {
-      frames.push({ from: contactsOf(m.from), to: contactsOf(m.to), limb: m.limb, duration: m.dynamic ? 0.45 : m.limb >= 2 ? 0.4 : 0.6, dynamic: m.dynamic });
-    }
-    const last = frames[frames.length - 1].to;
-    frames.push({ from: last, to: last, limb: -1, duration: 1.1 });
-    return { frames, ending: 'top', total: frames.reduce((s, f) => s + f.duration, 0) };
+    const crux = Math.max(result.crux, 0.3);
+    frames.push({ to: contactsOf(result.start), holds: [...result.start.limbs], limb: -1, duration: 0.9, strain: 0, move: -1 });
+    result.moves.forEach((m, i) => {
+      const strain = Math.min(1, m.difficulty / crux);
+      // Hard moves are slower and more deliberate; dynos are quick.
+      const base = m.limb >= 2 ? 0.42 : 0.55 + strain * 0.35;
+      frames.push({
+        to: contactsOf(m.to),
+        holds: [...m.to.limbs],
+        limb: m.limb,
+        duration: m.dynamic ? 0.5 : base,
+        dynamic: m.dynamic,
+        strain,
+        move: i,
+      });
+    });
+    const tail = 2.2;
+    return { frames, ending: 'top', total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
   }
-  if (!result.highPoint) return { frames: [], ending: 'shrug', total: 1.6 };
+  if (!result.highPoint) return { frames: [], ending: 'shrug', total: 1.6, tail: 1.6 };
   const hp = contactsOf(result.highPoint);
-  frames.push({ from: hp, to: hp, limb: -1, duration: 0.8 });
-  // Reach hopefully toward the finish before peeling off.
+  frames.push({ to: hp, holds: [...result.highPoint.limbs], limb: -1, duration: 1.0, strain: 0.6, move: -1 });
+  // Reach hopefully toward the finish... and peel off.
   const lunge: Contacts = {
     hands: [
       hp.hands[0],
@@ -166,117 +187,247 @@ function buildTimeline(result: SolveResult, day: Day): Timeline {
     ],
     feet: hp.feet,
   };
-  frames.push({ from: hp, to: lunge, limb: 1, duration: 0.7 });
-  return { frames, ending: 'fall', total: frames.reduce((s, f) => s + f.duration, 0) + 1.6 };
+  frames.push({ to: lunge, holds: [], limb: 1, duration: 0.8, strain: 1, move: -1 });
+  const tail = 2.8;
+  return { frames, ending: 'fall', total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
 }
 
-const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+const STEP = 1 / 120;
+const LIMB_NAME = ['Left hand', 'Right hand', 'Left foot', 'Right foot'];
+
+function poseToArray(p: Pose): THREE.Vector3[] {
+  const a: THREE.Vector3[] = new Array(JOINTS);
+  a[J.head] = p.head;
+  a[J.chest] = p.chest;
+  a[J.pelvis] = p.hip;
+  a[J.shoulderL] = p.shoulders[0];
+  a[J.shoulderR] = p.shoulders[1];
+  a[J.elbowL] = p.elbows[0];
+  a[J.elbowR] = p.elbows[1];
+  a[J.handL] = p.hands[0];
+  a[J.handR] = p.hands[1];
+  a[J.hipL] = p.pelvis[0];
+  a[J.hipR] = p.pelvis[1];
+  a[J.kneeL] = p.knees[0];
+  a[J.kneeR] = p.knees[1];
+  a[J.footL] = p.feet[0];
+  a[J.footR] = p.feet[1];
+  return a;
+}
+
+function arrayToPose(a: THREE.Vector3[]): Pose {
+  return {
+    head: a[J.head],
+    chest: a[J.chest],
+    hip: a[J.pelvis],
+    shoulders: [a[J.shoulderL], a[J.shoulderR]],
+    elbows: [a[J.elbowL], a[J.elbowR]],
+    hands: [a[J.handL], a[J.handR]],
+    pelvis: [a[J.hipL], a[J.hipR]],
+    knees: [a[J.kneeL], a[J.kneeR]],
+    feet: [a[J.footL], a[J.footR]],
+  };
+}
+
+interface Run {
+  sim: Ragdoll;
+  timeline: Timeline;
+  holds: Hold[];
+  t: number;
+  acc: number;
+  frame: number;
+  ended: boolean;
+  finished: boolean;
+  limp: boolean;
+  /** Pending arrival events (grab sound + chalk) keyed by sim time. */
+  arrivals: { at: number; limb: number; hold: number; strain: number }[];
+  lastThud: number;
+}
 
 export function Climber({ day }: { day: Day }) {
   const playback = useGame((s) => s.playback);
   const frames = useMemo(() => panelFrames(day.wall), [day.wall]);
-  const timeline = useMemo(() => (playback ? buildTimeline(playback.result, day) : null), [playback, day]);
-  const clock = useRef({ t: 0, run: -1, finished: false });
+  const run = useRef<(Run & { id: number }) | null>(null);
+  const shrug = useRef(0);
   const rig = useRef<RigHandle>(null);
 
   const toWorld = (p: Point, out: number) => {
     const f = frameAt(frames, p.v);
     return uvToWorld(day.wall, frames, p.u, p.v).addScaledVector(f.normal, out);
   };
+  const normalAt = (p: Point) => frameAt(frames, p.v).normal;
 
-  const poseAt = (c: Contacts, limb: number, lift: number): Pose => {
-    const hands = c.hands.map((p, i) => {
-      const w = toWorld(p, 0.07);
-      if (i === limb && lift) w.addScaledVector(frameAt(frames, p.v).normal, lift);
-      return w;
-    }) as [THREE.Vector3, THREE.Vector3];
-    const feet = c.feet.map((p, i) => {
-      if (!p) return null;
-      const w = toWorld(p, 0.06);
-      if (i + 2 === limb && lift) w.addScaledVector(frameAt(frames, p.v).normal, lift);
-      return w;
-    }) as [THREE.Vector3 | null, THREE.Vector3 | null];
-    const hipV = (c.hands[0].v + c.hands[1].v) / 2 - 80;
-    return poseFrom(frames, hands, feet, Math.max(0, hipV));
+  /** Posed skeleton for the ends' current positions (the "muscle" targets). */
+  const postureFor = (sim: Ragdoll): THREE.Vector3[] => {
+    const e = sim.ends;
+    const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
+    const feet: [THREE.Vector3 | null, THREE.Vector3 | null] = [
+      e[2].mode === 'free' ? null : sim.pos[J.footL].clone(),
+      e[3].mode === 'free' ? null : sim.pos[J.footR].clone(),
+    ];
+    const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80)));
   };
 
-  const lerpContacts = (a: Contacts, b: Contacts, t: number): Contacts => {
-    const l = (p: Point, q: Point) => ({ u: p.u + (q.u - p.u) * t, v: p.v + (q.v - p.v) * t });
-    return {
-      hands: [l(a.hands[0], b.hands[0]), l(a.hands[1], b.hands[1])],
-      feet: [
-        a.feet[0] && b.feet[0] ? l(a.feet[0], b.feet[0]) : t < 0.5 ? a.feet[0] : b.feet[0],
-        a.feet[1] && b.feet[1] ? l(a.feet[1], b.feet[1]) : t < 0.5 ? a.feet[1] : b.feet[1],
-      ],
-    };
+  const start = (pb: Playback): Run | null => {
+    const timeline = buildTimeline(pb.result, day);
+    if (!timeline.frames.length) return null;
+    const first = timeline.frames[0].to;
+    const hands = first.hands.map((p) => toWorld(p, 0.07)) as [THREE.Vector3, THREE.Vector3];
+    const feet = first.feet.map((p) => (p ? toWorld(p, 0.06) : null)) as [THREE.Vector3 | null, THREE.Vector3 | null];
+    const init = poseToArray(poseFrom(frames, hands, feet, Math.max(0, (first.hands[0].v + first.hands[1].v) / 2 - 80)));
+    const pad = padBox(day.wall);
+    const sim = new Ragdoll(init, frames, day.wall.width / 200, {
+      padTop: pad.top,
+      padMinX: -pad.width / 2,
+      padMaxX: pad.width / 2,
+      padMinZ: pad.minZ,
+      padMaxZ: pad.maxZ,
+    });
+    first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
+    useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
+    return { sim, timeline, holds: [...day.start, day.finish, ...pb.holds], t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0 };
+  };
+
+  const enterFrame = (r: Run, f: Keyframe) => {
+    const { sim } = r;
+    const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
+    contacts.forEach((c, n) => {
+      const target = c ? toWorld(c, n < 2 ? 0.07 : 0.06) : null;
+      const normal = c ? normalAt(c) : new THREE.Vector3(0, 0, 1);
+      if (n === f.limb) sim.drive(n, target, normal, f.duration * 0.85, f.dynamic ? 0.14 : 0.07);
+      else sim.drive(n, target, normal, 0.3, 0.05);
+    });
+    sim.tone = 1 - 0.45 * f.strain;
+    sim.tremble = Math.max(0, f.strain - 0.55) * 2.2;
+    if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + f.duration * 0.85, limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
+    if (f.dynamic) {
+      // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
+      const target = toWorld(f.to.hands[f.limb as 0 | 1], 0.07);
+      const push = target.sub(sim.pos[J.pelvis]).normalize().multiplyScalar(2.2);
+      sim.impulse(push, STEP, [J.pelvis, J.chest, J.head, J.shoulderL, J.shoulderR, J.hipL, J.hipR]);
+      const steep = frameAt(frames, f.to.hands[0].v).normal.y < -0.2;
+      if (steep) [2, 3].forEach((n) => (sim.ends[n].mode = 'free'));
+      sfx.whoosh();
+    }
+    if (f.move >= 0) {
+      const m = f.limb;
+      const hold = f.holds[m];
+      const what = hold >= 0 ? r.holds[hold]?.type : hold === -1 ? 'smear' : 'off';
+      useClimb.setState({
+        move: f.move,
+        strain: f.strain,
+        label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}`,
+      });
+    }
+  };
+
+  const endRun = (r: Run) => {
+    const { sim, timeline } = r;
+    if (timeline.ending === 'top') {
+      // Fist pump off the finish with the right hand, and a cloud of chalk.
+      const chest = sim.pos[J.chest];
+      const n = frameAt(frames, day.finish.v).normal;
+      const up = chest.clone().add(new THREE.Vector3(0.28, 0.75, 0)).addScaledVector(n, 0.35);
+      sim.drive(1, up, n, 0.35, 0);
+      sim.tone = 1;
+      sim.tremble = 0;
+      puff(toWorld(day.finish, 0.05), n, 40, 1.1);
+      sfx.topout();
+      useClimb.setState({ status: 'topped', label: 'Topped out!' });
+    } else {
+      // Let go of everything. Physics does the rest.
+      sim.ends.forEach((e) => (e.mode = 'free'));
+      sim.tone = 0;
+      sim.tremble = 0;
+      r.limp = true;
+      sim.impulse(new THREE.Vector3(0, 0.4, 1.4), STEP);
+      sfx.fail();
+      useClimb.setState({ status: 'fell', label: 'Off!' });
+    }
   };
 
   useFrame((_, dt) => {
     if (!rig.current) return;
-    const c = clock.current;
-    if (!playback || !timeline) {
+    if (!playback) {
+      run.current = null;
+      climberFocus.active = false;
       rig.current.apply(standingPose(day.wall));
       return;
     }
-    if (c.run !== playback.run) {
-      c.run = playback.run;
-      c.t = 0;
-      c.finished = false;
+    let r = run.current;
+    if (!r || r.id !== playback.run) {
+      const fresh = start(playback);
+      r = fresh ? { ...fresh, id: playback.run } : null;
+      run.current = r ?? { id: playback.run } as Run & { id: number };
+      shrug.current = 0;
     }
-    c.t += Math.min(dt, 0.05);
-    let t = c.t;
-    let pose: Pose | null = null;
-    for (const f of timeline.frames) {
-      if (t <= f.duration) {
-        const k = ease(t / f.duration);
-        const lift = f.limb >= 0 ? Math.sin(Math.PI * k) * (f.dynamic ? 0.18 : 0.08) : 0;
-        pose = poseAt(lerpContacts(f.from, f.to, k), f.limb, lift);
-        break;
+    if (!r || !r.sim) {
+      // No valid start: stand on the pad a moment, then hand control back.
+      rig.current.apply(standingPose(day.wall));
+      shrug.current += dt;
+      if (shrug.current > 1.6 && shrug.current - dt <= 1.6) useGame.getState().climbFinished();
+      return;
+    }
+    r.acc += Math.min(dt, 0.05);
+    const { sim, timeline } = r;
+    while (r.acc >= STEP) {
+      r.acc -= STEP;
+      r.t += STEP;
+      // Which keyframe are we in?
+      let t = r.t;
+      let idx = -1;
+      for (let i = 0; i < timeline.frames.length; i++) {
+        if (t <= timeline.frames[i].duration) {
+          idx = i;
+          break;
+        }
+        t -= timeline.frames[i].duration;
       }
-      t -= f.duration;
+      if (idx >= 0 && idx !== r.frame) {
+        r.frame = idx;
+        enterFrame(r, timeline.frames[idx]);
+      } else if (idx < 0 && !r.ended) {
+        r.ended = true;
+        endRun(r);
+      }
+      for (let i = r.arrivals.length - 1; i >= 0; i--) {
+        const a = r.arrivals[i];
+        if (r.t < a.at) continue;
+        r.arrivals.splice(i, 1);
+        const hold = r.holds[a.hold];
+        const p = sim.pos[[J.handL, J.handR, J.footL, J.footR][a.limb]];
+        if (a.limb < 2) {
+          sfx.grab(a.strain);
+          if (hold) {
+            chalkHold(hold.id);
+            puff(p, frameAt(frames, hold.v).normal, 6 + Math.round(a.strain * 8), 0.35);
+          }
+        } else sfx.foot();
+      }
+      sim.step(STEP, r.limp ? null : postureFor(sim));
     }
-    if (!pose) {
-      if (timeline.ending === 'top') {
-        const last = timeline.frames[timeline.frames.length - 1];
-        pose = poseAt(last.to, -1, 0);
-      } else if (timeline.ending === 'fall') {
-        const last = timeline.frames[timeline.frames.length - 1];
-        pose = fall(poseAt(last.to, -1, 0), t);
-      } else {
-        pose = standingPose(day.wall);
-        const shrug = Math.sin(Math.min(t, 1) * Math.PI) * 0.06;
-        pose.shoulders.forEach((s) => (s.y += shrug));
-        pose.hands.forEach((h) => (h.x += h.x > pose!.hip.x ? 0.1 * shrug * 10 : -0.1 * shrug * 10));
+    // Thuds when the body hits the pad.
+    if (sim.impacts.length) {
+      const v = Math.max(...sim.impacts);
+      sim.impacts.length = 0;
+      if (r.t - r.lastThud > 0.12 && v > 0.03) {
+        r.lastThud = r.t;
+        sfx.thud(v);
+        puff(sim.pos[J.pelvis].clone().setY(0.32), new THREE.Vector3(0, 1, 0), 10, 1.2);
       }
     }
-    rig.current.apply(pose);
-    if (!c.finished && c.t >= timeline.total) {
-      c.finished = true;
+    climberFocus.pos.copy(sim.pos[J.chest]);
+    climberFocus.active = true;
+    rig.current.apply(arrayToPose(sim.pos));
+    if (!r.finished && r.t >= timeline.total) {
+      r.finished = true;
+      useClimb.setState({ status: 'idle' });
       useGame.getState().climbFinished();
     }
   });
 
   return <Rig ref={rig} />;
-}
-
-/** Peel off the wall: rotate backward around the hips and drop onto the pad. */
-function fall(p: Pose, t: number): Pose {
-  const g = 9.8;
-  const drop = 0.5 * g * t * t;
-  const back = Math.min(1, t * 1.6);
-  const angle = back * (Math.PI / 2.2);
-  const pivot = p.hip.clone();
-  const all = [p.hip, p.chest, p.head, ...p.shoulders, ...p.elbows, ...p.hands, ...p.pelvis, ...p.knees, ...p.feet];
-  const q = new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), angle);
-  const floorHip = PAD_TOP + 0.14;
-  const dy = Math.min(drop, pivot.y - floorHip);
-  for (const v of all) {
-    v.sub(pivot).applyQuaternion(q).add(pivot);
-    v.y -= dy;
-    v.z += back * 0.5;
-    v.y = Math.max(PAD_TOP + 0.05, v.y);
-  }
-  return p;
 }
 
 // ---------------------------------------------------------------- rig meshes

@@ -631,6 +631,91 @@ button {
   }
 }
 
+/* ---------------------------------------------------------------- beta + climb */
+
+.beta-tag {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 2px 6px 2px 5px;
+  border-radius: 999px;
+  color: #fff;
+  font: 500 11px/1.2 var(--mono);
+  box-shadow: 0 1px 3px rgba(30, 25, 15, 0.3);
+  white-space: nowrap;
+  animation: pop 0.25s ease-out;
+}
+.beta-tag .h {
+  opacity: 0.8;
+  font-size: 9.5px;
+}
+.beta-tag.crux {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+}
+.beta-tag.now {
+  transform: scale(1.25);
+}
+.beta-tag .crux-label {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  background: var(--accent);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@keyframes pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+.ticker {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 260px;
+  padding: 10px 14px 12px;
+  text-align: center;
+}
+.ticker .row1 {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.ticker .label {
+  margin: 4px 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.ticker.topped .label {
+  color: var(--ok);
+}
+.ticker.fell .label {
+  color: var(--bad);
+}
+.strain {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(60, 55, 45, 0.1);
+  overflow: hidden;
+}
+.strain span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease, background 0.3s;
+}
+
 /* ---------------------------------------------------------------- practice */
 
 .field {
