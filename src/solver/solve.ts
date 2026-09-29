@@ -60,7 +60,7 @@ export function solve(
   if (!bottleneck.goal) {
     return {
       ok: false,
-      reason: 'unreachable',
+      reason: bottleneck.truncated ? 'too-complex' : 'unreachable',
       message: bottleneck.truncated
         ? 'Route too complex to evaluate — try fewer holds.'
         : 'The climber can’t reach the finish from here.',

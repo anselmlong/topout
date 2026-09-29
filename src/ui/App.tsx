@@ -17,6 +17,10 @@ export function App() {
     load().then(() => {
       if (!seenHelp()) useGame.getState().setModal('help');
     });
+    // A route link opened in an already-open tab only changes the hash.
+    const onHash = () => location.hash.includes('r=') && load();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, [load]);
 
   useEffect(() => {
@@ -36,7 +40,11 @@ export function App() {
       } else return;
       e.preventDefault();
     };
-    const onUp = () => useGame.getState().endDrag();
+    const onUp = () => {
+      const s = useGame.getState();
+      s.endDrag();
+      if (s.trayDrag) useGame.setState({ trayDrag: false });
+    };
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerup', onUp);
     return () => {

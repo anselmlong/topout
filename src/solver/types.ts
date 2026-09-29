@@ -87,7 +87,7 @@ export type SolveResult =
     }
   | {
       ok: false;
-      reason: 'no-start' | 'unreachable';
+      reason: 'no-start' | 'unreachable' | 'too-complex';
       message: string;
       /** Deepest stance reached, so the climber can fall from somewhere sensible. */
       highPoint?: Stance;

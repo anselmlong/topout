@@ -74,7 +74,7 @@ function CameraRig({ wall }: { wall: Wall }) {
     const vfov = (cam.fov * Math.PI) / 180;
     const aspect = size.width / size.height;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
-    const fitH = (b.height * 0.5 + 0.35) / Math.tan(vfov / 2);
+    const fitH = (b.height * 0.5 + 0.35 + b.depth * 0.15) / Math.tan(vfov / 2);
     const fitW = (wall.width / 200 + 0.3) / Math.tan(hfov / 2);
     const d = Math.max(fitH, fitW);
     cam.position.set(0.0, target.y + 0.25, target.z + d);
@@ -167,6 +167,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
           if (s.draggingId) return s.endDrag();
           const d = down.current;
           down.current = null;
+          if (!d && s.trayDrag && s.armed) return s.commit();
           if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
           if (s.armed) s.commit();
           else s.select(null);

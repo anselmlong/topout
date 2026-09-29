@@ -34,6 +34,8 @@ interface GameState {
   armed: { type: HoldType; size: HoldSize } | null;
   selectedId: string | null;
   draggingId: string | null;
+  /** A hold is being dragged straight out of the tray (mouse). */
+  trayDrag: boolean;
   ghost: Ghost | null;
   ghostRot: number;
   lookAround: boolean;
@@ -74,7 +76,9 @@ export const remaining = (day: Day, placed: Hold[], type: HoldType, size: HoldSi
 export const useGame = create<GameState>((set, get) => {
   const persist = () => {
     const { day, placed, tests, done, viewing } = get();
-    if (day && !viewing) saveDay(day.number, { placed, tests, done });
+    // Drop the move lists (~15KB/test): only the grade is needed after a reload.
+    const slim = tests.map((t) => (t.result.ok ? { ...t, result: { ...t.result, moves: [] } } : t));
+    if (day && !viewing) saveDay(day.number, { placed, tests: slim, done });
   };
   const fixed = () => {
     const d = get().day!;
@@ -97,6 +101,7 @@ export const useGame = create<GameState>((set, get) => {
     armed: null,
     selectedId: null,
     draggingId: null,
+    trayDrag: false,
     ghost: null,
     ghostRot: 0,
     lookAround: false,
@@ -119,7 +124,7 @@ export const useGame = create<GameState>((set, get) => {
         day = generateDay(n);
       }
       const save = loadDay(day.number);
-      nextId = (save?.placed.length ?? 0) + 1 + Date.now() % 1000;
+      nextId = 1 + Math.max(0, ...(save?.placed ?? []).map((h) => Number(h.id.replace(/\D/g, '')) || 0));
       set({
         status: 'ready',
         day,
@@ -216,6 +221,12 @@ export const useGame = create<GameState>((set, get) => {
       set({ phase: 'solving', armed: null, selectedId: null, ghost: null });
       const holds = s.placed.map((h) => ({ ...h }));
       const result = await solveInWorker(s.day!, holds);
+      if (!result.ok && result.reason === 'too-complex') {
+        // Our limitation, not the player's: don't spend a test on it.
+        set({ phase: 'setting' });
+        get().showToast('Too many holds for the climber to read. Try trimming a few.');
+        return;
+      }
       const test: TestRun = {
         holds,
         result,
@@ -245,7 +256,9 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       if (!s.day || s.done || !s.tests.length) return;
       const best = bestTest(s.tests, s.day.targetGrade)!;
-      recordResult(s.day.number, best.verdict, best.verdict === 'fail' ? null : best.holdCount - s.day.par);
+      // Only today's puzzle counts toward stats and streaks; ?day= replays don't.
+      if (s.day.number === dayNumber(new Date()))
+        recordResult(s.day.number, best.verdict, best.verdict === 'fail' ? null : best.holdCount - s.day.par);
       set({ done: true, phase: 'setting', modal: 'stats', playback: null });
       persist();
     },

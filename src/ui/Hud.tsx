@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
 import { HOLD_COLOR, HOLD_HINT, HOLD_NAME } from '../scene/palette';
@@ -116,6 +117,7 @@ export function Controls() {
 }
 
 export function Tray() {
+  const wasActive = useRef(false);
   const day = useGame((s) => s.day)!;
   const placed = useGame((s) => s.placed);
   const armed = useGame((s) => s.armed);
@@ -135,7 +137,17 @@ export function Tray() {
               <button
                 className={`slot ${active ? 'active' : ''}`}
                 disabled={locked || left <= 0}
-                onClick={() => arm(active ? null : { type: slot.type, size: slot.size })}
+                onPointerDown={(e) => {
+                  // Press-and-drag onto the wall places directly; a plain click toggles.
+                  wasActive.current = active;
+                  if (e.pointerType !== 'mouse') return;
+                  if (!active) arm({ type: slot.type, size: slot.size });
+                  useGame.setState({ trayDrag: true });
+                }}
+                onClick={() => {
+                  if (wasActive.current) arm(null);
+                  else if (!active) arm({ type: slot.type, size: slot.size });
+                }}
                 title={HOLD_HINT[slot.type]}
               >
                 <HoldIcon type={slot.type} size={slot.size} />
