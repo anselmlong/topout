@@ -33,14 +33,15 @@ const onTarget = (g: number | null, target: number) => g !== null && Math.round(
 
 function randomRoute(day: DayDraft, r: Rng): Hold[] {
   const pool = day.tray.flatMap((s: TraySlot) => Array.from({ length: s.count }, () => ({ type: s.type, size: s.size })));
-  const hands = pool.filter((p) => p.type !== 'foot');
-  const feet = pool.filter((p) => p.type === 'foot');
+  const isFoot = (t: HoldType) => t === 'foot' || t === 'jib';
+  const hands = pool.filter((p) => !isFoot(p.type));
+  const feet = pool.filter((p) => isFoot(p.type));
   const take = <T>(xs: T[]) => xs.splice(Math.floor(r.next() * xs.length), 1)[0];
 
   const su = day.start.reduce((s, h) => s + h.u, 0) / day.start.length;
   const sv = day.start.reduce((s, h) => s + h.v, 0) / day.start.length;
   const { u: fu, v: fv } = day.finish;
-  const k = r.int(1, Math.min(hands.length, 7));
+  const k = r.int(2, Math.min(hands.length, 11));
   const placed: Hold[] = [];
   const all = () => [...day.start, day.finish, ...placed];
   const tryPlace = (h: Hold) => {
@@ -68,7 +69,7 @@ function randomRoute(day: DayDraft, r: Rng): Hold[] {
     const spec = take(feet);
     tryPlace({
       id: `f${i}`,
-      type: 'foot',
+      type: spec.type as HoldType,
       size: spec.size,
       u: anchor.u + r.range(-30, 30),
       v: anchor.v - r.range(85, 135),

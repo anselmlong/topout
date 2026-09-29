@@ -2,7 +2,7 @@
 // u = cm from the wall's left edge, v = cm along the wall surface from the floor.
 // 3D positions are derived (see src/scene/wallGeometry.ts).
 
-export type HoldType = 'jug' | 'crimp' | 'sloper' | 'pinch' | 'pocket' | 'foot';
+export type HoldType = 'jug' | 'crimp' | 'sloper' | 'pinch' | 'pocket' | 'edge' | 'foot' | 'jib';
 export type HoldSize = 's' | 'm' | 'l';
 
 export interface Hold {

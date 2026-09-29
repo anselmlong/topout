@@ -233,8 +233,10 @@ export const useGame = create<GameState>((set, get) => {
     rotate(delta) {
       const s = get();
       if (!editable()) return;
-      if (s.selectedId) {
-        set({ placed: s.placed.map((h) => (h.id === s.selectedId ? { ...h, rot: h.rot + delta } : h)), beta: null });
+      // Held hold first, then the selected one, then whatever the mouse is over.
+      const target = s.armed ? null : (s.selectedId ?? s.hoverHoldId);
+      if (target) {
+        set({ placed: s.placed.map((h) => (h.id === target ? { ...h, rot: h.rot + delta } : h)), beta: null });
         persist();
       } else if (s.armed) {
         set({ ghostRot: s.ghostRot + delta });
@@ -337,3 +339,6 @@ export const useGame = create<GameState>((set, get) => {
     },
   };
 });
+
+// Dev-only handle for headless tests.
+if (import.meta.env.DEV) (globalThis as unknown as { __game: typeof useGame }).__game = useGame;

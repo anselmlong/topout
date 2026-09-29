@@ -8,6 +8,7 @@
 // Everything is deterministic: same holds in, same beta out.
 import {
   BODY,
+  PAD,
   SMEAR_QUALITY,
   angleAt,
   footQuality,
@@ -129,8 +130,10 @@ class Context {
     const lowV = Math.min(lh.v, rh.v);
     const foot = (val: number, side: -1 | 1): Point => {
       if (val >= 0) return { u: h[val].u, v: h[val].v };
-      if (val === SMEAR) return { u: midU + side * 18, v: Math.max(8, lowV - 118) };
-      return { u: midU + side * 12, v: Math.max(0, lowV - 150) };
+      // Low on the wall, smear higher / tuck the legs rather than touch the mat.
+      // If that bunches the body up too much, valid() calls it a dab (hip check).
+      if (val === SMEAR) return { u: midU + side * 18, v: Math.max(lowV - 118, PAD + 12) };
+      return { u: midU + side * 12, v: Math.max(lowV - 150, PAD + 8) };
     };
     return [
       { u: lh.u, v: lh.v },
@@ -160,6 +163,7 @@ class Context {
     const loV = Math.min(p[0].v, p[1].v);
     for (const f of [2, 3] as const) {
       const val = l[f];
+      // Dab: a dangling foot or a smear that reaches the mat isn't climbing.
       if (val === OFF) continue;
       if (val === SMEAR) {
         if (this.opts.noSmear) return false;
@@ -167,6 +171,8 @@ class Context {
         continue;
       }
       const fp = p[f];
+      // A foothold under the crash pad is the mat: that's a dab.
+      if (fp.v < PAD) return false;
       if (fp.v > loV + 15 || fp.v > hiV - 50) return false;
       for (const hp of [p[0], p[1]]) {
         const d = dist(fp, hp);
@@ -174,6 +180,14 @@ class Context {
       }
     }
     if (l[2] >= 0 && l[3] >= 0 && dist(p[2], p[3]) > BODY.stride) return false;
+    // Dab: hips sitting on the mat. Mirrors the pose the climber is drawn in.
+    const on = [2, 3].filter((f) => l[f] !== OFF);
+    const handsV = (p[0].v + p[1].v) / 2;
+    const feetV = on.length ? on.reduce((s, f) => s + p[f].v, 0) / on.length : handsV - 150;
+    const chestDrop = Math.max(12, Math.min(42, handsV - feetV - 75));
+    if (handsV - chestDrop - 50 < PAD + 15) return false;
+    // A smear or tucked foot needs room between it and the hands.
+    for (const f of [2, 3]) if (l[f] < 0 && handsV - p[f].v < 75) return false;
     // Campusing (both feet off) only makes sense on real overhangs.
     if (l[2] === OFF && l[3] === OFF && angleAt(this.wall, loV) < 10) return false;
     return true;
@@ -225,7 +239,7 @@ class Context {
       for (const f of onFeet) ext = Math.max(ext, dist(p[f], target) / BODY.reach);
       if (ext > BODY.dynoLimit) return null;
       const dynamic = ext > 1;
-      const r = ext <= 0.8 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.8) / 0.2;
+      const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
 
       const nc = { u: (np[0].u + np[1].u + feetMid.u) / 3, v: (np[0].v + np[1].v + feetMid.v * 2) / 4 };
       const gt = handGrip(this.holds[to], nc, this.wall);
@@ -241,7 +255,7 @@ class Context {
       // Crossing through is awkward: allowed, but it costs.
       const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
       const d =
-        hold * (0.85 + 0.35 * travel + 0.6 * r + 0.3 * resmear + 0.5 * cross) +
+        hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) +
         catchHard +
         (dynamic ? 0.4 : 0);
       return { d, dynamic };

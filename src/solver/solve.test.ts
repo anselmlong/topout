@@ -17,7 +17,8 @@ function ladder(type: HoldType, spacing: number, top = 380, rot = 0): Hold[] {
   for (let v = 150 + spacing; v < top - spacing / 2; v += spacing, i++) {
     holds.push({ id: `h${i}`, type, size: 'm', u: i % 2 ? 225 : 175, v, rot });
   }
-  for (let v = 20, j = 0; v < top - 110; v += 35, j++) {
+  // Feet start just above the crash pad (v = 30).
+  for (let v = 42, j = 0; v < top - 110; v += 35, j++) {
     holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 215 : 185, v, rot: 0 });
   }
   return holds;

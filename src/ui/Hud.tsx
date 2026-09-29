@@ -18,7 +18,9 @@ export function HoldIcon({ type, size = 'm' }: { type: HoldType; size?: HoldSize
     sloper: 'M3 17c1-7 5-11 9-11s8 4 9 11z',
     pinch: 'M10 4h4l1 16h-6z',
     pocket: 'M5 12a7 7 0 1 0 14 0a7 7 0 1 0-14 0zm4.5-1.5a2.5 2 0 1 0 5 0a2.5 2 0 1 0-5 0z',
+    edge: 'M3 11h18v3l-2 2H5l-2-2z',
     foot: 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0z',
+    jib: 'M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0z',
   };
   return (
     <svg className="hold-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -130,7 +132,7 @@ export function Controls() {
       ? `Click the wall to place · Q / E or scroll to rotate · Esc to cancel`
       : selected
         ? 'Drag to move · Q / E to rotate · Delete to remove'
-        : 'Pick a hold from the tray · drag to look around · Shift-drag pans · scroll zooms';
+        : 'Pick a hold from the tray · Q / E rotates the hold under the mouse · drag to look around · scroll zooms';
   return <p className="controls">{text}</p>;
 }
 
@@ -174,7 +176,7 @@ export function Tray() {
                 <HoldIcon type={slot.type} size={slot.size} />
                 <span className="slot-name">
                   {HOLD_NAME[slot.type]}
-                  {slot.type !== 'foot' && <span className="size">{SIZE_LABEL[slot.size]}</span>}
+                  {slot.type !== 'foot' && slot.type !== 'jib' && <span className="size">{SIZE_LABEL[slot.size]}</span>}
                 </span>
                 <span className="count mono">
                   {left}

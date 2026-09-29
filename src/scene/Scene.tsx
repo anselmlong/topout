@@ -8,7 +8,7 @@ import type { Day, Hold, Wall } from '../solver/types';
 import { climberFocus, useClimb } from '../state/climb';
 import { useGame } from '../state/store';
 import { Climber } from './Climber';
-import { holdGeometry } from './holdGeometry';
+import { holdGeometry, holdMesh } from './holdGeometry';
 import { HOLD_COLOR, PALETTE } from './palette';
 import { BetaOverlay } from './BetaOverlay';
 import { ChalkDust } from './Chalk';
@@ -303,7 +303,7 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
   const startDrag = useGame((s) => s.startDrag);
   const remove = useGame((s) => s.remove);
   const rightDown = useRef<{ x: number; y: number } | null>(null);
-  const geometry = holdGeometry(hold.type, hold.size, variantOf(hold.id));
+  const { geometry, bolt } = holdMesh(hold.type, hold.size, variantOf(hold.id));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot);
   // Used holds get chalky.
   const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
@@ -345,8 +345,21 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
         onPointerOut={() => useGame.getState().hoverHoldId === hold.id && useGame.setState({ hoverHoldId: null })}
         raycast={fixed ? () => null : undefined}
       >
-        <meshStandardMaterial color={color} flatShading roughness={0.85 + chalk * 0.02} transparent={dragging} opacity={dragging ? 0.75 : 1} />
+        <meshStandardMaterial
+          vertexColors
+          color={color}
+          flatShading
+          roughness={0.85 + chalk * 0.02}
+          transparent={dragging}
+          opacity={dragging ? 0.75 : 1}
+        />
       </mesh>
+      {bolt && (
+        <mesh position={bolt} rotation={[Math.PI / 2, 0, 0]} raycast={() => null}>
+          <cylinderGeometry args={[0.009, 0.009, 0.004, 6]} />
+          <meshStandardMaterial color="#5b5d61" metalness={0.6} roughness={0.4} flatShading />
+        </mesh>
+      )}
       {selected && <Selection hold={hold} />}
     </group>
   );

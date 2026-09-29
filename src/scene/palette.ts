@@ -17,13 +17,16 @@ export const PALETTE = {
   climberDark: '#8a8174',
 };
 
+/** Gym-plastic colours: bright enough to read like real holds, a touch softened for the scene. */
 export const HOLD_COLOR: Record<HoldType, string> = {
-  jug: '#d6c59c',
-  crimp: '#7b8a98',
-  sloper: '#8e9f88',
-  pinch: '#b88872',
-  pocket: '#9a89a0',
-  foot: '#4b4a47',
+  jug: '#e2b33c',
+  edge: '#3f7cc0',
+  crimp: '#d4553f',
+  sloper: '#4fa878',
+  pinch: '#8f5cc0',
+  pocket: '#e07aa6',
+  foot: '#2f3034',
+  jib: '#8a8e95',
 };
 
 export const HOLD_NAME: Record<HoldType, string> = {
@@ -32,14 +35,18 @@ export const HOLD_NAME: Record<HoldType, string> = {
   sloper: 'Sloper',
   pinch: 'Pinch',
   pocket: 'Pocket',
+  edge: 'Edge',
   foot: 'Foot chip',
+  jib: 'Jib',
 };
 
 export const HOLD_HINT: Record<HoldType, string> = {
   jug: 'Deep and positive. Forgiving from most angles.',
   crimp: 'Thin edge. Needs a straight pull.',
   sloper: 'Rounded. Fine on slab, awful when steep.',
-  pinch: 'Squeeze it. Works as a sidepull.',
+  pinch: 'Squeeze it. Pull along its length; weak across it.',
   pocket: 'Finger hole. Solid if pulled in line.',
+  edge: 'Flat ledge. Honest, fairly forgiving.',
   foot: 'Feet only. Hands can’t use it.',
+  jib: 'Tiny foot nub. Better than nothing.',
 };

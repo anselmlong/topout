@@ -88,16 +88,18 @@ const STYLE_BY_WEEKDAY: WallStyle[][] = [
 function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
   // Easier days and steeper walls get kinder holds.
   const steep = style === 'steep' || style === 'kicker' || style === 'headwall';
-  const weights: Record<Exclude<HoldType, 'foot'>, number> = {
-    jug: Math.max(0, 5 - grade) + (steep ? 2 : 0),
-    crimp: 1 + grade * 0.6 + (style === 'vertical' || style === 'slab' ? 1 : 0),
+  // Jugs are a treat, not the default: a couple on easy or steep days, few otherwise.
+  const weights: Record<Exclude<HoldType, 'foot' | 'jib'>, number> = {
+    jug: Math.max(0.15, 1.6 - grade * 0.4) + (steep ? 0.4 : 0),
+    edge: 2 + (steep ? 0.6 : 0),
+    crimp: 1 + grade * 0.5 + (style === 'vertical' || style === 'slab' ? 1 : 0),
     sloper: style === 'slab' ? 2.5 : steep ? 0.6 : 1.2,
-    pinch: 1 + grade * 0.3,
+    pinch: 1.2 + grade * 0.3,
     pocket: 1.2,
   };
   if (twist === 'no-jugs') weights.jug = 0;
 
-  const handCount = r.int(9, 12);
+  const handCount = r.int(12, 15);
   const counts = new Map<string, TraySlot>();
   const types = Object.keys(weights) as (keyof typeof weights)[];
   const total = types.reduce((s, t) => s + weights[t], 0);
@@ -117,13 +119,14 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
     slot.count++;
     counts.set(key, slot);
   }
-  const feet = twist === 'no-smear' ? r.int(10, 13) : r.int(6, 9);
-  const order: HoldType[] = ['jug', 'pocket', 'pinch', 'sloper', 'crimp'];
+  const feet = twist === 'no-smear' ? r.int(8, 10) : r.int(5, 7);
+  const jibs = r.int(3, 5);
+  const order: HoldType[] = ['jug', 'edge', 'pocket', 'pinch', 'sloper', 'crimp'];
   const sizes: HoldSize[] = ['l', 'm', 's'];
   const slots = [...counts.values()].sort(
     (a, b) => order.indexOf(a.type) - order.indexOf(b.type) || sizes.indexOf(a.size) - sizes.indexOf(b.size),
   );
-  return [...slots, { type: 'foot', size: 'm', count: feet }];
+  return [...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
 }
 
 /** Angle range per style for practice (for two-panel walls, the steep top panel). */
@@ -150,8 +153,9 @@ export interface DayOverrides {
 
 function practiceTray(twist?: Twist): TraySlot[] {
   const slots: TraySlot[] = [
-    { type: 'jug', size: 'l', count: 2 },
     { type: 'jug', size: 'm', count: 2 },
+    { type: 'edge', size: 'l', count: 2 },
+    { type: 'edge', size: 'm', count: 3 },
     { type: 'pocket', size: 'm', count: 2 },
     { type: 'pinch', size: 'm', count: 2 },
     { type: 'pinch', size: 's', count: 1 },
@@ -159,7 +163,8 @@ function practiceTray(twist?: Twist): TraySlot[] {
     { type: 'crimp', size: 'l', count: 2 },
     { type: 'crimp', size: 'm', count: 3 },
     { type: 'crimp', size: 's', count: 2 },
-    { type: 'foot', size: 'm', count: 12 },
+    { type: 'foot', size: 'm', count: 10 },
+    { type: 'jib', size: 'm', count: 6 },
   ];
   return twist === 'no-jugs' ? slots.filter((s) => s.type !== 'jug') : slots;
 }

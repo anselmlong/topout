@@ -2,6 +2,9 @@
 // none are calibrated against real climbing data yet.
 import type { Hold, HoldSize, HoldType, Wall } from './types';
 
+/** The crash pad covers the bottom of the wall: anything below this (cm) is on the mat. */
+export const PAD = 30;
+
 export const BODY = {
   height: 175,
   /** Arm span (ape index 1.0). Max hand-to-hand distance on static moves. */
@@ -31,12 +34,15 @@ interface GripSpec {
 }
 
 export const GRIP: Record<HoldType, GripSpec> = {
-  jug: { grip: 1.0, tolerance: 0.8, steepLoss: 0, hand: true, foot: 0.95 },
-  pocket: { grip: 0.66, tolerance: 0.45, steepLoss: 0.1, hand: true, foot: 0.7 },
-  pinch: { grip: 0.6, tolerance: 1.0, steepLoss: 0.15, hand: true, foot: 0.65 },
+  jug: { grip: 0.95, tolerance: 0.7, steepLoss: 0, hand: true, foot: 0.95 },
+  edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.12, hand: true, foot: 0.85 },
+  pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7 },
+  // Pinches squeeze: good pulled along their axis, poor across it.
+  pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.12, hand: true, foot: 0.6 },
   sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.5, hand: true, foot: 0.6 },
   crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.1, hand: true, foot: 0.75 },
   foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7 },
+  jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5 },
 };
 
 export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15 };
@@ -107,7 +113,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
 
 /** Map crux difficulty + sustained-ness to a continuous V grade. */
 export function toGrade(crux: number, hardMoves: number): number {
-  const base = (crux - 0.3) * 5.5;
+  const base = (crux - 0.41) * 5.5;
   const density = Math.min(1, Math.max(0, hardMoves - 1) * 0.1);
   return Math.max(0, Math.min(14, base + density));
 }

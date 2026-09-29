@@ -16,7 +16,8 @@ export function shareText(day: Day, tests: TestRun[]): string {
 }
 
 // Compact route encoding for share links: day|type size u v rotDeg;...
-const TYPES: HoldType[] = ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'foot'];
+// Append only: indices are baked into shared links.
+const TYPES: HoldType[] = ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'edge', 'jib'];
 const SIZES: HoldSize[] = ['s', 'm', 'l'];
 
 export function encodeRoute(day: number, holds: Hold[]): string {

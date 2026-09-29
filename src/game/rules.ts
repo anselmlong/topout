@@ -1,14 +1,17 @@
 // Placement and scoring rules shared by the game UI and the curation script.
-import { wallHeight } from '../solver/model';
+import { PAD, wallHeight } from '../solver/model';
 import type { Hold, HoldSize, HoldType, SolveResult, Wall } from '../solver/types';
 
 const BASE_RADIUS: Record<HoldType, number> = {
+  // Roughly the drawn half-width (see holdGeometry SIZE); keep the two in step.
   jug: 9,
-  crimp: 6,
+  crimp: 7,
   sloper: 11,
-  pinch: 6,
+  pinch: 8,
   pocket: 7,
+  edge: 9,
   foot: 3.5,
+  jib: 2.5,
 };
 const SIZE_SCALE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25 };
 
@@ -21,7 +24,8 @@ const EDGE = 8;
 export function canPlace(wall: Wall, others: Hold[], h: Hold): boolean {
   const r = holdRadius(h);
   if (h.u < EDGE + r || h.u > wall.width - EDGE - r) return false;
-  if (h.v < EDGE + r || h.v > wallHeight(wall) - EDGE - r) return false;
+  // Nothing below the crash pad.
+  if (h.v < PAD + 2 + r || h.v > wallHeight(wall) - EDGE - r) return false;
   for (const o of others) {
     if (o.id === h.id) continue;
     if (Math.hypot(o.u - h.u, o.v - h.v) < r + holdRadius(o) + MIN_GAP) return false;
