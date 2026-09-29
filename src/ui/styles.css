@@ -678,7 +678,7 @@ button {
 
 .ticker {
   position: absolute;
-  top: 60px;
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
   min-width: 260px;
@@ -793,6 +793,22 @@ a.icon-btn {
   .icon-btn .label {
     display: none;
   }
+  .brand {
+    min-width: 0;
+    flex-direction: column;
+    gap: 0;
+  }
+  .meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-size: 11px;
+  }
+  .topbar-actions {
+    gap: 4px;
+    flex-shrink: 0;
+  }
   .icon-btn {
     padding: 0 8px;
   }
@@ -878,6 +894,19 @@ a.icon-btn {
   .selection-bar {
     bottom: auto;
     top: 120px;
+  }
+  .ticker {
+    left: 12px;
+    right: 12px;
+    transform: none;
+    top: 116px;
+    bottom: auto;
+    min-width: 0;
+    padding: 8px 12px 10px;
+  }
+  .ticker .label {
+    font-size: 14px;
+    margin: 2px 0 6px;
   }
   .viewing {
     left: 12px;

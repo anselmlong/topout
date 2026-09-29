@@ -24,6 +24,15 @@ fingers to orbit/zoom.
 tray and unlimited tests. The wall is encoded in the URL
 (`?practice=style.angle.grade.twist.seed`), so it survives reloads and can be shared.
 
+## The climber
+
+The solver decides everything that matters (the beta, the grade, pass/fail).
+The climber on screen is a Verlet ragdoll (`src/scene/ragdoll.ts`): hands and
+feet are driven along the solver's moves and pinned to holds, while the rest of
+the body is simulated with gravity, soft "muscle" springs toward an IK pose, and
+wall/pad collisions. Feet cut loose on campus moves and steep dynos, hard moves
+tremble, the crux plays in slow motion, and failed routes let go and fall.
+
 ## Layout
 
 | Path | What |

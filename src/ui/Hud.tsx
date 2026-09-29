@@ -141,6 +141,9 @@ export function Tray() {
   const armed = useGame((s) => s.armed);
   const arm = useGame((s) => s.arm);
   const locked = useGame((s) => s.done || !!s.viewing || s.phase !== 'setting');
+  const viewing = useGame((s) => !!s.viewing);
+  // Someone else's route is on the wall: the tray has nothing to offer.
+  if (viewing) return null;
   return (
     <section className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray">
       <div className="eyebrow">

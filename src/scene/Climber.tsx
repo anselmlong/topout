@@ -62,11 +62,12 @@ function poseFrom(
   const span = handsMid.clone().sub(feetMid);
   const handsToFeet = span.length();
   const bodyDir = handsToFeet > 1e-3 ? span.normalize() : V(0, 1, 0);
-  // Hang long-armed: chest sits most of an arm's length below the hands.
-  const chest = handsMid.clone().addScaledVector(bodyDir, -0.42).addScaledVector(normal, 0.14);
+  // Hang long-armed when there's room; bend the arms (chest up to the hands) on high steps.
+  const chestDrop = Math.max(0.12, Math.min(0.42, handsToFeet - 0.75));
   // Bunched up (feet close to hands): sit the hips back off the wall instead of squashing.
   const lean = Math.max(0, Math.min(1, (1.3 - handsToFeet) / 0.6));
-  const torsoDir = bodyDir.clone().addScaledVector(normal, -0.9 * lean).normalize();
+  const chest = handsMid.clone().addScaledVector(bodyDir, -chestDrop).addScaledVector(normal, 0.14 + 0.12 * lean);
+  const torsoDir = bodyDir.clone().addScaledVector(normal, -0.7 * lean).normalize();
   const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
   // Climber's right. We see their back, so this is +x on screen.
   const lateral = V().crossVectors(torsoDir, normal).normalize();
@@ -122,6 +123,30 @@ function standingPose(wall: Wall): Pose {
     knees: [V(x - 0.12, g + 0.44, z + 0.03), V(x + 0.12, g + 0.44, z + 0.03)],
     feet: [V(x - 0.13, g + 0.02, z), V(x + 0.13, g + 0.02, z)],
   };
+}
+
+/** Waiting on the pad: breathing, glancing at the wall, dipping into the chalk bucket. */
+function idlePose(wall: Wall, t: number): Pose {
+  const p = standingPose(wall);
+  const breathe = Math.sin(t * 1.9) * 0.008;
+  for (const v of [p.chest, p.head, ...p.shoulders, ...p.elbows, ...p.hands]) v.y += breathe;
+  p.head.x += Math.sin(t * 0.37) * 0.025;
+  p.head.z -= (Math.sin(t * 0.37) * 0.5 + 0.5) * 0.03;
+  // Chalk dip: ~1.4s out of every 7s, right hand goes to the bucket.
+  const cycle = t % 7;
+  if (cycle > 5.4) {
+    const k = Math.sin(((cycle - 5.4) / 1.6) * Math.PI);
+    const bucket = V(p.hip.x + 0.45, PAD_TOP + 0.62, 1.25);
+    const hand = p.hands[1].clone().lerp(bucket, k);
+    p.chest.x += 0.05 * k;
+    p.head.x += 0.07 * k;
+    p.head.y -= 0.05 * k;
+    const pole = V(0.4, -0.3, 0.6);
+    const arm = ik(p.shoulders[1], hand, ARM, pole);
+    p.elbows[1] = arm.joint;
+    p.hands[1] = arm.end;
+  }
+  return p;
 }
 
 type Contacts = { hands: [Point, Point]; feet: [Point | null, Point | null] };
@@ -248,6 +273,7 @@ export function Climber({ day }: { day: Day }) {
   const playback = useGame((s) => s.playback);
   const frames = useMemo(() => panelFrames(day.wall), [day.wall]);
   const run = useRef<(Run & { id: number }) | null>(null);
+  const idle = useRef({ t: 0, dipped: false });
   const shrug = useRef(0);
   const rig = useRef<RigHandle>(null);
 
@@ -317,7 +343,7 @@ export function Climber({ day }: { day: Day }) {
       useClimb.setState({
         move: f.move,
         strain: f.strain,
-        label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}`,
+        label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
       });
     }
   };
@@ -326,9 +352,8 @@ export function Climber({ day }: { day: Day }) {
     const { sim, timeline } = r;
     if (timeline.ending === 'top') {
       // Fist pump off the finish with the right hand, and a cloud of chalk.
-      const chest = sim.pos[J.chest];
       const n = frameAt(frames, day.finish.v).normal;
-      const up = chest.clone().add(new THREE.Vector3(0.28, 0.75, 0)).addScaledVector(n, 0.35);
+      const up = sim.pos[J.shoulderR].clone().add(new THREE.Vector3(0.3, 0.5, 0)).addScaledVector(n, 0.3);
       sim.drive(1, up, n, 0.35, 0);
       sim.tone = 1;
       sim.tremble = 0;
@@ -352,7 +377,14 @@ export function Climber({ day }: { day: Day }) {
     if (!playback) {
       run.current = null;
       climberFocus.active = false;
-      rig.current.apply(standingPose(day.wall));
+      const it = idle.current;
+      it.t += Math.min(dt, 0.05);
+      const cycle = it.t % 7;
+      if (cycle > 6.1 && !it.dipped) {
+        it.dipped = true;
+        puff(V(-day.wall.width / 200 - 0.1, PAD_TOP + 0.52, 1.25), V(0, 1, 0), 8, 0.6);
+      } else if (cycle < 6.1) it.dipped = false;
+      rig.current.apply(idlePose(day.wall, it.t));
       return;
     }
     let r = run.current;
@@ -369,8 +401,11 @@ export function Climber({ day }: { day: Day }) {
       if (shrug.current > 1.6 && shrug.current - dt <= 1.6) useGame.getState().climbFinished();
       return;
     }
-    r.acc += Math.min(dt, 0.05);
     const { sim, timeline } = r;
+    // Crux cam: the hardest move plays in slow motion.
+    const cur = r.frame >= 0 ? timeline.frames[r.frame] : null;
+    const slow = cur && cur.limb >= 0 && cur.strain >= 0.98 && timeline.ending === 'top' && !r.ended;
+    r.acc += Math.min(dt, 0.05) * (slow ? 0.45 : 1);
     while (r.acc >= STEP) {
       r.acc -= STEP;
       r.t += STEP;
@@ -414,6 +449,7 @@ export function Climber({ day }: { day: Day }) {
       if (r.t - r.lastThud > 0.12 && v > 0.03) {
         r.lastThud = r.t;
         sfx.thud(v);
+        climberFocus.shake = Math.min(0.05, v * 1.5);
         puff(sim.pos[J.pelvis].clone().setY(0.32), new THREE.Vector3(0, 1, 0), 10, 1.2);
       }
     }

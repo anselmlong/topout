@@ -30,4 +30,4 @@ export function chalkHold(id: string) {
 }
 
 /** Where the climber's chest is, for the camera to follow. Mutated in place. */
-export const climberFocus = { pos: new THREE.Vector3(), active: false };
+export const climberFocus = { pos: new THREE.Vector3(), active: false, shake: 0 };

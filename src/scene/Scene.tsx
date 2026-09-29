@@ -85,6 +85,7 @@ function CameraRig({ wall }: { wall: Wall }) {
   // Follow the climber up the wall during a playback, until the user takes the camera.
   const playRun = useGame((s) => s.playback?.run ?? 0);
   const userMoved = useRef(false);
+  const shakeOffset = useRef(new THREE.Vector3());
   useEffect(() => {
     userMoved.current = false;
   }, [playRun]);
@@ -97,7 +98,17 @@ function CameraRig({ wall }: { wall: Wall }) {
   }, []);
   useFrame(() => {
     const c = controls.current;
-    if (!c || userMoved.current) return;
+    if (!c) return;
+    // Landing shake: jolt the view, then let the next frame's jolt replace it.
+    camera.position.sub(shakeOffset.current);
+    shakeOffset.current.set(0, 0, 0);
+    if (climberFocus.shake > 0.001) {
+      const k = climberFocus.shake;
+      shakeOffset.current.set((Math.random() - 0.5) * k, (Math.random() - 0.5) * k, 0);
+      camera.position.add(shakeOffset.current);
+      climberFocus.shake *= 0.86;
+    }
+    if (userMoved.current) return;
     const b = wallBounds(wall);
     // Track the climber; once they're off the wall, drift back to the home framing.
     const want = climberFocus.active
