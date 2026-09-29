@@ -18,8 +18,8 @@ const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2) args.set(process.argv[i].replace(/^--/, ''), process.argv[i + 1]);
 const from = Number(args.get('from') ?? 1);
 const count = Number(args.get('days') ?? 90);
-const ATTEMPTS = Number(args.get('attempts') ?? 60);
-const MAX_VARIANTS = 6;
+const ATTEMPTS = Number(args.get('attempts') ?? 120);
+const MAX_VARIANTS = 12;
 const OUT = join(import.meta.dirname, '..', 'public', 'days');
 
 type DayDraft = ReturnType<typeof generateDay>;
