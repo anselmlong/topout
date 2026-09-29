@@ -66,7 +66,8 @@ function CameraRig({ wall }: { wall: Wall }) {
   const nonce = useGame((s) => s.viewNonce);
   // The wheel rotates the armed/selected hold; otherwise it zooms.
   const holdActive = useGame((s) => !!s.armed || !!s.selectedId);
-  const orbitKey = useGame((s) => s.orbitKey);
+  // Decided before the press: over a placed hold (or already dragging one), the mouse edits.
+  const editingHold = useGame((s) => !!s.hoverHoldId || !!s.draggingId);
   const sizeRef = useRef(size);
   sizeRef.current = size;
   const target = useMemo(() => {
@@ -102,11 +103,9 @@ function CameraRig({ wall }: { wall: Wall }) {
       minDistance={2.5}
       maxDistance={18}
       // Left button belongs to setting (unless Space is held); right orbits, middle pans.
-      mouseButtons={{
-        LEFT: orbitKey ? THREE.MOUSE.ROTATE : (null as unknown as THREE.MOUSE),
-        MIDDLE: THREE.MOUSE.PAN,
-        RIGHT: THREE.MOUSE.ROTATE,
-      }}
+      enabled={!editingHold}
+      // Left-drag orbits (Shift+left pans); a click without dragging still places/selects.
+      mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
       touches={{ ONE: null as unknown as THREE.TOUCH, TWO: THREE.TOUCH.DOLLY_ROTATE }}
     />
   );
@@ -195,7 +194,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
           const d = down.current;
           down.current = null;
           if (!d && s.trayDrag && s.armed) return s.commit();
-          if (!d || s.orbitKey || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
+          if (!d || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
           if (s.armed) s.commit();
           else s.select(null);
         }}
@@ -270,7 +269,7 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
             rightDown.current = { x: e.clientX, y: e.clientY };
             return;
           }
-          if (e.button !== 0 || useGame.getState().orbitKey) return;
+          if (e.button !== 0) return;
           // Don't stop propagation: the wall underneath keeps receiving moves while dragging.
           startDrag(hold.id);
         }}
@@ -281,6 +280,8 @@ function HoldMesh({ hold, wall, frames, fixed }: { hold: Hold; wall: Wall; frame
           if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) remove(hold.id);
         }}
         onContextMenu={(e) => e.nativeEvent.preventDefault()}
+        onPointerOver={() => !fixed && useGame.setState({ hoverHoldId: hold.id })}
+        onPointerOut={() => useGame.getState().hoverHoldId === hold.id && useGame.setState({ hoverHoldId: null })}
         raycast={fixed ? () => null : undefined}
       >
         <meshStandardMaterial color={HOLD_COLOR[hold.type]} flatShading roughness={0.85} transparent={dragging} opacity={dragging ? 0.75 : 1} />

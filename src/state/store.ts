@@ -47,8 +47,8 @@ interface GameState {
   ghostRot: number;
   /** Bumped to snap the camera back to the default front view. */
   viewNonce: number;
-  /** Space is held: left-drag orbits instead of editing. */
-  orbitKey: boolean;
+  /** Placed hold under the mouse: a left-drag here moves it instead of orbiting. */
+  hoverHoldId: string | null;
   playback: Playback | null;
   lastTest: TestRun | null;
   modal: 'help' | 'result' | 'stats' | 'practice' | null;
@@ -120,7 +120,7 @@ export const useGame = create<GameState>((set, get) => {
     ghost: null,
     ghostRot: 0,
     viewNonce: 0,
-    orbitKey: false,
+    hoverHoldId: null,
     playback: null,
     lastTest: null,
     modal: null,
@@ -240,13 +240,14 @@ export const useGame = create<GameState>((set, get) => {
       if (!editable()) return;
       const target = id ?? s.selectedId;
       if (!target) return;
-      set({ placed: s.placed.filter((h) => h.id !== target), selectedId: null });
+      // The removed mesh never fires pointer-out, so clear its hover too.
+      set({ placed: s.placed.filter((h) => h.id !== target), selectedId: null, hoverHoldId: null });
       persist();
     },
 
     clear() {
       if (!editable()) return;
-      set({ placed: [], selectedId: null });
+      set({ placed: [], selectedId: null, hoverHoldId: null });
       persist();
     },
 

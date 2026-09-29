@@ -14,8 +14,9 @@ npm run curate -- --from 1 --days 120   # regenerate public/days/*.json
 
 ## Controls
 
-Left-click places/selects/drags holds. Right-drag or Space+drag orbits, middle-drag
-or Shift+right-drag pans, the wheel zooms (or rotates the armed/selected hold).
+Left-drag on the wall or background orbits; Shift+drag or middle-drag pans; the
+wheel zooms (or rotates the armed/selected hold). A click without dragging places
+or selects, and a drag that starts on a placed hold moves it.
 Q/E rotate, right-click (without dragging) removes. On touch: tap to place, two
 fingers to orbit/zoom.
 

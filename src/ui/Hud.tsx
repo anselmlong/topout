@@ -126,7 +126,7 @@ export function Controls() {
       ? `Click the wall to place · Q / E or scroll to rotate · Esc to cancel`
       : selected
         ? 'Drag to move · Q / E to rotate · Delete to remove'
-        : 'Pick a hold from the tray · right-drag or Space-drag to look around · scroll to zoom';
+        : 'Pick a hold from the tray · drag to look around · Shift-drag pans · scroll zooms';
   return <p className="controls">{text}</p>;
 }
 
