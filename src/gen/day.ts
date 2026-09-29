@@ -1,0 +1,193 @@
+// Seeded daily brief: wall shape, fixed start/finish, hold tray, target grade.
+// Curation (scripts/curate.ts) runs this, proves each day solvable, and computes par.
+import type { Day, Hold, HoldSize, HoldType, Panel, TraySlot, Twist, Wall } from '../solver/types';
+import { hash, rng, type Rng } from './rng';
+
+/** Day #1. */
+export const EPOCH = '2026-09-29';
+
+export function dayNumber(date: Date): number {
+  const e = Date.UTC(2026, 8, 29);
+  const d = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.floor((d - e) / 86_400_000) + 1;
+}
+
+export function dateOf(n: number): string {
+  const d = new Date(Date.UTC(2026, 8, 29) + (n - 1) * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}
+
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker';
+
+export const STYLE_LABEL: Record<WallStyle, string> = {
+  slab: 'Slab',
+  vertical: 'Vertical',
+  overhang: 'Overhang',
+  steep: 'Steep',
+  headwall: 'Headwall',
+  kicker: 'Kicker',
+};
+
+function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
+  const width = r.pick([360, 380, 400]);
+  let panels: Panel[];
+  switch (style) {
+    case 'slab':
+      panels = [{ length: 420, angle: -r.int(8, 18) }];
+      break;
+    case 'vertical':
+      panels = [{ length: 420, angle: r.int(0, 5) }];
+      break;
+    case 'overhang':
+      panels = [{ length: 420, angle: r.int(15, 25) }];
+      break;
+    case 'steep':
+      panels = [{ length: 400, angle: r.int(30, 40) }];
+      break;
+    case 'headwall':
+      // Vertical base breaking into a steep top section.
+      panels = [
+        { length: 200, angle: 0 },
+        { length: 210, angle: r.int(25, 35) },
+      ];
+      break;
+    case 'kicker':
+      // Short vertical kicker under a sustained overhang (board-style).
+      panels = [
+        { length: 40, angle: 0 },
+        { length: 380, angle: r.int(20, 30) },
+      ];
+      break;
+  }
+  return { width, panels, seed };
+}
+
+export function wallStyleOf(wall: Wall): WallStyle {
+  const p = wall.panels;
+  if (p.length === 2) return p[0].length > 100 ? 'headwall' : 'kicker';
+  const a = p[0].angle;
+  if (a < 0) return 'slab';
+  if (a < 10) return 'vertical';
+  if (a < 28) return 'overhang';
+  return 'steep';
+}
+
+/** Target grade by weekday (Mon easiest → Fri hardest), nudged by wall style. */
+const WEEKDAY_GRADE = [3, 1, 2, 3, 4, 5, 4]; // Sun..Sat
+
+const STYLE_BY_WEEKDAY: WallStyle[][] = [
+  ['overhang', 'headwall', 'kicker'], // Sun
+  ['vertical', 'slab', 'overhang'], // Mon
+  ['vertical', 'overhang', 'slab'], // Tue
+  ['overhang', 'kicker', 'vertical'], // Wed
+  ['overhang', 'headwall', 'steep'], // Thu
+  ['steep', 'kicker', 'headwall'], // Fri
+  ['overhang', 'steep', 'headwall'], // Sat
+];
+
+function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
+  // Easier days and steeper walls get kinder holds.
+  const steep = style === 'steep' || style === 'kicker' || style === 'headwall';
+  const weights: Record<Exclude<HoldType, 'foot'>, number> = {
+    jug: Math.max(0, 5 - grade) + (steep ? 2 : 0),
+    crimp: 1 + grade * 0.6 + (style === 'vertical' || style === 'slab' ? 1 : 0),
+    sloper: style === 'slab' ? 2.5 : steep ? 0.6 : 1.2,
+    pinch: 1 + grade * 0.3,
+    pocket: 1.2,
+  };
+  if (twist === 'no-jugs') weights.jug = 0;
+
+  const handCount = r.int(9, 12);
+  const counts = new Map<string, TraySlot>();
+  const types = Object.keys(weights) as (keyof typeof weights)[];
+  const total = types.reduce((s, t) => s + weights[t], 0);
+  for (let i = 0; i < handCount; i++) {
+    let x = r.next() * total;
+    let type = types[0];
+    for (const t of types) {
+      x -= weights[t];
+      if (x <= 0) {
+        type = t;
+        break;
+      }
+    }
+    const size: HoldSize = r.pick(['s', 'm', 'm', 'l']);
+    const key = `${type}:${size}`;
+    const slot = counts.get(key) ?? { type, size, count: 0 };
+    slot.count++;
+    counts.set(key, slot);
+  }
+  const feet = twist === 'no-smear' ? r.int(10, 13) : r.int(6, 9);
+  const order: HoldType[] = ['jug', 'pocket', 'pinch', 'sloper', 'crimp'];
+  const sizes: HoldSize[] = ['l', 'm', 's'];
+  const slots = [...counts.values()].sort(
+    (a, b) => order.indexOf(a.type) - order.indexOf(b.type) || sizes.indexOf(a.size) - sizes.indexOf(b.size),
+  );
+  return [...slots, { type: 'foot', size: 'm', count: feet }];
+}
+
+/** Generate an uncurated day. `variant` lets curation reroll unsolvable days. */
+export function generateDay(n: number, variant = 0): Omit<Day, 'par'> & { par: number } {
+  const date = dateOf(n);
+  const weekday = new Date(date + 'T12:00:00Z').getUTCDay();
+  const r = rng(hash(n, variant, 0x70b0));
+  const weekend = weekday === 0 || weekday === 6;
+  const twist: Twist | undefined = weekend ? r.pick(['no-jugs', 'traverse', 'no-smear'] as const) : undefined;
+
+  const style = r.pick(STYLE_BY_WEEKDAY[weekday]);
+  const wall = makeWall(r, style, hash(n, variant));
+  const height = wall.panels.reduce((h, p) => h + p.length, 0);
+  let targetGrade = WEEKDAY_GRADE[weekday] + (style === 'slab' ? -1 : style === 'steep' ? 1 : 0);
+  targetGrade = Math.max(0, Math.min(8, targetGrade + r.pick([-1, 0, 0, 1])));
+
+  const margin = 50;
+  let start: Hold[];
+  let finish: Hold;
+  const startV = r.int(125, 160);
+  if (twist === 'traverse') {
+    const leftToRight = r.chance(0.5);
+    const su = leftToRight ? r.int(margin, margin + 40) : wall.width - r.int(margin, margin + 40);
+    const fu = leftToRight ? wall.width - r.int(margin, margin + 30) : r.int(margin, margin + 30);
+    start = [
+      { id: 'start-0', type: 'jug', size: 'l', u: su - 20, v: startV, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'l', u: su + 20, v: startV, rot: 0, role: 'start' },
+    ];
+    finish = { id: 'finish', type: 'jug', size: 'l', u: fu, v: r.int(230, 270), rot: 0, role: 'finish' };
+  } else {
+    const su = r.int(margin + 40, wall.width - margin - 40);
+    const twoHands = r.chance(0.6);
+    start = twoHands
+      ? [
+          { id: 'start-0', type: 'jug', size: 'm', u: su - r.int(18, 30), v: startV + r.int(-8, 8), rot: 0, role: 'start' },
+          { id: 'start-1', type: 'jug', size: 'm', u: su + r.int(18, 30), v: startV + r.int(-8, 8), rot: 0, role: 'start' },
+        ]
+      : [{ id: 'start-0', type: 'jug', size: 'l', u: su, v: startV, rot: 0, role: 'start' }];
+    finish = {
+      id: 'finish',
+      type: 'jug',
+      size: 'l',
+      u: r.int(margin + 20, wall.width - margin - 20),
+      v: height - r.int(30, 45),
+      rot: 0,
+      role: 'finish',
+    };
+  }
+
+  return {
+    number: n,
+    date,
+    wall,
+    start,
+    finish,
+    tray: makeTray(r, style, targetGrade, twist),
+    targetGrade,
+    twist,
+    par: 0,
+  };
+}
+
+export const TWIST_LABEL: Record<Twist, string> = {
+  'no-jugs': 'No jugs',
+  traverse: 'Traverse',
+  'no-smear': 'No smearing',
+};

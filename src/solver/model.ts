@@ -94,7 +94,12 @@ export function handLoad(angle: number, footQ: [number, number]): number {
   const base = 0.3 + 0.5 * Math.sin(rad(a));
   const steepness = 0.5 + Math.max(0, Math.sin(rad(a)));
   const footDeficit = (2 - footQ[0] - footQ[1]) / 2;
-  return Math.max(0.12, base + footDeficit * 0.45 * steepness);
+  const load = base + footDeficit * 0.45 * steepness;
+  // Feet off the wall: the arms take (nearly) everything.
+  const off = (footQ[0] === 0 ? 1 : 0) + (footQ[1] === 0 ? 1 : 0);
+  if (off === 2) return Math.max(load, 0.95);
+  if (off === 1) return Math.max(0.12, load + 0.12);
+  return Math.max(0.12, load);
 }
 
 /** Map crux difficulty + sustained-ness to a continuous V grade. */

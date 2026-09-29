@@ -172,6 +172,8 @@ class Context {
       }
     }
     if (l[2] >= 0 && l[3] >= 0 && dist(p[2], p[3]) > BODY.stride) return false;
+    // Campusing (both feet off) only makes sense on real overhangs.
+    if (l[2] === OFF && l[3] === OFF && angleAt(this.wall, loV) < 10) return false;
     return true;
   }
 
@@ -209,7 +211,12 @@ class Context {
       const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
       const g = handGrip(this.holds[l[other]], c, this.wall);
       if (g < MIN_GRIP) return null;
-      const load = handLoad(handsAngle, [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])]);
+      // Hanging stretched out (feet far below) loads the arms much more.
+      let stretch = 0;
+      for (const f of onFeet) stretch = Math.max(stretch, dist(p[f], p[other]) / BODY.reach);
+      const load =
+        handLoad(handsAngle, [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])]) *
+        (1 + 2.5 * Math.max(0, stretch - 0.8));
 
       const target = np[limb];
       let ext = dist(p[other], target) / BODY.span;
@@ -225,7 +232,12 @@ class Context {
       const catchHard = 0.12 * (1 / gt - 1) * (1 + r);
       // Longer moves mean longer lock-offs, even well inside full reach.
       const travel = dist(p[limb], target) / 100;
-      const d = hold * (0.85 + 0.35 * travel + 0.6 * r) + catchHard + (dynamic ? 0.15 : 0);
+      // Smears are modelled relative to the hands, so they "follow" a hand move;
+      // charge for re-smearing that far.
+      let resmear = 0;
+      for (const f of [2, 3]) if (l[f] === SMEAR) resmear += dist(p[f], np[f]) / 100;
+      const d =
+        hold * (0.85 + 0.35 * travel + 0.6 * r + 0.3 * resmear) + catchHard + (dynamic ? 0.4 : 0);
       return { d, dynamic };
     }
 
