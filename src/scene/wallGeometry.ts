@@ -70,7 +70,7 @@ export function panelGeometry(wall: Wall, frame: PanelFrame, seed: number) {
         .clone()
         .addScaledVector(frame.up, (v - frame.v0) / 100)
         .add(new THREE.Vector3((u - wall.width / 2) / 100, 0, 0));
-      if (!edge) p.addScaledVector(frame.normal, r.range(-0.006, 0.006));
+      if (!edge) p.addScaledVector(frame.normal, r.range(-0.0018, 0.0018));
       grid[j][i] = p;
     }
   }

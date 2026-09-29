@@ -65,4 +65,6 @@ export function bestTest(tests: TestRun[], target: number): TestRun | undefined 
   })[0];
 }
 
+export const holds = (n: number) => `${n} ${n === 1 ? 'hold' : 'holds'}`;
+
 export const SQUARE: Record<Verdict, string> = { exact: '🟩', pass: '🟨', fail: '🟥' };

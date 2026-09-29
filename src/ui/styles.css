@@ -598,6 +598,9 @@ button {
   gap: 8px;
   font-size: 12px;
 }
+.dist .bar.empty {
+  visibility: hidden;
+}
 .dist .bar {
   min-width: 18px;
   padding: 1px 6px;

@@ -1,5 +1,5 @@
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
-import { MAX_TESTS, SQUARE } from '../game/rules';
+import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
 import { HOLD_COLOR, HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
 import { remaining, useGame } from '../state/store';
@@ -93,7 +93,7 @@ export function Brief() {
         </div>
         <div>
           <dt>Par</dt>
-          <dd className="mono">{day.par > 0 ? `${day.par} holds` : '—'}</dd>
+          <dd className="mono">{day.par > 0 ? nHolds(day.par) : '—'}</dd>
         </div>
       </dl>
       {day.twist && <div className="twist">Weekend twist · {TWIST_LABEL[day.twist]}</div>}
@@ -199,7 +199,7 @@ export function ActionBar() {
         })}
       </div>
       <div className="holdcount mono">
-        {s.placed.length} <span className="dim">holds{day.par > 0 ? ` · par ${day.par}` : ''}</span>
+        {s.placed.length} <span className="dim">{s.placed.length === 1 ? 'hold' : 'holds'}{day.par > 0 ? ` · par ${day.par}` : ''}</span>
       </div>
       {s.done ? (
         <>
@@ -241,7 +241,7 @@ export function ViewingBanner() {
   return (
     <div className="viewing">
       <span>
-        {label} · {viewing.length} holds
+        {label} · {nHolds(viewing.length)}
       </span>
       <button className="btn primary" onClick={() => watch()} disabled={busy}>
         Watch it climbed

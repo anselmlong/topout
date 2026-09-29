@@ -58,7 +58,8 @@ const SHAPES: Record<HoldType, Shape> = {
   },
 };
 
-const SIZE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25 };
+// Drawn ~20% larger than life so holds read at game zoom.
+const SIZE: Record<HoldSize, number> = { s: 0.95, m: 1.2, l: 1.5 };
 
 const cache = new Map<string, THREE.BufferGeometry>();
 

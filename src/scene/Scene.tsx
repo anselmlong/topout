@@ -144,7 +144,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
 
   const toUv = (e: ThreeEvent<PointerEvent>) => worldToUv(wall, frame, e.point);
   const length = (frame.v1 - frame.v0) / 100;
-  const mid = frame.origin.clone().addScaledVector(frame.up, length / 2).addScaledVector(frame.normal, -0.05);
+  const mid = frame.origin.clone().addScaledVector(frame.up, length / 2).addScaledVector(frame.normal, -0.056);
   const q = holdQuaternion(frame, 0);
 
   return (

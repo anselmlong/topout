@@ -1,6 +1,6 @@
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import type { Day, Hold, HoldSize, HoldType } from '../solver/types';
-import { SQUARE, bestTest, type TestRun } from './rules';
+import { SQUARE, bestTest, holds as nHolds, type TestRun } from './rules';
 
 export function shareText(day: Day, tests: TestRun[]): string {
   const best = bestTest(tests, day.targetGrade);
@@ -10,7 +10,7 @@ export function shareText(day: Day, tests: TestRun[]): string {
   const squares = tests.map((t) => SQUARE[t.verdict]).join('');
   const line =
     best && best.result.ok
-      ? `V${best.result.grade.toFixed(1)} · ${best.holdCount} holds (par ${day.par})`
+      ? `V${best.result.grade.toFixed(1)} · ${nHolds(best.holdCount)} (par ${day.par})`
       : `No send · par ${day.par}`;
   return `${head}\n${squares}  ${line}`;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { MAX_TESTS, bestTest, type TestRun } from '../game/rules';
+import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rules';
 import { encodeRoute, shareText } from '../game/share';
 import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { Day, HoldType } from '../solver/types';
@@ -104,7 +104,7 @@ export function ResultModal() {
       </div>
       <p className="lede">
         {r.ok
-          ? `Target V${day.targetGrade}. ${test.holdCount} holds${day.par > 0 ? `, par ${day.par}` : ''}.`
+          ? `Target V${day.targetGrade}. ${nHolds(test.holdCount)}${day.par > 0 ? `, par ${day.par}` : ''}.`
           : r.message}
       </p>
       {r.ok && <p className="fine">Crux: {cruxLine(day, test)}</p>}
@@ -208,7 +208,7 @@ export function StatsModal() {
         {buckets.map((b, i) => (
           <li key={b}>
             <span className="mono">{b === -2 ? '≤−2' : b === 3 ? '+3' : b > 0 ? `+${b}` : b === 0 ? 'par' : `−${-b}`}</span>
-            <span className="bar" style={{ width: `${(counts[i] / max) * 100}%` }}>
+            <span className={`bar ${counts[i] ? '' : 'empty'}`} style={{ width: `${(counts[i] / max) * 100}%` }}>
               {counts[i] || ''}
             </span>
           </li>
