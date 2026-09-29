@@ -12,7 +12,9 @@ import {
   SMEAR_QUALITY,
   angleAt,
   footQuality,
+  footMatchable,
   handGrip,
+  handMatchable,
   handLoad,
   toGrade,
   GRIP,
@@ -157,6 +159,9 @@ class Context {
   valid(l: Limbs, slack = BODY.dynoLimit): boolean {
     const p = this.points(l);
     if (dist(p[0], p[1]) > BODY.span * slack) return false;
+    // Matching needs a hold with room for two.
+    if (l[0] === l[1] && !handMatchable(this.holds[l[0]])) return false;
+    if (l[2] >= 0 && l[2] === l[3] && !footMatchable(this.holds[l[2]])) return false;
     if (p[0].u - p[1].u > BODY.maxHandCross) return false;
     if (l[2] >= 0 && l[3] >= 0 && p[2].u - p[3].u > BODY.maxFootCross) return false;
     const hiV = Math.max(p[0].v, p[1].v);
@@ -202,7 +207,9 @@ class Context {
         if (lf === OFF && rf === OFF) continue;
         if (this.valid(l, 1)) out.push(l);
       }
-    return out;
+    // Start with feet apart when possible; a shared foothold is the fallback.
+    const apart = out.filter((l) => l[2] < 0 || l[2] !== l[3]);
+    return apart.length ? apart : out;
   }
 
   /** Cost of moving `limb` to `to` from stance `l`, or null if impossible. */
@@ -257,7 +264,9 @@ class Context {
       const d =
         hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) +
         catchHard +
-        (dynamic ? 0.4 : 0);
+        (dynamic ? 0.4 : 0) +
+        // Matching is a shuffle: fine on the finish, a small cost anywhere else.
+        (to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0);
       return { d, dynamic };
     }
 
@@ -267,7 +276,9 @@ class Context {
     const c = { u: (p[0].u + p[1].u + p[stay].u) / 3, v: (p[0].v + p[1].v + p[stay].v * 2) / 4 };
     const g = handGrip(this.holds[l[0]], c, this.wall) + handGrip(this.holds[l[1]], c, this.wall);
     if (g < MIN_GRIP) return null;
-    return { d: load / g, dynamic: false };
+    // Feet share a hold only when there's nothing better nearby.
+    const match = to >= 0 && to === l[stay] ? 0.12 : 0;
+    return { d: load / g + match, dynamic: false };
   }
 
   neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {

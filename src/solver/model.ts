@@ -90,6 +90,19 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   return spec.grip * SIZE_GRIP[hold.size] * orient * steepFactor;
 }
 
+/** Room for both hands on it? Finish (and a single start) are always matchable. */
+export function handMatchable(hold: Hold): boolean {
+  if (hold.role) return true;
+  if (hold.type === 'jug') return true;
+  if (hold.type === 'edge' || hold.type === 'sloper') return hold.size === 'l';
+  return false;
+}
+
+/** Room for both feet on it? Only big holds; foot chips and jibs are one-toe affairs. */
+export function footMatchable(hold: Hold): boolean {
+  return (hold.type === 'jug' && hold.size !== 's') || (hold.type === 'edge' && hold.size === 'l');
+}
+
 export function footQuality(hold: Hold): number {
   return GRIP[hold.type].foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1);
 }
