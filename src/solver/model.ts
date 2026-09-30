@@ -1,6 +1,6 @@
 // The physical model behind grading. Every constant here is a tuning knob;
 // none are calibrated against real climbing data yet.
-import type { Hold, HoldSize, HoldType, Wall } from './types';
+import type { Hold, HoldSize, HoldType, Point, Wall } from './types';
 
 /** The crash pad covers the bottom of the wall: anything below this (cm) is on the mat. */
 export const PAD = 30;
@@ -189,6 +189,24 @@ export function footQuality(hold: Hold): number {
   // A foothold on an up-facing volume face is easier to stand on.
   const tilt = hold.angle !== undefined ? Math.max(0, -Math.sin(rad(hold.angle))) * 0.2 : 0;
   return Math.min(1, GRIP[hold.type].foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) + tilt);
+}
+
+export type FootTechnique = 'heel' | 'drop-knee' | null;
+
+/**
+ * What a foot on a hold is doing, from where it sits relative to the hands. Shared by
+ * the solver (heel hooks and drop knees change the load) and the climber's pose.
+ * - Heel hook: a foot up near the hands (validity rules live in the solver).
+ * - Drop knee: on steep ground, a foot out to the side at about hip height; the knee
+ *   turns in and down so the hip presses to the wall.
+ */
+export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): FootTechnique {
+  const low = Math.min(hands[0].v, hands[1].v);
+  const dv = low - foot.v;
+  if (dv < 35) return 'heel';
+  const midU = (hands[0].u + hands[1].u) / 2;
+  if (angleAt(wall, low) > 10 && dv > 35 && dv < 110 && Math.abs(foot.u - midU) > 20) return 'drop-knee';
+  return null;
 }
 
 /**

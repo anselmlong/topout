@@ -12,6 +12,7 @@ import {
   SMEAR_QUALITY,
   angleAt,
   footQuality,
+  footTechnique,
   footMatchable,
   handGrip,
   handMatchable,
@@ -199,14 +200,8 @@ class Context {
     }
     // Drop knee: on steep ground a foothold out to the side at about hip height lets
     // the knee turn in and the hip press to the wall, taking weight off the arms.
-    const lowHand = Math.min(p[0].v, p[1].v);
-    const midU = (p[0].u + p[1].u) / 2;
-    if (angleAt(this.wall, lowHand) > 10)
-      for (const f of [2, 3] as const) {
-        if (l[f] < 0) continue;
-        const dv = lowHand - p[f].v;
-        if (dv > 35 && dv < 110 && Math.abs(p[f].u - midU) > 20) q[f - 2] = Math.min(1, q[f - 2] + 0.12);
-      }
+    for (const f of [2, 3] as const)
+      if (l[f] >= 0 && footTechnique(this.wall, [p[0], p[1]], p[f]) === 'drop-knee') q[f - 2] = Math.min(1, q[f - 2] + 0.12);
     if (stay !== undefined) q[stay === 2 ? 1 : 0] = 0;
     if (l[2] !== OFF && l[3] !== OFF && stay === undefined) {
       const bonus = stemBonus(this.wall, [p[2].u, p[3].u]);
@@ -229,7 +224,7 @@ class Context {
   }
 
   isHeel(l: Limbs, f: 2 | 3, p: Point[]): boolean {
-    return l[f] >= 0 && p[f].v > Math.min(p[0].v, p[1].v) - 35;
+    return l[f] >= 0 && footTechnique(this.wall, [p[0], p[1]], p[f]) === 'heel';
   }
 
   footQ(val: number, p: Point, heel = false): number {

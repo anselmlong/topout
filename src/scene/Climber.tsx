@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
-import { bestPull } from '../solver/model';
+import { bestPull, footTechnique, type FootTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -57,6 +57,8 @@ function poseFrom(
   _hipV: number,
   /** Which way (-1 left, +1 right on screen) each free leg flags; decided once per move. */
   flagAway?: [number, number],
+  /** Heel hook / drop knee per foot (see footTechnique), decided once per move. */
+  legs: [FootTechnique, FootTechnique] = [null, null],
 ): Pose {
   // Facet nearest the hands (a dihedral has two faces at the same height).
   const normal = nearestFrame(frames, hands[0].clone().add(hands[1]).multiplyScalar(0.5)).normal;
@@ -68,24 +70,37 @@ function poseFrom(
   const span = handsMid.clone().sub(feetMid);
   const handsToFeet = span.length();
   const bodyDir = handsToFeet > 1e-3 ? span.normalize() : V(0, 1, 0);
+  // 0 on vertical and slab, 1 from ~37° overhanging.
+  const steep = Math.max(0, Math.min(1, -normal.y / 0.6));
   // Hang long-armed when there's room; bend the arms (chest up to the hands) on high steps.
-  const chestDrop = Math.max(0.12, Math.min(0.42, handsToFeet - 0.75));
+  // On steep ground climbers hang off straight arms (skeleton, not biceps), so the chest
+  // drops further and sits out from the wall below the hands.
+  const chestDrop = Math.max(0.12 + 0.2 * steep, Math.min(0.42 + 0.1 * steep, handsToFeet - 0.75 + 0.12 * steep));
   // Bunched up (feet close to hands): sit the hips back off the wall instead of squashing.
   const lean = Math.max(0, Math.min(1, (1.3 - handsToFeet) / 0.6));
-  const chest = handsMid.clone().addScaledVector(bodyDir, -chestDrop).addScaledVector(normal, 0.14 + 0.12 * lean);
-  const torsoDir = bodyDir.clone().addScaledVector(normal, -0.7 * lean).normalize();
+  const chest = handsMid
+    .clone()
+    .addScaledVector(bodyDir, -chestDrop)
+    .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep);
+  // ...while the hips stay in to the wall, keeping weight on the feet. A heel hook or drop
+  // knee pulls them in further.
+  const twisted = legs[0] || legs[1] ? 1 : 0;
+  const hipsIn = (0.3 * steep + 0.18 * twisted) * (1 - lean);
+  const torsoDir = bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean).normalize();
   const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
   // Climber's right. We see their back, so this is +x on screen.
   const lateral = V().crossVectors(torsoDir, normal).normalize();
   if (lateral.lengthSq() < 0.5) lateral.set(1, 0, 0);
+  // Drop knee: the hip on that side turns in to the wall (the other swings out).
+  const turn = legs[0] === 'drop-knee' ? 1 : legs[1] === 'drop-knee' ? -1 : 0;
   const head = chest.clone().addScaledVector(torsoDir, 0.2).addScaledVector(normal, 0.05);
   const shoulders: [THREE.Vector3, THREE.Vector3] = [
     chest.clone().addScaledVector(lateral, -0.19),
     chest.clone().addScaledVector(lateral, 0.19),
   ];
   const pelvis: [THREE.Vector3, THREE.Vector3] = [
-    hip.clone().addScaledVector(lateral, -0.1),
-    hip.clone().addScaledVector(lateral, 0.1),
+    hip.clone().addScaledVector(lateral, -0.1).addScaledVector(normal, -0.06 * turn),
+    hip.clone().addScaledVector(lateral, 0.1).addScaledVector(normal, 0.06 * turn),
   ];
   const arm = (i: 0 | 1) => {
     const side = i === 0 ? -1 : 1;
@@ -103,7 +118,14 @@ function poseFrom(
     }
     // No feet on at all (campus): tucked up, knee bent, clear of the mat.
     target ??= pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
-    const pole = normal.clone().addScaledVector(lateral, side * 0.7);
+    // Knees out, frog-style, by default. A heel hook cocks the knee up and out to the side;
+    // a drop knee turns it in and down toward the other foot.
+    const pole =
+      legs[i] === 'heel'
+        ? lateral.clone().multiplyScalar(side * 0.8).addScaledVector(torsoDir, 0.6).addScaledVector(normal, 0.4)
+        : legs[i] === 'drop-knee'
+          ? torsoDir.clone().multiplyScalar(-1).addScaledVector(lateral, -side * 0.4).addScaledVector(normal, 0.2)
+          : normal.clone().addScaledVector(lateral, side * 0.7);
     return ik(pelvis[i], target, LEG, pole);
   };
   const [aL, aR, lL, lR] = [arm(0), arm(1), leg(0), leg(1)];
@@ -286,6 +308,8 @@ interface Run {
   grip: [number, number];
   /** Flag direction per foot, fixed for the move so the free leg doesn't flip sides. */
   flagAway: [number, number];
+  /** Heel hook / drop knee per foot for the current move. */
+  legs: [FootTechnique, FootTechnique];
   lastThud: number;
 }
 
@@ -307,7 +331,7 @@ export function Climber({ day }: { day: Day }) {
   const normalAt = (p: Point) => frameAt(frames, p.u, p.v).normal;
 
   /** Posed skeleton for the ends' current positions (the "muscle" targets). */
-  const postureFor = (sim: Ragdoll, flagAway?: [number, number]): THREE.Vector3[] => {
+  const postureFor = (sim: Ragdoll, flagAway?: [number, number], legs?: [FootTechnique, FootTechnique]): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
     const feet: [THREE.Vector3 | null, THREE.Vector3 | null] = [
@@ -315,7 +339,7 @@ export function Climber({ day }: { day: Day }) {
       e[3].mode === 'free' ? null : sim.pos[J.footR].clone(),
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway));
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs));
   };
 
   const start = (pb: Playback): Run | null => {
@@ -344,7 +368,7 @@ export function Climber({ day }: { day: Day }) {
     useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
     // Same list the solver indexed into, so chalk and hand direction hit the right holds.
     const holds = contactList(day.start, day.finish, pb.holds, pb.volumes, day.wall);
-    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -374,7 +398,13 @@ export function Climber({ day }: { day: Day }) {
       if (f.to.feet[i] || !on) return 0;
       return Math.sign(on.u - handsU) || (i === 0 ? -1 : 1);
     }) as [number, number];
-    if (f.holds.length) r.grip = [f.holds[0], f.holds[1]];
+    if (f.holds.length) {
+      r.grip = [f.holds[0], f.holds[1]];
+      r.legs = [0, 1].map((i) => {
+        const foot = f.to.feet[i];
+        return foot && f.holds[2 + i] >= 0 ? footTechnique(day.wall, f.to.hands, foot) : null;
+      }) as [FootTechnique, FootTechnique];
+    }
     const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
     contacts.forEach((c, n) => {
       const target = c ? toWorld(c, n < 2 ? 0.07 : 0.06) : null;
@@ -402,7 +432,7 @@ export function Climber({ day }: { day: Day }) {
         move: f.move,
         strain: f.strain,
         label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
-          m >= 2 && h && f.to.feet[m - 2] && f.to.feet[m - 2]!.v > Math.min(f.to.hands[0].v, f.to.hands[1].v) - 35 ? ' (heel hook)' : ''
+          m >= 2 && h ? (r.legs[m - 2] === 'heel' ? ' (heel hook)' : r.legs[m - 2] === 'drop-knee' ? ' (drop knee)' : '') : ''
         }${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
       });
     }
@@ -500,7 +530,7 @@ export function Climber({ day }: { day: Day }) {
           }
         } else sfx.foot();
       }
-      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway));
+      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {
