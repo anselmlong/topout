@@ -175,6 +175,25 @@ class Context {
   /** Both feet's quality, plus the stemming bonus when they push on opposite faces of a corner. */
   feetQ(l: Limbs, p: Point[], stay?: number): [number, number] {
     const q: [number, number] = [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])];
+    // Flag: one foot on, the other off the holds but pressed against the wall as a
+    // counterweight. Not dead weight: it gives a little support (less when steep).
+    const on = [l[2], l[3]].filter((x) => x !== OFF).length;
+    if (on === 1 && stay === undefined) {
+      const steep = angleAt(this.wall, Math.min(p[0].v, p[1].v));
+      const flag = steep <= 30 ? 0.22 * (1 - Math.max(0, steep) / 45) : 0;
+      if (l[2] === OFF) q[0] = flag;
+      if (l[3] === OFF) q[1] = flag;
+    }
+    // Drop knee: on steep ground a foothold out to the side at about hip height lets
+    // the knee turn in and the hip press to the wall, taking weight off the arms.
+    const lowHand = Math.min(p[0].v, p[1].v);
+    const midU = (p[0].u + p[1].u) / 2;
+    if (angleAt(this.wall, lowHand) > 10)
+      for (const f of [2, 3] as const) {
+        if (l[f] < 0) continue;
+        const dv = lowHand - p[f].v;
+        if (dv > 35 && dv < 110 && Math.abs(p[f].u - midU) > 20) q[f - 2] = Math.min(1, q[f - 2] + 0.12);
+      }
     if (stay !== undefined) q[stay === 2 ? 1 : 0] = 0;
     if (l[2] !== OFF && l[3] !== OFF && stay === undefined) {
       const bonus = stemBonus(this.wall, [p[2].u, p[3].u]);
@@ -305,8 +324,20 @@ class Context {
       for (const f of [2, 3]) if (l[f] === SMEAR) resmear += this.dist(p[f], np[f]) / 100;
       // Crossing through is awkward: allowed, but it costs.
       const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
+      // Barn door: if the remaining hand and the feet line up vertically (the hinge),
+      // reaching out to the side swings you off. A free leg flagged the other way
+      // counterbalances most of it.
+      const supports = [p[other].u, ...onFeet.map((f) => p[f].u)];
+      const lo = Math.min(...supports);
+      const hi = Math.max(...supports);
+      const narrow = Math.max(0, 1 - (hi - lo) / 35);
+      const out = Math.max(0, target.u < lo ? lo - target.u : target.u - hi) - 15;
+      const flagging = onFeet.length === 1;
+      const steepness = 0.6 + Math.max(0, Math.sin((handsAngle * Math.PI) / 180));
+      const barn = narrow * Math.max(0, out / 100) * load * steepness * 1.1 * (flagging ? 0.35 : 1);
       const d =
         hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) +
+        barn +
         catchHard +
         (dynamic ? 0.4 : 0) +
         // Matching is a shuffle: fine on the finish, a small cost anywhere else.

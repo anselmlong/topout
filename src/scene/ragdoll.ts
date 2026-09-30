@@ -179,7 +179,7 @@ export class Ragdoll {
       // Free feet still want to hang roughly under the hips, a little.
       this.ends.forEach((e, n) => {
         // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat.
-        if (e.mode === 'free' && n >= 2) pos[ENDS[n]].lerp(posture[ENDS[n]], 0.06 * this.tone);
+        if (e.mode === 'free' && n >= 2) pos[ENDS[n]].lerp(posture[ENDS[n]], 0.14 * this.tone);
       });
     }
     if (this.tremble > 0) {

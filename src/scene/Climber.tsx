@@ -92,8 +92,15 @@ function poseFrom(
   };
   const leg = (i: 0 | 1) => {
     const side = i === 0 ? -1 : 1;
-    // A foot with no hold is tucked up, knee bent, clear of the mat.
-    const target = feet[i] ?? pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
+    const other = feet[1 - i];
+    let target = feet[i];
+    if (!target && other) {
+      // Flag: the free leg reaches out along the wall, away from the hands, as a counterweight.
+      const away = Math.sign(other.clone().sub(handsMid).dot(lateral)) || side;
+      target = other.clone().addScaledVector(lateral, away * 0.5).addScaledVector(torsoDir, 0.08).addScaledVector(normal, 0.04);
+    }
+    // No feet on at all (campus): tucked up, knee bent, clear of the mat.
+    target ??= pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
     const pole = normal.clone().addScaledVector(lateral, side * 0.7);
     return ik(pelvis[i], target, LEG, pole);
   };
