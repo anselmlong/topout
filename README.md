@@ -12,6 +12,8 @@ npm run build      # typecheck + production build to dist/
 npm run curate -- --from 1 --days 120   # regenerate public/days/*.json
 ```
 
+Pushing to `main` deploys to https://topout.anselmlong.com (Vercel Git integration).
+
 ## Controls
 
 Left-drag on the wall or background orbits; Shift+drag or middle-drag pans; the
