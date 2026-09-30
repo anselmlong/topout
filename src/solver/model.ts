@@ -39,7 +39,7 @@ export const GRIP: Record<HoldType, GripSpec> = {
   pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7 },
   // Pinches squeeze: good pulled along their axis, poor across it.
   pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.12, hand: true, foot: 0.6 },
-  sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.5, hand: true, foot: 0.6 },
+  sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.62, hand: true, foot: 0.6 },
   crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.1, hand: true, foot: 0.75 },
   foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7 },
   jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5 },
@@ -157,9 +157,14 @@ export function handLoad(angle: number, footQ: [number, number]): number {
   return Math.max(0.12, load);
 }
 
-/** Map crux difficulty + sustained-ness to a continuous V grade. */
+/**
+ * Map crux difficulty + sustained-ness to a continuous V grade.
+ * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
+ * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
+ * … 40° board crimps V8); mean error ~0.6 grades.
+ */
 export function toGrade(crux: number, hardMoves: number): number {
-  const base = (crux - 0.41) * 5.5;
-  const density = Math.min(1, Math.max(0, hardMoves - 1) * 0.1);
+  const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));
+  const density = Math.min(0.6, Math.max(0, hardMoves - 1) * 0.06);
   return Math.max(0, Math.min(14, base + density));
 }

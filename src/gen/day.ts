@@ -31,32 +31,34 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
   const width = r.pick([360, 380, 400]);
+  // Real gym bouldering walls run ~4.3–5 m; steep ones a bit shorter along the surface.
+  const tall = r.int(430, 500);
   let panels: Panel[];
   switch (style) {
     case 'slab':
-      panels = [{ length: 420, angle: -r.int(8, 18) }];
+      panels = [{ length: tall, angle: -r.int(8, 18) }];
       break;
     case 'vertical':
-      panels = [{ length: 420, angle: r.int(0, 5) }];
+      panels = [{ length: tall, angle: r.int(0, 5) }];
       break;
     case 'overhang':
-      panels = [{ length: 420, angle: r.int(15, 25) }];
+      panels = [{ length: tall, angle: r.int(15, 25) }];
       break;
     case 'steep':
-      panels = [{ length: 400, angle: r.int(30, 40) }];
+      panels = [{ length: tall - 30, angle: r.int(30, 40) }];
       break;
     case 'headwall':
       // Vertical base breaking into a steep top section.
       panels = [
-        { length: 200, angle: 0 },
-        { length: 210, angle: r.int(25, 35) },
+        { length: r.int(190, 240), angle: 0 },
+        { length: tall - 200, angle: r.int(25, 35) },
       ];
       break;
     case 'kicker':
       // Short vertical kicker under a sustained overhang (board-style).
       panels = [
         { length: 40, angle: 0 },
-        { length: 380, angle: r.int(20, 30) },
+        { length: tall - 40, angle: r.int(20, 30) },
       ];
       break;
   }
