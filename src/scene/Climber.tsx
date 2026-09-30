@@ -199,12 +199,13 @@ function buildTimeline(result: SolveResult, day: Day): Timeline {
     result.moves.forEach((m, i) => {
       const strain = Math.min(1, m.difficulty / crux);
       // Hard moves are slower and more deliberate; dynos are quick.
-      const base = m.limb >= 2 ? 0.42 : 0.55 + strain * 0.35;
+      // A touch slower than real time reads smoother; hard moves take longer still.
+      const base = m.limb >= 2 ? 0.5 : 0.65 + strain * 0.4;
       frames.push({
         to: contactsOf(m.to),
         holds: [...m.to.limbs],
         limb: m.limb,
-        duration: m.dynamic ? 0.5 : base,
+        duration: m.dynamic ? 0.55 : base,
         dynamic: m.dynamic,
         strain,
         move: i,
@@ -382,7 +383,6 @@ export function Climber({ day }: { day: Day }) {
       else sim.drive(n, target, normal, 0.3, 0.05);
     });
     sim.tone = 1 - 0.45 * f.strain;
-    sim.tremble = Math.max(0, f.strain - 0.55) * 2.2;
     if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + f.duration * 0.85, limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
     if (f.dynamic) {
       // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
@@ -417,7 +417,6 @@ export function Climber({ day }: { day: Day }) {
       sim.drive(1, up, n, 0.35, 0);
       r.grip[1] = -1;
       sim.tone = 1;
-      sim.tremble = 0;
       puff(toWorld(day.finish, 0.05), n, 40, 1.1);
       sfx.topout();
       useClimb.setState({ status: 'topped', label: 'Topped out!' });
@@ -426,7 +425,6 @@ export function Climber({ day }: { day: Day }) {
       sim.ends.forEach((e) => (e.mode = 'free'));
       r.grip = [-1, -1];
       sim.tone = 0;
-      sim.tremble = 0;
       r.limp = true;
       sim.impulse(new THREE.Vector3(0, 0.4, 1.4), STEP);
       sfx.fail();

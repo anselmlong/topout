@@ -51,7 +51,6 @@ export interface EndDrive {
 }
 
 const GRAVITY = -9.8;
-const SHAKY: number[] = [J.chest, J.pelvis, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
 const RADIUS = 0.07;
 
 export class Ragdoll {
@@ -61,9 +60,7 @@ export class Ragdoll {
   ends: EndDrive[] = [];
   /** 0..1 how strongly the body holds its posture. 0 = limp. */
   tone = 1;
-  /** Strain shake amount (0 = steady). */
-  tremble = 0;
-  private time = 0;
+
   /** Seconds since the last ground contact that counted as an impact (for thud sounds). */
   impacts: number[] = [];
 
@@ -126,7 +123,8 @@ export class Ragdoll {
     if (e.mode === 'free') return null;
     if (e.mode === 'pinned') return e.to;
     const k = Math.min(1, e.t / e.duration);
-    const s = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+    // Smootherstep: zero velocity and acceleration at both ends of a reach.
+    const s = k * k * k * (k * (k * 6 - 15) + 10);
     return e.from.clone().lerp(e.to, s).addScaledVector(e.normal, Math.sin(Math.PI * s) * e.lift);
   }
 
@@ -160,28 +158,22 @@ export class Ragdoll {
 
   step(dt: number, posture: THREE.Vector3[] | null) {
     const { pos, prev } = this;
-    // 1. Integrate.
+    // 1. Integrate. Damped well on the wall so limbs settle smoothly; barely when falling.
+    const damp = this.tone > 0 ? 0.965 : 0.999;
     for (let i = 0; i < JOINTS; i++) {
       const p = pos[i];
-      const vx = (p.x - prev[i].x) * 0.985;
-      const vy = (p.y - prev[i].y) * 0.985;
-      const vz = (p.z - prev[i].z) * 0.985;
+      const vx = (p.x - prev[i].x) * damp;
+      const vy = (p.y - prev[i].y) * damp;
+      const vz = (p.z - prev[i].z) * damp;
       prev[i].copy(p);
       p.x += vx;
       p.y += vy + GRAVITY * dt * dt;
       p.z += vz;
     }
     // 2. Muscles: pull toward the posed skeleton. Torso strongly, elbows/knees gently.
-    this.time += dt;
     if (posture && this.tone > 0) {
       for (let i = 0; i < JOINTS; i++) {
         if ((ENDS as readonly number[]).includes(i)) continue;
-        // Strain shows as a smooth ~6 Hz shake of the pose, not per-step random noise.
-        if (this.tremble > 0 && SHAKY.includes(i)) {
-          const a = this.tremble * 0.006;
-          const t = this.time * 38 + i * 1.7;
-          posture[i] = posture[i].clone().add(new THREE.Vector3(Math.sin(t) * a, Math.sin(t * 1.3 + 2) * a, Math.sin(t * 0.7 + 4) * a * 0.5));
-        }
         // A leg with no foothold is held actively (a flag or a tuck), so its knee follows the pose firmly.
         const freeKnee = (i === J.kneeL && this.ends[2].mode === 'free') || (i === J.kneeR && this.ends[3].mode === 'free');
         const soft = i === J.elbowL || i === J.elbowR || i === J.kneeL || i === J.kneeR;
