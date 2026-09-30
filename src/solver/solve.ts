@@ -322,8 +322,6 @@ class Context {
       for (const f of onFeet) ext = Math.max(ext, this.dist(p[f], target) / BODY.reach);
       if (ext > BODY.dynoLimit) return null;
       const dynamic = ext > 1;
-      // The top has to be caught under control: no jumping for the finish.
-      if (dynamic && this.holds[to].role === 'finish') return null;
       const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
 
       const nc = { u: (np[0].u + np[1].u + feetMid.u) / 3, v: (np[0].v + np[1].v + feetMid.v * 2) / 4 };
