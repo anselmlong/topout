@@ -46,6 +46,12 @@ interface Profile {
   taper: number;
   /** Narrow toward the top (for blades like pinches). */
   topNarrow?: number;
+  /**
+   * Width multiplier from height (0 at the bottom, 1 at the top) and reach
+   * out of the wall (0 at the wall, 1 at the outermost point). Rounds a fin's
+   * ends and gives it a wedge cross-section instead of a slab.
+   */
+  widthAt?: (hy: number, ho: number) => number;
   /** Ends droop down by this much (m), giving the crescent of a real jug or rail. */
   bend?: number;
   /** How much the ends shrink in height too (0 = full height to the tip). */
@@ -114,20 +120,25 @@ const PROFILES: Partial<Record<HoldType, Profile>> = {
     bend: 0.008,
     heightTaper: 0.4,
   },
-  // A tall fin to squeeze from both sides.
+  // A tall fin to squeeze from both sides: a lozenge from the front with
+  // rounded ends, thick where it's bolted and thinning to a blunt spine, like
+  // the rib pinches setters stack up a wall. The spine leans out at the top.
   pinch: {
     pts: [
-      [0, -0.075],
-      [0.03, -0.06],
-      [0.048, -0.02],
-      [0.05, 0.03],
-      [0.04, 0.066],
-      [0.018, 0.08],
-      [0, 0.078],
+      [0, -0.078],
+      [0.014, -0.074],
+      [0.03, -0.058],
+      [0.042, -0.03],
+      [0.048, 0.004],
+      [0.05, 0.036],
+      [0.044, 0.062],
+      [0.03, 0.078],
+      [0.012, 0.084],
+      [0, 0.084],
     ],
-    width: 0.042,
-    taper: 0.08,
-    topNarrow: 0.4,
+    width: 0.062,
+    taper: 0.05,
+    widthAt: (hy, ho) => (0.4 + 0.6 * Math.sin(Math.PI * Math.min(1, Math.max(0, hy))) ** 0.5) * (1 - 0.5 * ho),
     // Thumb on one side, fingers on the other: chalk goes on both flanks.
     grip: (n) => smooth(0.35, 0.85, Math.abs(n.x)) * 0.9 + smooth(0.3, 0.8, n.y) * 0.4,
   },
@@ -154,6 +165,7 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   const pos = g.attributes.position as THREE.BufferAttribute;
   const yMin = pts[0][1];
   const yMax = Math.max(...pts.map((p) => p[1]));
+  const outMax = Math.max(...pts.map((p) => p[0]));
   const jitter = new Map<string, number>();
   for (let i = 0; i < pos.count; i++) {
     // Shape x = out of wall, shape y = up, extrude z = across → hold (x across, y up, z out).
@@ -163,7 +175,8 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
     const t = Math.min(1, Math.abs(across) / (width / 2 + bevel));
     const round = 1 - pr.taper * t * t;
     const hy = (up - yMin) / (yMax - yMin || 1);
-    const narrow = 1 - (pr.topNarrow ?? 0) * Math.max(0, hy);
+    const ho = Math.max(0, out) / (outMax || 1);
+    const narrow = (1 - (pr.topNarrow ?? 0) * Math.max(0, hy)) * (pr.widthAt?.(hy, ho) ?? 1);
     const id = `${out.toFixed(4)},${up.toFixed(4)},${across.toFixed(4)}`;
     if (!jitter.has(id)) jitter.set(id, r.range(0.94, 1.06));
     const j = jitter.get(id)!;
@@ -222,14 +235,24 @@ const SHAPES: Record<HoldType, Shape> = {
       p.x += 0.15 * Math.sin(p.y * 3 + k * 4) * 0.2;
     },
   },
+  // A broad, low dome: the crest sits low, so the top is a long rounded ramp
+  // back to the wall (where the palm goes) and the underside drops off steeply.
+  // The base flares into a skirt, like a real bolt-on shell.
   sloper: {
-    scale: [0.1, 0.085, 0.046],
+    scale: [0.1, 0.078, 0.05],
     detail: 2,
-    jitter: 0.035,
+    jitter: 0.03,
     bolt: true,
     shape: (p, k) => {
-      p.z *= 0.9 + 0.12 * (1 - p.y);
-      p.x *= 0.9 + 0.2 * k;
+      const crest = -0.25 - 0.15 * k;
+      // Squash the dome so its highest point sits below centre.
+      p.z *= p.y > crest ? 1 - 0.38 * ((p.y - crest) / (1 - crest)) ** 1.4 : 1 - 0.1 * (crest - p.y);
+      // Flat-ish palm across the top, not a ball.
+      if (p.y > 0.2 && p.z > 0.25) p.z = 0.25 + (p.z - 0.25) * 0.75;
+      // Skirt: widen the rim where it meets the wall.
+      const flare = 1 + 0.14 * (1 - Math.min(1, Math.max(0, p.z) / 0.35)) ** 2;
+      p.x *= (0.9 + 0.2 * k) * flare;
+      p.y *= flare;
     },
     // Palmed, so the whole upper dome and its face get chalky.
     grip: (n, c) => smooth(-0.35, 0.5, n.y + 0.5 * n.z) * (c.y > -0.15 ? 1 : 0.4),
