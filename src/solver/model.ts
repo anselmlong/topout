@@ -9,14 +9,19 @@ export const BODY = {
   height: 175,
   /** Arm span (ape index 1.0). Max hand-to-hand distance on static moves. */
   span: 175,
+  /**
+   * Max vertical gap between the hands (cm): reaching up from a locked-off hand is
+   * far shorter than the sideways span.
+   */
+  lockoff: 118,
   /** Max hand-to-foot distance when fully stretched. */
-  reach: 215,
+  reach: 205,
   /** Min hand-to-foot distance (deep crouch). */
   crouch: 45,
   /** Max foot-to-foot distance. */
   stride: 150,
   /** Beyond static reach a move becomes a dyno, up to this multiple. */
-  dynoLimit: 1.18,
+  dynoLimit: 1.1,
   /** How far (cm) the left hand may sit right of the right hand (a cross-through). */
   maxHandCross: 30,
   maxFootCross: 20,

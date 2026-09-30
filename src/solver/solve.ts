@@ -172,6 +172,19 @@ class Context {
     return { limbs: [...l] as Limbs, points: this.points(l) };
   }
 
+  /**
+   * How stretched the hands are, as a fraction of the reachable limit (1 = full static reach).
+   * Sideways the limit is the arm span; straight up it's the much shorter lock-off reach.
+   */
+  handSpan(a: Point, b: Point): number {
+    const du = Math.abs(b.u - a.u);
+    const dv = Math.abs(b.v - a.v);
+    const ellipse = Math.hypot(du / BODY.span, dv / BODY.lockoff);
+    // A dihedral brings points closer in 3D than on the unfolded wall.
+    const flat = Math.hypot(du, dv);
+    return flat > 1e-6 ? ellipse * (this.dist(a, b) / flat) : 0;
+  }
+
   /** Both feet's quality, plus the stemming bonus when they push on opposite faces of a corner. */
   feetQ(l: Limbs, p: Point[], stay?: number): [number, number] {
     const q: [number, number] = [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])];
@@ -211,7 +224,7 @@ class Context {
   /** Stance validity. `slack` > 1 allows the stretched landing of a dyno. */
   valid(l: Limbs, slack = BODY.dynoLimit): boolean {
     const p = this.points(l);
-    if (this.dist(p[0], p[1]) > BODY.span * slack) return false;
+    if (this.handSpan(p[0], p[1]) > slack) return false;
     // Matching needs a hold with room for two.
     if (l[0] === l[1] && !handMatchable(this.holds[l[0]])) return false;
     if (l[2] >= 0 && l[2] === l[3] && !footMatchable(this.holds[l[2]])) return false;
@@ -305,10 +318,12 @@ class Context {
         (1 + 2.5 * Math.max(0, stretch - 0.8));
 
       const target = np[limb];
-      let ext = this.dist(p[other], target) / BODY.span;
+      let ext = this.handSpan(p[other], target);
       for (const f of onFeet) ext = Math.max(ext, this.dist(p[f], target) / BODY.reach);
       if (ext > BODY.dynoLimit) return null;
       const dynamic = ext > 1;
+      // The top has to be caught under control: no jumping for the finish.
+      if (dynamic && this.holds[to].role === 'finish') return null;
       const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
 
       const nc = { u: (np[0].u + np[1].u + feetMid.u) / 3, v: (np[0].v + np[1].v + feetMid.v * 2) / 4 };

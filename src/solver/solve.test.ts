@@ -44,7 +44,7 @@ describe('solver', () => {
   });
 
   it('wider spacing is harder', () => {
-    expect(grade(wall(10), ladder('crimp', 95))).toBeGreaterThan(grade(wall(10), ladder('crimp', 40)));
+    expect(grade(wall(10), ladder('crimp', 80))).toBeGreaterThan(grade(wall(10), ladder('crimp', 40)));
   });
 
   it('steeper is harder', () => {
