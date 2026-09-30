@@ -370,10 +370,22 @@ class Context {
   }
 
   neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {
+    const h = this.holds;
     for (let limb = 0; limb < 4; limb++) {
       const vals = limb <= 1 ? this.handIdx : this.footVals;
       for (const to of vals) {
         if (to === l[limb]) continue;
+        // Cheap reach pre-checks before the full move evaluation.
+        if (limb <= 1) {
+          const o = h[l[1 - limb]];
+          const t = h[to];
+          if (Math.hypot((t.u - o.u) / BODY.span, (t.v - o.v) / BODY.lockoff) > BODY.dynoLimit * 1.05) continue;
+        } else if (to >= 0) {
+          const t = h[to];
+          const lo = Math.min(h[l[0]].v, h[l[1]].v);
+          if (t.v > lo + 15) continue;
+          if (Math.hypot(t.u - h[l[0]].u, t.v - h[l[0]].v) > BODY.reach * BODY.dynoLimit * 1.05) continue;
+        }
         const m = this.moveCost(l, limb, to);
         if (!m) continue;
         const n = [...l] as Limbs;

@@ -166,7 +166,7 @@ export function contactList(start: Hold[], finish: Hold, placed: Hold[], volumes
 }
 
 /**
- * An arête (outside corner) is itself a hold: contacts every 30 cm up the edge,
+ * An arête (outside corner) is itself a hold: contacts every 40 cm up the edge,
  * pulled from almost any direction (laybacks, slaps, pinches). Sharper = better.
  */
 export function areteContacts(wall: Wall): Hold[] {
@@ -175,7 +175,7 @@ export function areteContacts(wall: Wall): Hold[] {
   const sharp = Math.sin((Math.min(100, -fold.angle) * Math.PI) / 180);
   const top = wall.panels.reduce((h, p) => h + p.length, 0);
   const out: Hold[] = [];
-  for (let v = 60, i = 0; v < top - 25; v += 30, i++)
+  for (let v = 60, i = 0; v < top - 25; v += 40, i++)
     out.push({
       id: `arete:${i}`,
       type: 'volume',
