@@ -132,7 +132,8 @@ function CameraRig({ wall }: { wall: Wall }) {
     const aspect = sizeRef.current.width / sizeRef.current.height;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     const fitH = (b.height * 0.5 + 0.35 + b.depth * 0.15) / Math.tan(vfov / 2);
-    const fitW = (wall.width / 200 + 0.3) / Math.tan(hfov / 2);
+    // Portrait screens are width-bound: keep the side margin small there.
+    const fitW = (wall.width / 200 + (aspect < 1 ? 0.12 : 0.3)) / Math.tan(hfov / 2);
     const d = Math.max(fitH, fitW);
     cam.position.set(0.0, target.y + 0.25, target.z + d);
     cam.lookAt(target);

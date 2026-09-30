@@ -729,6 +729,14 @@ button {
   transition: width 0.3s ease, background 0.3s;
 }
 
+.sticky-cta {
+  position: sticky;
+  bottom: -18px;
+  margin: 0 -22px -18px;
+  padding: 12px 22px 18px;
+  background: linear-gradient(to bottom, rgba(247, 245, 240, 0), var(--surface-solid) 35%);
+}
+
 /* ---------------------------------------------------------------- practice */
 
 .field {
@@ -933,6 +941,13 @@ a.icon-btn {
   .ticker .label {
     font-size: 14px;
     margin: 2px 0 6px;
+  }
+  .legend {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+  }
+  .legend span {
+    font-size: 11.5px;
   }
   .viewing {
     left: 12px;

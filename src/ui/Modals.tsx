@@ -62,12 +62,14 @@ export function HelpModal() {
         ))}
       </ul>
       <p className="fine">
-        Feet can go on any hold. Smearing (feet on bare wall) only works on slab and vertical walls. The climber is 175 cm with a
-        neutral ape index, every day.
+        Every day brings a new wall: slabs, overhangs, headwalls, corners you can stem, and arêtes whose edge is itself a hold.
+        After a test, numbered tags show the climber’s beta, coloured by how hard each move was. The climber is 175 cm, every day.
       </p>
-      <button className="btn primary wide" onClick={close}>
-        Start setting
-      </button>
+      <div className="sticky-cta">
+        <button className="btn primary wide" onClick={close}>
+          Start setting
+        </button>
+      </div>
     </Modal>
   );
 }
