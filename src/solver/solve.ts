@@ -339,9 +339,12 @@ class Context {
       // Hanging stretched out (feet far below) loads the arms much more.
       let stretch = 0;
       for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
+      // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
+      const stem = l[2] !== OFF && l[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
       const load =
         handLoad(handsAngle, this.feetQ(l, p)) *
-        (1 + 2.5 * Math.max(0, stretch - 0.8));
+        (1 + 2.5 * Math.max(0, stretch - 0.8)) *
+        (1 - 0.75 * stem);
 
       const target = np[limb];
       let ext = this.handSpan(p[other], target);

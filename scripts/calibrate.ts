@@ -15,6 +15,11 @@ export interface Anchor {
   spacing: number;
   feet: boolean;
   expect: number;
+  /** Optional wall fold (corner > 0, arête < 0). */
+  fold?: number;
+  /** Hand holds straight up the middle instead of zig-zagging. */
+  column?: boolean;
+  feetU?: number;
 }
 
 export const ANCHORS: Anchor[] = [
@@ -30,6 +35,13 @@ export const ANCHORS: Anchor[] = [
   { name: '40° crimps', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 8 },
   { name: '40° slopers', angle: 40, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 8 },
   { name: '30° pinches', angle: 30, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 5 },
+  // Wall shapes: corners climb easier than faces (stemming); arêtes are technical.
+  { name: 'vertical corner crimps', angle: 0, type: 'crimp', size: 'm', spacing: 50, feet: false, expect: 2, fold: 90 },
+  // Judgement call: no footholds at all, smearing a steep corner — hard for the grade of its holds.
+  { name: '20° corner edges', angle: 20, type: 'edge', size: 'm', spacing: 55, feet: false, expect: 4, fold: 90 },
+  { name: 'vertical arête crimps', angle: 0, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 4, fold: -70 },
+  // A committing jump between jugs.
+  { name: 'vertical jug dyno', angle: 0, type: 'jug', size: 'l', spacing: 125, feet: true, expect: 4, column: true },
 ];
 
 const TOP = 400;
@@ -40,12 +52,18 @@ const start: Hold[] = [
 const finish: Hold = { id: 'f', type: 'jug', size: 'l', u: 200, v: TOP - 20, rot: 0, role: 'finish' };
 
 export function anchorRoute(a: Anchor) {
-  const wall: Wall = { width: 400, panels: [{ length: TOP + 20, angle: a.angle }], seed: 1 };
+  const wall: Wall = {
+    width: 400,
+    panels: [{ length: TOP + 20, angle: a.angle }],
+    seed: 1,
+    ...(a.fold ? { fold: { u: 200, angle: a.fold } } : {}),
+  };
   const holds: Hold[] = [];
   let i = 0;
   for (let v = 150 + a.spacing; v < TOP - 20 - a.spacing / 2; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u: i % 2 ? 228 : 172, v, rot: 0 });
+    const u = a.column ? 200 : i % 2 ? 228 : 172;
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot: 0 });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < TOP - 120; v += 38, j++)

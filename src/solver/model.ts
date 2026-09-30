@@ -108,7 +108,7 @@ export function stemBonus(wall: Wall, footU: [number, number]): number {
   const f = wall.fold.u;
   const opposite = (footU[0] - f) * (footU[1] - f) < 0 && Math.abs(footU[0] - f) > 8 && Math.abs(footU[1] - f) > 8;
   // A 90° corner is ideal; a shallow one barely helps.
-  return opposite ? 0.4 * Math.sin(rad(Math.min(90, wall.fold.angle))) : 0;
+  return opposite ? 0.62 * Math.sin(rad(Math.min(90, wall.fold.angle))) : 0;
 }
 
 /** Real height above the floor (cm) of the wall point at v: overhangs lean out, so less than v. */
