@@ -318,10 +318,14 @@ function HoldMesh({
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot, volumes);
   // Used holds get chalky.
   const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
+  // A faint dusting all over, and real build-up on the faces hands and shoes use.
   const color = useMemo(
-    () => new THREE.Color(tint).lerp(new THREE.Color('#f4f2ec'), Math.min(0.5, chalk * 0.1)),
+    () => new THREE.Color(tint).lerp(new THREE.Color('#f4f2ec'), Math.min(0.12, chalk * 0.03)),
     [tint, chalk],
   );
+  const chalkUniform = useMemo(() => ({ value: 0 }), []);
+  chalkUniform.value = chalk > 0 ? Math.min(0.85, 0.3 + chalk * 0.12) : 0;
+  const addChalk = useMemo(() => chalkShader(chalkUniform), [chalkUniform]);
 
   return (
     <group position={t.position} quaternion={t.quaternion}>
@@ -361,6 +365,7 @@ function HoldMesh({
           color={color}
           flatShading
           roughness={0.85 + chalk * 0.02}
+          onBeforeCompile={addChalk}
           transparent={dragging}
           opacity={dragging ? 0.75 : 1}
         />
@@ -374,6 +379,26 @@ function HoldMesh({
       {selected && <Selection hold={hold} />}
     </group>
   );
+}
+
+/**
+ * Mixes chalk white into the hold's colour where the geometry's `grip` attribute
+ * says hands and feet go (the incut of an edge, a pinch's flanks, a sloper's
+ * dome), scaled by how much the hold has been used.
+ */
+function chalkShader(amount: { value: number }) {
+  return (shader: { uniforms: Record<string, { value: unknown }>; vertexShader: string; fragmentShader: string }) => {
+    shader.uniforms.uChalk = amount;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float grip;\nvarying float vGrip;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrip = grip;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uChalk;\nvarying float vGrip;')
+      .replace(
+        '#include <color_fragment>',
+        '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * uChalk, 0.0, 0.85));',
+      );
+  };
 }
 
 /** Outline ring plus an arrow showing the direction the hold wants to be pulled. */

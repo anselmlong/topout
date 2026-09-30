@@ -4,7 +4,9 @@
 // Each hold is a deformed icosphere: squared off with a superellipsoid for
 // edges and crimps, carved for pockets and jug lips, jittered per variant so
 // no two look quite alike. Per-face colour grain is baked in as vertex colours
-// (multiplied with the material colour, so chalk tinting still works).
+// (multiplied with the material colour). A per-vertex `grip` attribute marks
+// the surfaces hands and shoes actually use, so chalk builds up there and
+// nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
 import type { HoldSize, HoldType } from '../solver/types';
@@ -20,7 +22,19 @@ interface Shape {
   shade?: (p: THREE.Vector3) => number;
   jitter: number;
   bolt: boolean;
+  /** Where chalk collects, from a face's outward normal (defaults to upward-facing faces). */
+  grip?: GripFn;
 }
+
+/** 0..1 chalkiness of a face, from its normal and centre (local frame). */
+type GripFn = (n: THREE.Vector3, c: THREE.Vector3) => number;
+
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+/** Fingers wrap over the top: faces pointing up, and a little onto the lip. */
+const TOP_GRIP: GripFn = (n) => smooth(0.05, 0.75, n.y + 0.25 * Math.max(0, n.z) * (n.y > -0.1 ? 1 : 0));
 
 const sgnpow = (v: number, e: number) => Math.sign(v) * Math.abs(v) ** e;
 
@@ -37,6 +51,7 @@ interface Profile {
   /** How much the ends shrink in height too (0 = full height to the tip). */
   heightTaper?: number;
   shade?: (x: number, y: number, z: number) => number;
+  grip?: GripFn;
 }
 
 /** Real-hold shapes, drawn as a side profile and extruded across the width. */
@@ -113,6 +128,8 @@ const PROFILES: Partial<Record<HoldType, Profile>> = {
     width: 0.042,
     taper: 0.08,
     topNarrow: 0.4,
+    // Thumb on one side, fingers on the other: chalk goes on both flanks.
+    grip: (n) => smooth(0.35, 0.85, Math.abs(n.x)) * 0.9 + smooth(0.3, 0.8, n.y) * 0.4,
   },
 };
 
@@ -155,6 +172,13 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
     const mid = (yMin + yMax) / 2;
     const h = 1 - (pr.heightTaper ?? 0) * t * t;
     pos.setXYZ(i, across * narrow, mid + (up - mid) * h - droop, Math.max(0, out * round * j));
+  }
+  // Swapping the extrusion's x and z axes mirrors it, which turns every face
+  // inside out; swap two corners of each triangle so the outside faces out.
+  for (let f = 0; f + 2 < pos.count; f += 3) {
+    const x = pos.getX(f + 1), y = pos.getY(f + 1), z = pos.getZ(f + 1);
+    pos.setXYZ(f + 1, pos.getX(f + 2), pos.getY(f + 2), pos.getZ(f + 2));
+    pos.setXYZ(f + 2, x, y, z);
   }
   return g;
 }
@@ -207,6 +231,8 @@ const SHAPES: Record<HoldType, Shape> = {
       p.z *= 0.9 + 0.12 * (1 - p.y);
       p.x *= 0.9 + 0.2 * k;
     },
+    // Palmed, so the whole upper dome and its face get chalky.
+    grip: (n, c) => smooth(-0.35, 0.5, n.y + 0.5 * n.z) * (c.y > -0.15 ? 1 : 0.4),
   },
   pinch: {
     scale: [0.03, 0.08, 0.046],
@@ -219,6 +245,7 @@ const SHAPES: Record<HoldType, Shape> = {
       p.x *= 1 - 0.35 * Math.max(0, p.y) + 0.1 * k;
       p.z *= 1 - 0.25 * Math.abs(p.y);
     },
+    grip: (n) => smooth(0.35, 0.85, Math.abs(n.x)) * 0.9,
   },
   pocket: {
     scale: [0.062, 0.06, 0.042],
@@ -231,18 +258,33 @@ const SHAPES: Record<HoldType, Shape> = {
       if (d < 0.5 && p.z > 0) p.z *= 0.12 + d * 1.6;
     },
     shade: (p) => (Math.hypot(p.x, p.y - 0.12) < 0.42 ? 0.55 : 1),
+    // Chalk rings the hole's rim and bottom lip, where the fingers go in.
+    grip: (n, c) => {
+      const d = Math.hypot(c.x, c.y - 0.12);
+      return d < 0.55 ? 0.35 + 0.65 * smooth(0.1, 0.7, n.y) : 0.25 * TOP_GRIP(n, c);
+    },
   },
+  // A screw-on chip: low dome with a countersunk screw hole in the middle.
   foot: {
-    scale: [0.028, 0.022, 0.018],
-    detail: 1,
-    jitter: 0.1,
+    scale: [0.028, 0.022, 0.016],
+    detail: 2,
+    jitter: 0.07,
     bolt: false,
+    shape: (p, k) => {
+      p.x *= 0.9 + 0.2 * k;
+      const d = Math.hypot(p.x, p.y + 0.05);
+      if (d < 0.32 && p.z > 0) p.z *= 0.25 + d * 1.6;
+    },
+    shade: (p) => (Math.hypot(p.x, p.y + 0.05) < 0.28 ? 0.4 : 1),
+    // Rubber and chalk land on the top: shoes stand on it from above.
+    grip: (n) => smooth(0.0, 0.7, n.y + 0.3 * n.z) * 0.8,
   },
   jib: {
     scale: [0.016, 0.013, 0.011],
     detail: 0,
     jitter: 0.12,
     bolt: false,
+    grip: (n) => smooth(0.0, 0.7, n.y + 0.3 * n.z) * 0.8,
   },
   // Never drawn as a hold: volumes have their own mesh (see Volumes.tsx).
   volume: {
@@ -277,7 +319,13 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   if (profile) {
     const S = SIZE[size];
     // Shade tests are written in profile units, so undo the size scale.
-    const data = finish(profileGeometry(profile, S, k, r), r, spec.bolt, (x, y, z) => profile.shade?.(x / S, y / S, z / S) ?? 1);
+    const data = finish(
+      profileGeometry(profile, S, k, r),
+      r,
+      spec.bolt,
+      (x, y, z) => profile.shade?.(x / S, y / S, z / S) ?? 1,
+      profile.grip ?? spec.grip ?? TOP_GRIP,
+    );
     cache.set(key, data);
     return data;
   }
@@ -300,27 +348,52 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
     p.z = Math.max(0, p.z);
     pos.setXYZ(i, p.x * spec.scale[0] * s, p.y * spec.scale[1] * s, p.z * spec.scale[2] * s);
   }
-  const data = finish(g, r, spec.bolt, (_x, _y, _z, i) => shadeOf[i]);
+  // Grip tests see centres in unit-shape space, like `shape` and `shade`.
+  const grip = spec.grip ?? TOP_GRIP;
+  const unit = new THREE.Vector3();
+  const data = finish(g, r, spec.bolt, (_x, _y, _z, i) => shadeOf[i], (n, c) =>
+    grip(n, unit.set(c.x / (spec.scale[0] * s), c.y / (spec.scale[1] * s), c.z / (spec.scale[2] * s))),
+  );
   cache.set(key, data);
   return data;
 }
 
-/** Per-face colour grain (+ shading, e.g. inside a scoop) and the bolt washer's spot. */
+/** Per-face colour grain (+ shading, e.g. inside a scoop), chalk zones and the bolt washer's spot. */
 function finish(
   g: THREE.BufferGeometry,
   r: ReturnType<typeof rng>,
   hasBolt: boolean,
   shade: (x: number, y: number, z: number, i: number) => number,
+  gripOf: GripFn,
 ): HoldMeshData {
   const pos = g.attributes.position as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
+  const grip = new Float32Array(pos.count);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const centre = new THREE.Vector3();
   for (let f = 0; f + 2 < pos.count; f += 3) {
     const grain = r.range(0.9, 1.05);
     let s = 1;
     for (let j = 0; j < 3; j++) s = Math.min(s, shade(pos.getX(f + j), pos.getY(f + j), pos.getZ(f + j), f + j));
     for (let j = 0; j < 3; j++) colors.set([grain * s, grain * s, grain * s], (f + j) * 3);
+    // Flat faces, so one chalk value per face; patchy, like real chalk.
+    a.fromBufferAttribute(pos, f);
+    b.fromBufferAttribute(pos, f + 1);
+    c.fromBufferAttribute(pos, f + 2);
+    centre.copy(a).add(b).add(c).divideScalar(3);
+    n.subVectors(c, b).cross(a.sub(b));
+    if (n.lengthSq() < 1e-14) continue;
+    n.normalize();
+    // Faces flush against the wall never see a hand.
+    const onWall = centre.z < 0.002 ? 0 : 1;
+    const gv = Math.max(0, Math.min(1, gripOf(n, centre))) * onWall * r.range(0.65, 1);
+    grip.fill(gv, f, f + 3);
   }
   g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  g.setAttribute('grip', new THREE.BufferAttribute(grip, 1));
   g.computeVertexNormals();
   g.computeBoundingBox();
   const bb = g.boundingBox!;
