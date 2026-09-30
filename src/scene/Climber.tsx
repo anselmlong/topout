@@ -390,7 +390,9 @@ export function Climber({ day }: { day: Day }) {
       useClimb.setState({
         move: f.move,
         strain: f.strain,
-        label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
+        label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
+          m >= 2 && h && f.to.feet[m - 2] && f.to.feet[m - 2]!.v > Math.min(f.to.hands[0].v, f.to.hands[1].v) - 35 ? ' (heel hook)' : ''
+        }${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
       });
     }
   };

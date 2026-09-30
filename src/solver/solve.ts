@@ -187,7 +187,7 @@ class Context {
 
   /** Both feet's quality, plus the stemming bonus when they push on opposite faces of a corner. */
   feetQ(l: Limbs, p: Point[], stay?: number): [number, number] {
-    const q: [number, number] = [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])];
+    const q: [number, number] = [this.footQ(l[2], p[2], this.isHeel(l, 2, p)), this.footQ(l[3], p[3], this.isHeel(l, 3, p))];
     // Flag: one foot on, the other off the holds but pressed against the wall as a
     // counterweight. Not dead weight: it gives a little support (less when steep).
     const on = [l[2], l[3]].filter((x) => x !== OFF).length;
@@ -215,7 +215,25 @@ class Context {
     return q;
   }
 
-  footQ(val: number, p: Point): number {
+  /**
+   * Heel hook: on steep ground a heel on a big hold near hand height pulls the hips in.
+   * Needs something to hook (jug, big edge or sloper, a volume), and to be out to the side.
+   */
+  heelOk(val: number, fp: Point, p: Point[]): boolean {
+    const h = this.holds[val];
+    if (angleAt(this.wall, fp.v) < 12) return false;
+    const hookable = h.type === 'jug' || h.type === 'volume' || ((h.type === 'edge' || h.type === 'sloper') && h.size === 'l');
+    if (!hookable || h.id.startsWith('arete:')) return false;
+    const hiV = Math.max(p[0].v, p[1].v);
+    return fp.v <= hiV + 10 && Math.abs(fp.u - (p[0].u + p[1].u) / 2) >= 25;
+  }
+
+  isHeel(l: Limbs, f: 2 | 3, p: Point[]): boolean {
+    return l[f] >= 0 && p[f].v > Math.min(p[0].v, p[1].v) - 35;
+  }
+
+  footQ(val: number, p: Point, heel = false): number {
+    if (val >= 0 && heel) return 0.75;
     if (val >= 0) return footQuality(this.holds[val]);
     if (val === SMEAR) return angleAt(this.wall, p.v) < -2 ? SMEAR_QUALITY.slab : SMEAR_QUALITY.vertical;
     return 0;
@@ -250,13 +268,17 @@ class Context {
       if (footQuality(this.holds[val]) < 0.05) return false;
       // A foothold under the crash pad is the mat: that's a dab.
       if (fp.v < this.padV) return false;
-      if (fp.v > loV + 15 || fp.v > hiV - 50) return false;
+      // A foot up near the hands is only possible as a heel hook (on steep ground, out to the side).
+      const heel = fp.v > loV + 15 || fp.v > hiV - 50;
+      if (heel && !this.heelOk(val, fp, p)) return false;
       for (const hp of [p[0], p[1]]) {
         const d = this.dist(fp, hp);
-        if (d > BODY.reach * slack || d < BODY.crouch) return false;
+        if (d > BODY.reach * slack || d < (heel ? 35 : BODY.crouch)) return false;
       }
     }
     if (l[2] >= 0 && l[3] >= 0 && this.dist(p[2], p[3]) > BODY.stride) return false;
+    // One heel at a time.
+    if (this.isHeel(l, 2, p) && this.isHeel(l, 3, p)) return false;
     // Dab: hips sitting on the mat. Mirrors the pose the climber is drawn in.
     const on = [2, 3].filter((f) => l[f] !== OFF);
     const handsV = (p[0].v + p[1].v) / 2;
@@ -370,7 +392,9 @@ class Context {
     if (g < MIN_GRIP) return null;
     // Feet share a hold only when there's nothing better nearby.
     const match = to >= 0 && to === l[stay] ? 0.12 : 0;
-    return { d: load / g + match, dynamic: false };
+    // Getting a heel up takes effort.
+    const heelUp = this.isHeel(next, limb as 2 | 3, np) ? 0.3 * load : 0;
+    return { d: load / g + match + heelUp, dynamic: false };
   }
 
   neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {
@@ -386,8 +410,8 @@ class Context {
           if (Math.hypot((t.u - o.u) / BODY.span, (t.v - o.v) / BODY.lockoff) > BODY.dynoLimit * 1.05) continue;
         } else if (to >= 0) {
           const t = h[to];
-          const lo = Math.min(h[l[0]].v, h[l[1]].v);
-          if (t.v > lo + 15) continue;
+          const hi = Math.max(h[l[0]].v, h[l[1]].v);
+          if (t.v > hi + 10) continue;
           if (Math.hypot(t.u - h[l[0]].u, t.v - h[l[0]].v) > BODY.reach * BODY.dynoLimit * 1.05) continue;
         }
         const m = this.moveCost(l, limb, to);

@@ -138,6 +138,28 @@ describe('solver', () => {
     if (flat.ok) expect(edge.grade).toBeLessThan(flat.grade);
   });
 
+  it('heel hooks a big hold out to the side on steep ground', () => {
+    const steep = wall(35);
+    const hands: Hold[] = [
+      { id: 'a', type: 'edge', size: 'm', u: 185, v: 215 },
+      { id: 'b', type: 'edge', size: 'm', u: 215, v: 275 },
+      { id: 'c', type: 'edge', size: 'm', u: 190, v: 330 },
+    ].map((h) => ({ ...h, type: 'edge' as const, size: 'm' as const, rot: 0 }));
+    const feet: Hold[] = [
+      { id: 'f1', type: 'foot', size: 'm', u: 180, v: 70, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 222, v: 95, rot: 0 },
+      { id: 'f3', type: 'foot', size: 'm', u: 196, v: 130, rot: 0 },
+    ];
+    const hook: Hold = { id: 'hk', type: 'jug', size: 'l', u: 265, v: 225, rot: -Math.PI / 2 };
+    const without = solve(steep, start, finishAt(380), [...hands, ...feet]);
+    const withHeel = solve(steep, start, finishAt(380), [...hands, ...feet, hook]);
+    if (!withHeel.ok) throw new Error(withHeel.message);
+    const hookIdx = start.length + 1 + hands.length + feet.length;
+    const heeled = [withHeel.start, ...withHeel.moves.map((m) => m.to)].some((s) => s.limbs[2] === hookIdx || s.limbs[3] === hookIdx);
+    expect(heeled).toBe(true);
+    if (without.ok) expect(withHeel.grade).toBeLessThan(without.grade);
+  });
+
   it('beta ends matched on the finish', () => {
     const r = solve(wall(0), start, finishAt(380), ladder('jug', 40));
     if (!r.ok) throw new Error();
