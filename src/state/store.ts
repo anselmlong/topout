@@ -67,6 +67,9 @@ interface GameState {
   lastTest: TestRun | null;
   modal: 'help' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
+  /** Earlier route states for undo, oldest first; `redoStack` holds undone ones. */
+  undoStack: RouteSnapshot[];
+  redoStack: RouteSnapshot[];
 
   load: () => Promise<void>;
   arm: (slot: Armed | null) => void;
@@ -79,6 +82,8 @@ interface GameState {
   rotate: (delta: number) => void;
   remove: (id?: string) => void;
   clear: () => void;
+  undo: () => void;
+  redo: () => void;
   testClimb: () => Promise<void>;
   watch: () => Promise<void>;
   climbFinished: () => void;
@@ -90,7 +95,20 @@ interface GameState {
   showToast: (t: string) => void;
 }
 
+/** The part of the route that undo restores. */
+interface RouteSnapshot {
+  placed: Hold[];
+  volumes: Volume[];
+}
+
+const UNDO_LIMIT = 100;
+/** Rotation steps on the same hold within this window undo as one. */
+const ROTATE_MERGE_MS = 800;
+
 let nextId = 1;
+let lastRotate = { id: '', at: 0 };
+/** Route state when the current drag began; pushed to history only if the hold moved. */
+let dragStart: RouteSnapshot | null = null;
 let playRun = 0;
 
 const isVolumeId = (id: string) => id.startsWith('v');
@@ -126,6 +144,23 @@ export const useGame = create<GameState>((set, get) => {
   };
   /** Any edit to the route invalidates the last beta. */
   const edited = (patch: Partial<GameState>) => set({ ...patch, beta: null });
+  const snapshot = (): RouteSnapshot => ({ placed: get().placed, volumes: get().volumes });
+  /** Record the route as it was before an edit. A fresh edit forgets anything undone. */
+  const remember = (snap: RouteSnapshot = snapshot()) => {
+    lastRotate = { id: '', at: 0 };
+    set({ undoStack: [...get().undoStack, snap].slice(-UNDO_LIMIT), redoStack: [] });
+  };
+  /** Swap the route for a stored one, pushing the current route onto the other stack. */
+  const restore = (from: 'undoStack' | 'redoStack', to: 'undoStack' | 'redoStack') => {
+    const s = get();
+    if (!editable() || s.draggingId) return;
+    const snap = s[from].at(-1);
+    if (!snap) return;
+    lastRotate = { id: '', at: 0 };
+    set({ [from]: s[from].slice(0, -1), [to]: [...s[to], snapshot()] } as Partial<GameState>);
+    edited({ ...snap, selectedId: null, hoverHoldId: null, ghost: null });
+    persist();
+  };
 
   return {
     status: 'loading',
@@ -153,6 +188,8 @@ export const useGame = create<GameState>((set, get) => {
     lastTest: null,
     modal: null,
     toast: null,
+    undoStack: [],
+    redoStack: [],
 
     async load() {
       const shared = decodeRoute(location.hash);
@@ -201,6 +238,8 @@ export const useGame = create<GameState>((set, get) => {
         viewing: sharedHere ? shared.holds : null,
         viewingVolumes: sharedHere ? shared.volumes : [],
         viewingLabel: 'Shared route',
+        undoStack: [],
+        redoStack: [],
       });
     },
 
@@ -259,6 +298,7 @@ export const useGame = create<GameState>((set, get) => {
         placed = [...placed, { id: `p${nextId++}`, type: s.armed.type, size: s.armed.size, u, v, rot: s.ghostRot }];
       }
       const left = remaining(s.day!, placed, volumes, s.armed);
+      remember();
       edited({ placed, volumes, armed: left > 0 ? s.armed : null, ghost: left > 0 ? s.ghost : null });
       persist();
     },
@@ -270,11 +310,16 @@ export const useGame = create<GameState>((set, get) => {
 
     startDrag(id) {
       if (!editable()) return;
+      dragStart = snapshot();
       set({ draggingId: id, selectedId: id, armed: null });
     },
 
     endDrag() {
       if (!get().draggingId) return;
+      const before = dragStart;
+      dragStart = null;
+      // A click that selects without moving isn't an edit.
+      if (before && (before.placed !== get().placed || before.volumes !== get().volumes)) remember(before);
       set({ draggingId: null, ghost: null });
       persist();
     },
@@ -284,6 +329,12 @@ export const useGame = create<GameState>((set, get) => {
       if (!editable()) return;
       // Held item first, then the selected one, then whatever the mouse is over.
       const target = s.armed ? null : (s.selectedId ?? s.hoverHoldId);
+      if (target) {
+        // Q-Q-Q or a wheel flick on one hold is a single undo step.
+        const now = performance.now();
+        if (lastRotate.id !== target || now - lastRotate.at > ROTATE_MERGE_MS) remember();
+        lastRotate = { id: target, at: now };
+      }
       if (target && isVolumeId(target)) {
         edited({ volumes: s.volumes.map((v) => (v.id === target ? { ...v, rot: v.rot + delta } : v)) });
         persist();
@@ -300,6 +351,7 @@ export const useGame = create<GameState>((set, get) => {
       if (!editable()) return;
       const target = id ?? s.selectedId;
       if (!target) return;
+      remember();
       // The removed mesh never fires pointer-out, so clear its hover too.
       edited({
         placed: s.placed.filter((h) => h.id !== target),
@@ -311,9 +363,18 @@ export const useGame = create<GameState>((set, get) => {
     },
 
     clear() {
-      if (!editable()) return;
+      if (!editable() || (!get().placed.length && !get().volumes.length)) return;
+      remember();
       edited({ placed: [], volumes: [], selectedId: null, hoverHoldId: null });
       persist();
+    },
+
+    undo() {
+      restore('undoStack', 'redoStack');
+    },
+
+    redo() {
+      restore('redoStack', 'undoStack');
     },
 
     async testClimb() {

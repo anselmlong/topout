@@ -139,7 +139,7 @@ export function Controls() {
   const text = armed
       ? `Click the wall to place · Q / E or scroll to rotate · Esc to cancel`
       : selected
-        ? 'Drag to move · Q / E to rotate · Delete to remove'
+        ? 'Drag to move · Q / E to rotate · Delete to remove · Ctrl+Z undoes'
         : 'Pick a hold from the tray · Q / E rotates the hold under the mouse · drag to look around · scroll zooms';
   return <p className="controls">{text}</p>;
 }
@@ -265,6 +265,19 @@ export function ActionBar() {
         </>
       ) : (
         <>
+          {s.undoStack.length > 0 && (
+            <button
+              className="btn ghost icon"
+              onClick={() => s.undo()}
+              disabled={busy}
+              title="Undo (Ctrl+Z · Shift+Ctrl+Z redoes)"
+              aria-label="Undo"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12.5 8c-2.6 0-5 1-6.9 2.6L2 7v9h9l-3.6-3.6A8 8 0 0 1 20.1 16l2.4-.8A10.5 10.5 0 0 0 12.5 8z" />
+              </svg>
+            </button>
+          )}
           {s.placed.length > 0 && (
             <button className="btn ghost" onClick={() => s.clear()} disabled={busy}>
               Clear

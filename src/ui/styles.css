@@ -376,6 +376,17 @@ button {
 .btn.wide {
   width: 100%;
 }
+.btn.icon {
+  width: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+.btn.icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
 
 .selection-bar {
   position: absolute;
@@ -921,6 +932,9 @@ a.icon-btn {
   }
   .actionbar .btn {
     padding: 0 10px;
+  }
+  .actionbar .btn.icon {
+    padding: 0;
   }
   .holdcount {
     display: none;

@@ -26,8 +26,17 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey) return;
+      if (e.target instanceof HTMLInputElement) return;
       const s = useGame.getState();
+      if ((e.metaKey || e.ctrlKey) && !s.modal) {
+        const key = e.key.toLowerCase();
+        if (key === 'z' && !e.shiftKey) s.undo();
+        else if ((key === 'z' && e.shiftKey) || key === 'y') s.redo();
+        else return;
+        e.preventDefault();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey) return;
       if (s.modal) {
         if (e.key === 'Escape') s.setModal(null);
         return;
