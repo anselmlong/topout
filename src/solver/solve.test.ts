@@ -121,6 +121,16 @@ describe('solver', () => {
     expect(smearing).toBe(true);
   });
 
+  it('an arête is itself climbable', () => {
+    const flat = solve(wall(0), start, finishAt(380), []);
+    const arete: Wall = { ...wall(0), fold: { u: 200, angle: -70 } };
+    const edge = solve(arete, start, finishAt(380), []);
+    expect(flat.ok).toBe(false);
+    if (!edge.ok) throw new Error(edge.message);
+    // Hands use the edge contacts (listed after start + finish).
+    expect(edge.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= start.length + 1)).toBe(true);
+  });
+
   it('beta ends matched on the finish', () => {
     const r = solve(wall(0), start, finishAt(380), ladder('jug', 40));
     if (!r.ok) throw new Error();

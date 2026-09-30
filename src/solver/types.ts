@@ -35,6 +35,8 @@ export interface Hold {
   grip?: number;
   foot?: number;
   angle?: number;
+  /** Orientation tolerance override (arête contacts can be pulled almost any way). */
+  tol?: number;
 }
 
 export interface Panel {
@@ -48,8 +50,9 @@ export interface Wall {
   width: number;
   panels: Panel[];
   /**
-   * A dihedral: the wall folds along the vertical line u (cm), each face turned
-   * angle/2 degrees toward the room (an inside corner, like an open book).
+   * A fold along the vertical line u (cm), each face turned angle/2 degrees.
+   * Positive: an inside corner (dihedral, like an open book).
+   * Negative: an outside corner (arête) — the edge itself is climbable.
    * Only on single-panel walls.
    */
   fold?: { u: number; angle: number };

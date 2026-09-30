@@ -385,7 +385,8 @@ export function Climber({ day }: { day: Day }) {
     if (f.move >= 0) {
       const m = f.limb;
       const hold = f.holds[m];
-      const what = hold >= 0 ? r.holds[hold]?.type : hold === -1 ? 'smear' : 'off';
+      const h = hold >= 0 ? r.holds[hold] : undefined;
+      const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.type) : hold === -1 ? 'smear' : 'off';
       useClimb.setState({
         move: f.move,
         strain: f.strain,

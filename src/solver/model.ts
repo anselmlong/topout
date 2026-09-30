@@ -103,7 +103,8 @@ export function wallPoint(wall: Wall, u: number, v: number): [number, number, nu
 
 /** Stemming across a dihedral: how much extra each foot gives (0 on a flat wall). */
 export function stemBonus(wall: Wall, footU: [number, number]): number {
-  if (!wall.fold) return 0;
+  // Only an inside corner gives you two faces to push apart.
+  if (!wall.fold || wall.fold.angle <= 0) return 0;
   const f = wall.fold.u;
   const opposite = (footU[0] - f) * (footU[1] - f) < 0 && Math.abs(footU[0] - f) > 8 && Math.abs(footU[1] - f) > 8;
   // A 90° corner is ideal; a shallow one barely helps.
@@ -159,7 +160,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const len = Math.hypot(du, dv) || 1;
   const best = bestPull(hold.rot);
   const c = (du * best.u + dv * best.v) / len;
-  const t = spec.tolerance;
+  const t = hold.tol ?? spec.tolerance;
   const orient = Math.max(0, Math.min(1, (c + t) / (1 + t)));
   // Holds on a volume use that face's angle rather than the panel's.
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v))));

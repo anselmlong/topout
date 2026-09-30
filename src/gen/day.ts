@@ -18,7 +18,7 @@ export function dateOf(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner';
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete';
 
 export const STYLE_LABEL: Record<WallStyle, string> = {
   slab: 'Slab',
@@ -28,6 +28,7 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   headwall: 'Headwall',
   kicker: 'Kicker',
   corner: 'Corner',
+  arete: 'Arête',
 };
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
@@ -69,12 +70,18 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
       const fold = { u: Math.round(width * r.range(0.4, 0.6)), angle: r.pick([60, 75, 90, 105]) };
       return { width, panels, seed, fold };
     }
+    case 'arete': {
+      // An outside corner: faces turned away, the edge itself a hold. Sharper is juggier.
+      panels = [{ length: tall, angle: r.int(-5, 15) }];
+      const fold = { u: Math.round(width * r.range(0.4, 0.6)), angle: -r.pick([40, 55, 70, 85]) };
+      return { width, panels, seed, fold };
+    }
   }
   return { width, panels, seed };
 }
 
 export function wallStyleOf(wall: Wall): WallStyle {
-  if (wall.fold) return 'corner';
+  if (wall.fold) return wall.fold.angle > 0 ? 'corner' : 'arete';
   const p = wall.panels;
   if (p.length === 2) return p[0].length > 100 ? 'headwall' : 'kicker';
   const a = p[0].angle;
@@ -88,11 +95,11 @@ export function wallStyleOf(wall: Wall): WallStyle {
 const WEEKDAY_GRADE = [3, 1, 2, 3, 4, 5, 4]; // Sun..Sat
 
 const STYLE_BY_WEEKDAY: WallStyle[][] = [
-  ['overhang', 'headwall', 'kicker', 'corner'], // Sun
+  ['overhang', 'headwall', 'kicker', 'corner', 'arete'], // Sun
   ['vertical', 'slab', 'overhang', 'corner'], // Mon
-  ['vertical', 'overhang', 'slab', 'corner'], // Tue
+  ['vertical', 'overhang', 'slab', 'corner', 'arete'], // Tue
   ['overhang', 'kicker', 'vertical', 'corner'], // Wed
-  ['overhang', 'headwall', 'steep', 'corner'], // Thu
+  ['overhang', 'headwall', 'steep', 'corner', 'arete'], // Thu
   ['steep', 'kicker', 'headwall'], // Fri
   ['overhang', 'steep', 'headwall', 'corner'], // Sat
 ];
@@ -173,6 +180,7 @@ export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   headwall: [20, 45],
   kicker: [15, 40],
   corner: [-10, 20],
+  arete: [-5, 15],
 };
 
 export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];

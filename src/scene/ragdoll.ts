@@ -173,7 +173,10 @@ export class Ragdoll {
     if (posture && this.tone > 0) {
       for (let i = 0; i < JOINTS; i++) {
         if ((ENDS as readonly number[]).includes(i)) continue;
-        const k = (i === J.elbowL || i === J.elbowR || i === J.kneeL || i === J.kneeR ? 0.05 : 0.11) * this.tone;
+        // A leg with no foothold is held actively (a flag or a tuck), so its knee follows the pose firmly.
+        const freeKnee = (i === J.kneeL && this.ends[2].mode === 'free') || (i === J.kneeR && this.ends[3].mode === 'free');
+        const soft = i === J.elbowL || i === J.elbowR || i === J.kneeL || i === J.kneeR;
+        const k = (freeKnee ? 0.16 : soft ? 0.05 : 0.11) * this.tone;
         pos[i].lerp(posture[i], k);
       }
       // Free feet still want to hang roughly under the hips, a little.

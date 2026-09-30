@@ -81,7 +81,8 @@ function cruxLine(day: Day, test: TestRun) {
   if (!crux) return null;
   const holds = contactList(day.start, day.finish, test.holds, test.volumes, day.wall);
   const idx = crux.to.limbs[crux.limb];
-  const target = idx >= 0 ? (holds[idx].type === 'volume' ? 'the volume' : HOLD_NAME[holds[idx].type].toLowerCase()) : 'a smear';
+  const h = idx >= 0 ? holds[idx] : undefined;
+  const target = !h ? 'a smear' : h.id.startsWith('arete:') ? 'the arête' : h.type === 'volume' ? 'the volume' : HOLD_NAME[h.type].toLowerCase();
   return `${LIMB[crux.limb]} to ${target}${crux.dynamic ? ' (dyno)' : ''} · ${moves.length} moves`;
 }
 

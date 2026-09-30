@@ -162,5 +162,30 @@ export function onVolumes(holds: Hold[], volumes: Volume[] | undefined, wall: Wa
  * then each volume's face contacts. Solver, climber, beta and crux text all use this.
  */
 export function contactList(start: Hold[], finish: Hold, placed: Hold[], volumes: Volume[] | undefined, wall: Wall) {
-  return [...start, finish, ...onVolumes(placed, volumes, wall), ...volumeContacts(volumes, wall)];
+  return [...start, finish, ...onVolumes(placed, volumes, wall), ...volumeContacts(volumes, wall), ...areteContacts(wall)];
+}
+
+/**
+ * An arête (outside corner) is itself a hold: contacts every 30 cm up the edge,
+ * pulled from almost any direction (laybacks, slaps, pinches). Sharper = better.
+ */
+export function areteContacts(wall: Wall): Hold[] {
+  const fold = wall.fold;
+  if (!fold || fold.angle >= 0) return [];
+  const sharp = Math.sin((Math.min(100, -fold.angle) * Math.PI) / 180);
+  const top = wall.panels.reduce((h, p) => h + p.length, 0);
+  const out: Hold[] = [];
+  for (let v = 60, i = 0; v < top - 25; v += 30, i++)
+    out.push({
+      id: `arete:${i}`,
+      type: 'volume',
+      size: 'm',
+      u: fold.u,
+      v,
+      rot: 0,
+      grip: 0.13 + 0.12 * sharp,
+      foot: 0.3 + 0.15 * sharp,
+      tol: 1.4,
+    });
+  return out;
 }
