@@ -225,6 +225,8 @@ class Context {
   valid(l: Limbs, slack = BODY.dynoLimit): boolean {
     const p = this.points(l);
     if (this.handSpan(p[0], p[1]) > slack) return false;
+    // The arête helps (a layback, a slap) but you can't climb it bare: one hand stays on a real hold.
+    if (this.holds[l[0]].id.startsWith('arete:') && this.holds[l[1]].id.startsWith('arete:')) return false;
     // Matching needs a hold with room for two.
     if (l[0] === l[1] && !handMatchable(this.holds[l[0]])) return false;
     if (l[2] >= 0 && l[2] === l[3] && !footMatchable(this.holds[l[2]])) return false;
@@ -299,6 +301,8 @@ class Context {
 
     if (limb <= 1) {
       const other = 1 - limb;
+      // No walking a hand up the arête: each slap on the edge must go back to a real hold.
+      if (this.holds[l[limb]].id.startsWith('arete:') && this.holds[to].id.startsWith('arete:')) return null;
       const onFeet = [2, 3].filter((f) => l[f] !== OFF);
       // Centre of the three-point stance the climber hangs from mid-move.
       const feetMid = onFeet.length

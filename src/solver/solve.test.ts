@@ -121,14 +121,21 @@ describe('solver', () => {
     expect(smearing).toBe(true);
   });
 
-  it('an arête is itself climbable', () => {
-    const flat = solve(wall(0), start, finishAt(380), []);
+  it('an arête helps but is not climbable bare', () => {
     const arete: Wall = { ...wall(0), fold: { u: 200, angle: -70 } };
-    const edge = solve(arete, start, finishAt(380), []);
-    expect(flat.ok).toBe(false);
+    // Bare: impossible.
+    expect(solve(arete, start, finishAt(380), []).ok).toBe(false);
+    // With a couple of real holds the edge is used, and it beats the same holds on a flat wall.
+    const holds: Hold[] = [
+      { id: 'a', type: 'crimp', size: 'm', u: 170, v: 230, rot: 0 },
+      { id: 'b', type: 'crimp', size: 'm', u: 175, v: 310, rot: 0 },
+    ];
+    const edge = solve(arete, start, finishAt(380), holds);
     if (!edge.ok) throw new Error(edge.message);
-    // Hands use the edge contacts (listed after start + finish).
-    expect(edge.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= start.length + 1)).toBe(true);
+    const firstEdge = start.length + 1 + holds.length;
+    expect(edge.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= firstEdge)).toBe(true);
+    const flat = solve(wall(0), start, finishAt(380), holds);
+    if (flat.ok) expect(edge.grade).toBeLessThan(flat.grade);
   });
 
   it('beta ends matched on the finish', () => {

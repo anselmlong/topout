@@ -179,6 +179,7 @@ export function handMatchable(hold: Hold): boolean {
 
 /** Room for both feet on it? Only big holds; foot chips and jibs are one-toe affairs. */
 export function footMatchable(hold: Hold): boolean {
+  if (hold.id.startsWith('arete:')) return false;
   if (hold.type === 'volume') return true;
   return (hold.type === 'jug' && hold.size !== 's') || (hold.type === 'edge' && hold.size === 'l');
 }

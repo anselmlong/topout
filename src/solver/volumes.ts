@@ -184,7 +184,8 @@ export function areteContacts(wall: Wall): Hold[] {
       v,
       rot: 0,
       grip: 0.13 + 0.12 * sharp,
-      foot: 0.3 + 0.15 * sharp,
+      // Edging the corner is a poor foothold: about a smear.
+      foot: 0.18 + 0.08 * sharp,
       tol: 1.4,
     });
   return out;
