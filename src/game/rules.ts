@@ -52,6 +52,8 @@ export function canPlaceVolume(wall: Wall, volumes: Volume[], fixed: Hold[], vol
     const hi = vol.v + r * 0.75;
     if (lo < top && hi > bottom && (lo < bottom || hi > top)) return false;
   }
+  // Not across a dihedral's crease.
+  if (wall.fold && Math.abs(vol.u - wall.fold.u) < r * 0.75) return false;
   for (const o of volumes) {
     if (o.id === vol.id) continue;
     if (Math.hypot(o.u - vol.u, o.v - vol.v) < (r + volumeRadius(o)) * 0.8) return false;

@@ -38,7 +38,7 @@ export function BetaOverlay({ day }: { day: Day }) {
       .map(({ m, i }) => {
         n++;
         const p = m.to.points[m.limb];
-        const f = frameAt(frames, p.v);
+        const f = frameAt(frames, p.u, p.v);
         const side = m.limb === 0 ? -1 : 1;
         const relief = (surfaceAt(beta.volumes, p.u, p.v)?.height ?? 0) / 100;
         const pos = uvToWorld(day.wall, frames, p.u + side * 9, p.v + 7).addScaledVector(f.normal, 0.08 + relief);

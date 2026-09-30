@@ -109,6 +109,18 @@ describe('solver', () => {
     expect(tilted.grade).toBeLessThanOrEqual(plain.grade);
   });
 
+  it('a dihedral lets you stem where a flat wall gives nothing to stand on', () => {
+    const hands = ladder('edge', 45).filter((h) => h.type !== 'foot');
+    const flat = solve(wall(15), start, finishAt(380), hands);
+    const corner: Wall = { ...wall(15), fold: { u: 200, angle: 90 } };
+    const stem = solve(corner, start, finishAt(380), hands);
+    if (!stem.ok) throw new Error(stem.message);
+    if (flat.ok) expect(stem.grade).toBeLessThan(flat.grade);
+    // The feet smear on opposite faces somewhere in the beta.
+    const smearing = [stem.start, ...stem.moves.map((m) => m.to)].some((s) => s.limbs[2] === -1 && s.limbs[3] === -1);
+    expect(smearing).toBe(true);
+  });
+
   it('beta ends matched on the finish', () => {
     const r = solve(wall(0), start, finishAt(380), ladder('jug', 40));
     if (!r.ok) throw new Error();

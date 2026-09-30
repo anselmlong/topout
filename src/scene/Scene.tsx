@@ -223,7 +223,12 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
   const geometry = useMemo(() => panelGeometry(wall, frame, wall.seed), [wall, frame]);
   const handlers = useWallPointer((e: ThreeEvent<PointerEvent>) => worldToUv(wall, frame, e.point));
   const length = (frame.v1 - frame.v0) / 100;
-  const mid = frame.origin.clone().addScaledVector(frame.up, length / 2).addScaledVector(frame.normal, -0.056);
+  const width = (frame.u1 - frame.u0) / 100;
+  const mid = frame.origin
+    .clone()
+    .addScaledVector(frame.up, length / 2)
+    .addScaledVector(frame.right, width / 2)
+    .addScaledVector(frame.normal, -0.056);
   const q = holdQuaternion(frame, 0);
 
   return (
@@ -233,7 +238,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
       </mesh>
       {/* Panel thickness + side rails so the wall reads as a solid object. */}
       <mesh position={mid} quaternion={q} castShadow receiveShadow>
-        <boxGeometry args={[wall.width / 100 + 0.08, length, 0.1]} />
+        <boxGeometry args={[width + (wall.fold ? 0.02 : 0.08), length, 0.1]} />
         <meshStandardMaterial color={PALETTE.plyDark} roughness={0.95} flatShading />
       </mesh>
     </group>
@@ -247,7 +252,7 @@ function Bolts({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
     const h = wallHeight(wall);
     for (let v = 10, row = 0; v < h - 5; v += 20, row++)
       for (let u = row % 2 ? 20 : 10; u < wall.width - 5; u += 20) {
-        const f = frameAt(frames, v);
+        const f = frameAt(frames, u, v);
         out.push({ p: uvToWorld(wall, frames, u, v).addScaledVector(f.normal, 0.0075), q: holdQuaternion(f, 0) });
       }
     return out;
@@ -269,7 +274,7 @@ function Bolts({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
 
 /** Where a hold sits: on the wall, or up on a volume's face and tilted to match it. */
 function placeOnWall(wall: Wall, frames: PanelFrame[], u: number, v: number, rot: number, volumes?: Volume[]) {
-  const f = frameAt(frames, v);
+  const f = frameAt(frames, u, v);
   const position = uvToWorld(wall, frames, u, v).addScaledVector(f.normal, 0.004);
   const s = surfaceAt(volumes, u, v);
   if (!s) return { position, quaternion: holdQuaternion(f, rot) };
@@ -433,7 +438,7 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
 }
 
 function Tape({ hold, wall, frames, kind }: { hold: Hold; wall: Wall; frames: PanelFrame[]; kind: 'start' | 'finish' }) {
-  const f = frameAt(frames, hold.v);
+  const f = frameAt(frames, hold.u, hold.v);
   const q = holdQuaternion(f, 0);
   const strips =
     kind === 'start'

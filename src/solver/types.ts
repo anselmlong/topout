@@ -47,6 +47,12 @@ export interface Panel {
 export interface Wall {
   width: number;
   panels: Panel[];
+  /**
+   * A dihedral: the wall folds along the vertical line u (cm), each face turned
+   * angle/2 degrees toward the room (an inside corner, like an open book).
+   * Only on single-panel walls.
+   */
+  fold?: { u: number; angle: number };
   /** Cosmetic relief seed. */
   seed: number;
 }

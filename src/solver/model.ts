@@ -61,6 +61,50 @@ export function angleAt(wall: Wall, v: number): number {
   return wall.panels[wall.panels.length - 1].angle;
 }
 
+/**
+ * World position (cm) of wall point (u, v): x across the room, y up, z toward the room.
+ * Mirrors the scene's facet geometry, including a dihedral fold.
+ */
+export function wallPoint(wall: Wall, u: number, v: number): [number, number, number] {
+  let y = 0;
+  let z = 0;
+  let top = 0;
+  let a = 0;
+  for (let i = 0; i < wall.panels.length; i++) {
+    const p = wall.panels[i];
+    a = rad(p.angle);
+    const last = i === wall.panels.length - 1;
+    const d = Math.min(p.length, v - top);
+    if (d < p.length || last) {
+      y += Math.max(0, d) * Math.cos(a);
+      z += Math.max(0, d) * Math.sin(a);
+      break;
+    }
+    y += p.length * Math.cos(a);
+    z += p.length * Math.sin(a);
+    top += p.length;
+  }
+  const foldU = wall.fold?.u ?? wall.width / 2;
+  const half = rad((wall.fold?.angle ?? 0) / 2);
+  const du = u - foldU;
+  const t = du < 0 ? half : -half;
+  // The face's across-direction: x turned about the panel's up axis by t.
+  return [
+    foldU - wall.width / 2 + du * Math.cos(t),
+    y + du * Math.sin(t) * Math.sin(a),
+    z - du * Math.sin(t) * Math.cos(a),
+  ];
+}
+
+/** Stemming across a dihedral: how much extra each foot gives (0 on a flat wall). */
+export function stemBonus(wall: Wall, footU: [number, number]): number {
+  if (!wall.fold) return 0;
+  const f = wall.fold.u;
+  const opposite = (footU[0] - f) * (footU[1] - f) < 0 && Math.abs(footU[0] - f) > 8 && Math.abs(footU[1] - f) > 8;
+  // A 90° corner is ideal; a shallow one barely helps.
+  return opposite ? 0.4 * Math.sin(rad(Math.min(90, wall.fold.angle))) : 0;
+}
+
 /** Real height above the floor (cm) of the wall point at v: overhangs lean out, so less than v. */
 export function heightAt(wall: Wall, v: number): number {
   let h = 0;

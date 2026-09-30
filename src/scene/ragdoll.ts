@@ -68,7 +68,7 @@ export class Ragdoll {
   constructor(
     init: THREE.Vector3[],
     private frames: PanelFrame[],
-    private wallHalfWidth: number,
+    _wallHalfWidth: number,
     private ground: Ground,
     /** Extra wall thickness (m) at wall-plane (u, v) cm — the volumes. */
     private relief: (u: number, v: number) => number = () => 0,
@@ -236,15 +236,17 @@ export class Ragdoll {
       if (this.invMass(i) === 0) continue;
       const p = this.pos[i];
       const r = i === J.head ? 0.11 : i === J.chest || i === J.pelvis ? 0.12 : RADIUS * 0.6;
-      // Wall panels (the headwall has a kink, so test each panel's slab).
-      if (Math.abs(p.x) < this.wallHalfWidth + 0.05) {
-        for (const f of this.frames) {
-          const rel = p.clone().sub(f.origin);
-          const along = rel.dot(f.up);
-          if (along < -0.05 || along > (f.v1 - f.v0) / 100 + 0.05) continue;
+      // Each wall facet (panels, and both faces of a dihedral) is a slab to push out of.
+      for (const f of this.frames) {
+        const rel = p.clone().sub(f.origin);
+        const along = rel.dot(f.up);
+        const across = rel.dot(f.right);
+        if (along < -0.05 || along > (f.v1 - f.v0) / 100 + 0.05) continue;
+        if (across < -0.05 || across > (f.u1 - f.u0) / 100 + 0.05) continue;
+        {
           const depth = rel.dot(f.normal);
           // Volumes stand proud of the wall: collide with their surface instead.
-          const u = rel.x * 100 + this.wallHalfWidth * 100;
+          const u = f.u0 + across * 100;
           const surface = this.relief(u, f.v0 + along * 100);
           if (depth < r + surface && depth > -0.4) {
             p.addScaledVector(f.normal, r + surface - depth);

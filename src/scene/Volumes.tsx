@@ -60,7 +60,7 @@ export function volumeGeometry(v: Pick<Volume, 'shape' | 'size'>): THREE.BufferG
 }
 
 function volumeTransform(wall: Wall, frames: PanelFrame[], vol: Pick<Volume, 'u' | 'v' | 'rot'>) {
-  const f = frameAt(frames, vol.v);
+  const f = frameAt(frames, vol.u, vol.v);
   return {
     frame: f,
     position: uvToWorld(wall, frames, vol.u, vol.v).addScaledVector(f.normal, 0.002),

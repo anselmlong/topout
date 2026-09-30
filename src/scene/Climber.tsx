@@ -13,7 +13,7 @@ import { chalkHold, climberFocus, useClimb } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
 import { J, JOINTS, Ragdoll } from './ragdoll';
-import { frameAt, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
+import { frameAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 
@@ -54,9 +54,10 @@ function poseFrom(
   frames: PanelFrame[],
   hands: [THREE.Vector3, THREE.Vector3],
   feet: [THREE.Vector3 | null, THREE.Vector3 | null],
-  hipV: number,
+  _hipV: number,
 ): Pose {
-  const normal = frameAt(frames, hipV).normal;
+  // Facet nearest the hands (a dihedral has two faces at the same height).
+  const normal = nearestFrame(frames, hands[0].clone().add(hands[1]).multiplyScalar(0.5)).normal;
   const handsMid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
   const on = feet.filter(Boolean) as THREE.Vector3[];
   const feetMid = on.length
@@ -287,11 +288,11 @@ export function Climber({ day }: { day: Day }) {
   const volumes = playback?.volumes ?? [];
   /** A contact point in the world, standing out by any volume's surface there. */
   const toWorld = (p: Point, out: number) => {
-    const f = frameAt(frames, p.v);
+    const f = frameAt(frames, p.u, p.v);
     const relief = (surfaceAt(volumes, p.u, p.v)?.height ?? 0) / 100;
     return uvToWorld(day.wall, frames, p.u, p.v).addScaledVector(f.normal, out + relief);
   };
-  const normalAt = (p: Point) => frameAt(frames, p.v).normal;
+  const normalAt = (p: Point) => frameAt(frames, p.u, p.v).normal;
 
   /** Posed skeleton for the ends' current positions (the "muscle" targets). */
   const postureFor = (sim: Ragdoll): THREE.Vector3[] => {
@@ -338,7 +339,8 @@ export function Climber({ day }: { day: Day }) {
   const gripDir = (r: Run, hand: 0 | 1): THREE.Vector3 | null => {
     const hold = r.holds[r.grip[hand]];
     if (!hold || r.grip[hand] < 0) return null;
-    const up = frameAt(frames, hold.v).up;
+    const face = frameAt(frames, hold.u, hold.v);
+    const up = face.up;
     const pull = bestPull(hold.rot);
     // Fingers wrap over the incut, against the pull...
     let du = -pull.u;
@@ -348,7 +350,7 @@ export function Climber({ day }: { day: Day }) {
       const side = hand === 0 ? 1 : -1;
       [du, dv] = [pull.v * side * -1, -pull.u * side * -1];
     }
-    return new THREE.Vector3(du, 0, 0).addScaledVector(up, dv).normalize();
+    return face.right.clone().multiplyScalar(du).addScaledVector(up, dv).normalize();
   };
 
   const enterFrame = (r: Run, f: Keyframe) => {
@@ -369,7 +371,7 @@ export function Climber({ day }: { day: Day }) {
       const target = toWorld(f.to.hands[f.limb as 0 | 1], 0.07);
       const push = target.sub(sim.pos[J.pelvis]).normalize().multiplyScalar(2.2);
       sim.impulse(push, STEP, [J.pelvis, J.chest, J.head, J.shoulderL, J.shoulderR, J.hipL, J.hipR]);
-      const steep = frameAt(frames, f.to.hands[0].v).normal.y < -0.2;
+      const steep = frameAt(frames, f.to.hands[0].u, f.to.hands[0].v).normal.y < -0.2;
       if (steep) [2, 3].forEach((n) => (sim.ends[n].mode = 'free'));
       sfx.whoosh();
     }
@@ -389,7 +391,7 @@ export function Climber({ day }: { day: Day }) {
     const { sim, timeline } = r;
     if (timeline.ending === 'top') {
       // Fist pump off the finish with the right hand, and a cloud of chalk.
-      const n = frameAt(frames, day.finish.v).normal;
+      const n = frameAt(frames, day.finish.u, day.finish.v).normal;
       const up = sim.pos[J.shoulderR].clone().add(new THREE.Vector3(0.3, 0.5, 0)).addScaledVector(n, 0.3);
       sim.drive(1, up, n, 0.35, 0);
       r.grip[1] = -1;
@@ -475,7 +477,7 @@ export function Climber({ day }: { day: Day }) {
           sfx.grab(a.strain);
           if (hold) {
             chalkHold(hold.id);
-            puff(p, frameAt(frames, hold.v).normal, 6 + Math.round(a.strain * 8), 0.35);
+            puff(p, frameAt(frames, hold.u, hold.v).normal, 6 + Math.round(a.strain * 8), 0.35);
           }
         } else sfx.foot();
       }

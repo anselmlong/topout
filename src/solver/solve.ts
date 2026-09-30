@@ -17,7 +17,9 @@ import {
   handMatchable,
   handLoad,
   heightAt,
+  stemBonus,
   vAtHeight,
+  wallPoint,
   toGrade,
   GRIP,
 } from './model';
@@ -107,18 +109,28 @@ function orderHands(start: Hold[]): [number, number] {
   return start[0].u <= start[1].u ? [0, 1] : [1, 0];
 }
 
-const dist = (a: Point, b: Point) => Math.hypot(a.u - b.u, a.v - b.v);
+const flatDist = (a: Point, b: Point) => Math.hypot(a.u - b.u, a.v - b.v);
 
 class Context {
   handIdx: number[];
   footVals: number[];
   /** Wall v where the surface meets the top of the crash pad. */
   padV: number;
+  /** Reach distance (cm). Across a dihedral, the real 3D distance: the corner brings things closer. */
+  dist: (a: Point, b: Point) => number;
+
   constructor(
     readonly wall: Wall,
     readonly holds: Hold[],
     readonly opts: SolveOptions,
   ) {
+    this.dist = wall.fold
+      ? (a, b) => {
+          const p = wallPoint(wall, a.u, a.v);
+          const q = wallPoint(wall, b.u, b.v);
+          return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+        }
+      : flatDist;
     this.handIdx = holds.map((h, i) => (GRIP[h.type].hand ? i : -1)).filter((i) => i >= 0);
     this.footVals = [...holds.map((_, i) => i), SMEAR, OFF];
     this.padV = vAtHeight(wall, PAD);
@@ -140,7 +152,12 @@ class Context {
       if (val >= 0) return { u: h[val].u, v: h[val].v };
       // Low on the wall, smear higher / tuck the legs rather than touch the mat.
       // If that bunches the body up too much, valid() calls it a dab (hip check).
-      if (val === SMEAR) return { u: midU + side * 18, v: Math.max(lowV - 118, this.padV + 12) };
+      if (val === SMEAR) {
+        // In a corner, feet go either side of the crease to stem.
+        const fold = this.wall.fold;
+        const u = fold && Math.abs(midU - fold.u) < 70 ? fold.u + side * 25 : midU + side * 18;
+        return { u, v: Math.max(lowV - 118, this.padV + 12) };
+      }
       return { u: midU + side * 12, v: Math.max(lowV - 150, this.padV + 8) };
     };
     return [
@@ -155,6 +172,17 @@ class Context {
     return { limbs: [...l] as Limbs, points: this.points(l) };
   }
 
+  /** Both feet's quality, plus the stemming bonus when they push on opposite faces of a corner. */
+  feetQ(l: Limbs, p: Point[], stay?: number): [number, number] {
+    const q: [number, number] = [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])];
+    if (stay !== undefined) q[stay === 2 ? 1 : 0] = 0;
+    if (l[2] !== OFF && l[3] !== OFF && stay === undefined) {
+      const bonus = stemBonus(this.wall, [p[2].u, p[3].u]);
+      if (bonus) return [Math.min(1, q[0] + bonus), Math.min(1, q[1] + bonus)];
+    }
+    return q;
+  }
+
   footQ(val: number, p: Point): number {
     if (val >= 0) return footQuality(this.holds[val]);
     if (val === SMEAR) return angleAt(this.wall, p.v) < -2 ? SMEAR_QUALITY.slab : SMEAR_QUALITY.vertical;
@@ -164,7 +192,7 @@ class Context {
   /** Stance validity. `slack` > 1 allows the stretched landing of a dyno. */
   valid(l: Limbs, slack = BODY.dynoLimit): boolean {
     const p = this.points(l);
-    if (dist(p[0], p[1]) > BODY.span * slack) return false;
+    if (this.dist(p[0], p[1]) > BODY.span * slack) return false;
     // Matching needs a hold with room for two.
     if (l[0] === l[1] && !handMatchable(this.holds[l[0]])) return false;
     if (l[2] >= 0 && l[2] === l[3] && !footMatchable(this.holds[l[2]])) return false;
@@ -178,7 +206,9 @@ class Context {
       if (val === OFF) continue;
       if (val === SMEAR) {
         if (this.opts.noSmear) return false;
-        if (angleAt(this.wall, p[f].v) > 0) return false;
+        // Smears need a slab or vertical face — or a corner to stem across (up to ~20° steep).
+        const stemming = this.wall.fold && stemBonus(this.wall, [p[2].u, p[3].u]) > 0;
+        if (angleAt(this.wall, p[f].v) > (stemming ? 20 : 0)) return false;
         continue;
       }
       const fp = p[f];
@@ -188,11 +218,11 @@ class Context {
       if (fp.v < this.padV) return false;
       if (fp.v > loV + 15 || fp.v > hiV - 50) return false;
       for (const hp of [p[0], p[1]]) {
-        const d = dist(fp, hp);
+        const d = this.dist(fp, hp);
         if (d > BODY.reach * slack || d < BODY.crouch) return false;
       }
     }
-    if (l[2] >= 0 && l[3] >= 0 && dist(p[2], p[3]) > BODY.stride) return false;
+    if (l[2] >= 0 && l[3] >= 0 && this.dist(p[2], p[3]) > BODY.stride) return false;
     // Dab: hips sitting on the mat. Mirrors the pose the climber is drawn in.
     const on = [2, 3].filter((f) => l[f] !== OFF);
     const handsV = (p[0].v + p[1].v) / 2;
@@ -250,14 +280,14 @@ class Context {
       if (g < MIN_GRIP) return null;
       // Hanging stretched out (feet far below) loads the arms much more.
       let stretch = 0;
-      for (const f of onFeet) stretch = Math.max(stretch, dist(p[f], p[other]) / BODY.reach);
+      for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
       const load =
-        handLoad(handsAngle, [this.footQ(l[2], p[2]), this.footQ(l[3], p[3])]) *
+        handLoad(handsAngle, this.feetQ(l, p)) *
         (1 + 2.5 * Math.max(0, stretch - 0.8));
 
       const target = np[limb];
-      let ext = dist(p[other], target) / BODY.span;
-      for (const f of onFeet) ext = Math.max(ext, dist(p[f], target) / BODY.reach);
+      let ext = this.dist(p[other], target) / BODY.span;
+      for (const f of onFeet) ext = Math.max(ext, this.dist(p[f], target) / BODY.reach);
       if (ext > BODY.dynoLimit) return null;
       const dynamic = ext > 1;
       const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
@@ -268,11 +298,11 @@ class Context {
       const hold = load / g;
       const catchHard = 0.12 * (1 / gt - 1) * (1 + r);
       // Longer moves mean longer lock-offs, even well inside full reach.
-      const travel = dist(p[limb], target) / 100;
+      const travel = this.dist(p[limb], target) / 100;
       // Smears are modelled relative to the hands, so they "follow" a hand move;
       // charge for re-smearing that far.
       let resmear = 0;
-      for (const f of [2, 3]) if (l[f] === SMEAR) resmear += dist(p[f], np[f]) / 100;
+      for (const f of [2, 3]) if (l[f] === SMEAR) resmear += this.dist(p[f], np[f]) / 100;
       // Crossing through is awkward: allowed, but it costs.
       const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
       const d =

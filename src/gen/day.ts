@@ -18,7 +18,7 @@ export function dateOf(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker';
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner';
 
 export const STYLE_LABEL: Record<WallStyle, string> = {
   slab: 'Slab',
@@ -27,6 +27,7 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   steep: 'Steep',
   headwall: 'Headwall',
   kicker: 'Kicker',
+  corner: 'Corner',
 };
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
@@ -61,11 +62,19 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
         { length: tall - 40, angle: r.int(20, 30) },
       ];
       break;
+    case 'corner': {
+      // A dihedral: two faces meeting at a vertical crease, from slabby to a little steep.
+      // 60° is a wide-open book; 105° is a tight corner you can really stem.
+      panels = [{ length: tall, angle: r.int(-10, 20) }];
+      const fold = { u: Math.round(width * r.range(0.4, 0.6)), angle: r.pick([60, 75, 90, 105]) };
+      return { width, panels, seed, fold };
+    }
   }
   return { width, panels, seed };
 }
 
 export function wallStyleOf(wall: Wall): WallStyle {
+  if (wall.fold) return 'corner';
   const p = wall.panels;
   if (p.length === 2) return p[0].length > 100 ? 'headwall' : 'kicker';
   const a = p[0].angle;
@@ -79,13 +88,13 @@ export function wallStyleOf(wall: Wall): WallStyle {
 const WEEKDAY_GRADE = [3, 1, 2, 3, 4, 5, 4]; // Sun..Sat
 
 const STYLE_BY_WEEKDAY: WallStyle[][] = [
-  ['overhang', 'headwall', 'kicker'], // Sun
-  ['vertical', 'slab', 'overhang'], // Mon
-  ['vertical', 'overhang', 'slab'], // Tue
-  ['overhang', 'kicker', 'vertical'], // Wed
-  ['overhang', 'headwall', 'steep'], // Thu
+  ['overhang', 'headwall', 'kicker', 'corner'], // Sun
+  ['vertical', 'slab', 'overhang', 'corner'], // Mon
+  ['vertical', 'overhang', 'slab', 'corner'], // Tue
+  ['overhang', 'kicker', 'vertical', 'corner'], // Wed
+  ['overhang', 'headwall', 'steep', 'corner'], // Thu
   ['steep', 'kicker', 'headwall'], // Fri
-  ['overhang', 'steep', 'headwall'], // Sat
+  ['overhang', 'steep', 'headwall', 'corner'], // Sat
 ];
 
 /** One or two volumes for a day's tray; they change the wall under the route. */
@@ -163,6 +172,7 @@ export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   steep: [28, 50],
   headwall: [20, 45],
   kicker: [15, 40],
+  corner: [-10, 20],
 };
 
 export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];
@@ -230,7 +240,8 @@ export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<
     ];
     finish = { id: 'finish', type: 'jug', size: 'l', u: fu, v: r.int(230, 270), rot: 0, role: 'finish' };
   } else {
-    const su = r.int(margin + 40, wall.width - margin - 40);
+    // Corners start near the crease, so stemming is on the table from the first move.
+    const su = wall.fold ? wall.fold.u + r.int(-35, 35) : r.int(margin + 40, wall.width - margin - 40);
     const twoHands = r.chance(0.6);
     start = twoHands
       ? [
