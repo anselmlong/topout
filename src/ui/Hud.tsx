@@ -97,7 +97,8 @@ export function Brief() {
   const day = useGame((s) => s.day)!;
   const mode = useGame((s) => s.mode);
   const style = wallStyleOf(day.wall);
-  const angles = day.wall.panels.map((p) => `${p.angle > 0 ? '+' : ''}${p.angle}°`).join(' / ');
+  // A real minus sign, so negative (slab) angles don't read as a hyphenated list.
+  const angles = day.wall.panels.map((p) => `${p.angle > 0 ? '+' : p.angle < 0 ? '−' : ''}${Math.abs(p.angle)}°`).join(' / ');
   return (
     <section className="card brief" aria-label="Today's brief">
       <div className="eyebrow">
@@ -107,7 +108,7 @@ export function Brief() {
         Set a <span className="grade">V{day.targetGrade}</span>
       </h1>
       <dl className="facts">
-        <div>
+        <div className="wall-fact">
           <dt>Wall</dt>
           <dd>
             {STYLE_LABEL[style]} <span className="mono dim">{angles}</span>

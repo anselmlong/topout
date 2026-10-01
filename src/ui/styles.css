@@ -210,6 +210,11 @@ button {
   margin: 0;
   text-align: right;
 }
+/* Multi-panel walls list every panel angle; give them their own line under the style. */
+.wall-fact .mono {
+  display: block;
+  font-size: 12px;
+}
 .route-chip {
   display: flex;
   align-items: center;
@@ -865,42 +870,43 @@ a.icon-btn {
   .hud-left {
     max-width: none;
   }
+  /* Two rows: grade, colour and par on top; the wall (whose angle list can be
+     long) gets a full-width line of its own instead of wrapping mid-list. */
   .brief {
     padding: 10px 12px;
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     column-gap: 14px;
+    row-gap: 2px;
+    font-size: 12.5px;
   }
   .brief .eyebrow {
     display: none;
   }
   .brief h1 {
     font-size: 20px;
-    margin: 0;
+    margin: 0 auto 0 0;
   }
   .facts {
-    display: flex;
-    gap: 12px;
-    font-size: 12.5px;
+    display: contents;
   }
   .facts div {
     gap: 5px;
+    white-space: nowrap;
   }
-  .route-chip {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  text-transform: capitalize;
-}
-.swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
-}
-.twist {
+  .facts .wall-fact {
+    order: 1;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    white-space: normal;
+  }
+  .wall-fact .mono {
+    display: inline;
+    font-size: inherit;
+  }
+  .twist {
+    order: 2;
     margin-top: 6px;
     flex-basis: 100%;
   }
