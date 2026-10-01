@@ -42,7 +42,9 @@ the body is simulated with gravity, soft "muscle" springs toward an IK pose, and
 wall/pad collisions. Feet cut loose on campus moves and steep dynos, hard moves
 tremble, the crux plays in slow motion, and failed routes let go and fall.
 Before the crux, if one hand is on a good hold with a foot on, the climber hangs
-off it straight-armed, shakes out the other arm and chalks up.
+off it straight-armed, shakes out the other arm and chalks up. The head follows
+the eyes: it spots each hold before the move, watches a foot all the way onto its
+hold, and reads the crux while shaking out.
 
 ## Layout
 

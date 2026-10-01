@@ -35,6 +35,8 @@ interface Pose {
   feet: [THREE.Vector3, THREE.Vector3];
   /** World direction the fingers point for each hand on a hold (wrapping the incut). */
   grips?: [THREE.Vector3 | null, THREE.Vector3 | null];
+  /** Where the climber is looking (a hold), or undefined to face straight ahead. */
+  look?: THREE.Vector3 | null;
 }
 
 function ik(root: THREE.Vector3, target: THREE.Vector3, [a, b]: number[], pole: THREE.Vector3) {
@@ -365,6 +367,8 @@ interface Run {
   ended: boolean;
   finished: boolean;
   limp: boolean;
+  /** Gaze target per keyframe: the hold its moving limb lands on (see gazeFor). */
+  gaze: (THREE.Vector3 | null)[];
   /** Pending arrival events (grab sound + chalk) keyed by sim time. */
   arrivals: { at: number; limb: number; hold: number; strain: number }[];
   /** Hold index under each hand (-1 = not gripping), for turning the mittens. */
@@ -443,7 +447,11 @@ export function Climber({ day }: { day: Day }) {
     );
     first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
     useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
-    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    const gaze = timeline.frames.map((f) => {
+      const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
+      return c ? toWorld(c, 0) : null;
+    });
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -595,6 +603,28 @@ export function Climber({ day }: { day: Day }) {
     end.to.copy(to);
   };
 
+  /**
+   * Where the eyes are. Climbers spot a hold before they move to it and watch the limb
+   * onto it: a hand until it's nearly there, a foot right until it's placed (precise
+   * footwork is done by eye). Then the eyes move on to the next hold while the limb
+   * settles. During a shake-out they read the crux; standing on the start they look at
+   * the first move; on the last move they look at the finish.
+   */
+  const gazeFor = (r: Run, inFrame: number): THREE.Vector3 | null => {
+    const { frames: fs, ending } = r.timeline;
+    if (r.limp) return null;
+    if (r.ended) return ending === 'top' ? toWorld(day.finish, 0) : null;
+    const i = Math.max(0, r.frame);
+    const f = fs[i];
+    const ahead = () => {
+      for (let j = i + 1; j < fs.length; j++) if (r.gaze[j]) return r.gaze[j];
+      return ending === 'top' || ending === 'fall' ? toWorld(day.finish, 0) : null;
+    };
+    if (f.limb < 0 || !r.gaze[i]) return ahead();
+    const watch = f.dynamic ? 0.95 : f.limb >= 2 ? 0.85 : 0.65;
+    return inFrame / f.duration < watch ? r.gaze[i] : ahead();
+  };
+
   const endRun = (r: Run) => {
     const { sim, timeline } = r;
     if (timeline.ending === 'top') {
@@ -706,6 +736,9 @@ export function Climber({ day }: { day: Day }) {
     if (import.meta.env.DEV) (window as unknown as { __sim: Ragdoll }).__sim = sim;
     const pose = arrayToPose(sim.pos);
     pose.grips = [gripDir(r, 0), gripDir(r, 1)];
+    let inFrame = r.t;
+    for (let i = 0; i < r.frame; i++) inFrame -= timeline.frames[i].duration;
+    pose.look = gazeFor(r, inFrame);
     rig.current.apply(pose);
     if (!r.finished && r.t >= timeline.total) {
       r.finished = true;
@@ -724,6 +757,7 @@ interface RigHandle {
 }
 
 const Y = V(0, 1, 0);
+const STRAIGHT = new THREE.Quaternion();
 const none = () => null;
 
 const LOOK = {
@@ -754,6 +788,8 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
     () => ({ m: new THREE.Matrix4(), up: V(), right: V(), fwd: V(), a: V(), b: V(), c: V() }),
     [],
   );
+  /** The head's gaze turn, eased toward its target so the eyes don't snap between holds. */
+  const gaze = useMemo(() => ({ q: new THREE.Quaternion(), want: new THREE.Quaternion(), dir: V(), last: 0 }), []);
 
   const setSeg = (m: THREE.Mesh | undefined, a: THREE.Vector3, b: THREE.Vector3) => {
     if (!m) return;
@@ -797,8 +833,29 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
       const neckTop = p.head.clone().addScaledVector(up, -0.06);
       if (neck.current) setSeg(neck.current, p.chest, neckTop);
       if (head.current) {
-        head.current.position.copy(p.head);
+        // Turn the head toward what the climber is looking at, within the neck's range
+        // (~70°), and lean it a little that way so the glance reads from behind too.
+        const want = gaze.want.identity();
+        const d = gaze.dir.set(0, 0, 0);
+        if (p.look) {
+          d.copy(p.look).sub(p.head);
+          if (d.lengthSq() > 1e-6) {
+            d.normalize();
+            const angle = Math.acos(Math.max(-1, Math.min(1, d.dot(fwd))));
+            want.setFromUnitVectors(fwd, d);
+            if (angle > 1.2) want.slerp(STRAIGHT, 1 - 1.2 / angle);
+          }
+        }
+        const now = performance.now() / 1000;
+        const dt = Math.min(0.1, Math.max(0, now - gaze.last));
+        gaze.last = now;
+        gaze.q.slerp(want, 1 - Math.exp(-dt * 7));
         orient(head.current, up, fwd);
+        head.current.quaternion.premultiply(gaze.q);
+        // Lean: the turned face direction, minus its component into the wall.
+        const face = gaze.dir.copy(fwd).applyQuaternion(gaze.q);
+        face.addScaledVector(fwd, -face.dot(fwd));
+        head.current.position.copy(p.head).addScaledVector(face, 0.05);
       }
       if (bag.current) {
         bag.current.position.copy(p.hip).addScaledVector(fwd, -0.13).addScaledVector(up, -0.02);
