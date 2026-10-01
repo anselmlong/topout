@@ -215,7 +215,11 @@ export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): F
  */
 export function handLoad(angle: number, footQ: [number, number]): number {
   const a = Math.max(-35, Math.min(60, angle));
-  const base = 0.3 + 0.5 * Math.sin(rad(a));
+  // On a gentle overhang body tension still keeps most of the weight on the feet; it
+  // shifts to the arms faster as the wall steepens (grows with sin², not linearly).
+  // Slabs shed load linearly as before.
+  const s = Math.sin(rad(a));
+  const base = 0.3 + (s > 0 ? 0.9 * s * s : 0.5 * s);
   const steepness = 0.5 + Math.max(0, Math.sin(rad(a)));
   const footDeficit = (2 - footQ[0] - footQ[1]) / 2;
   const load = base + footDeficit * 0.45 * steepness;
@@ -230,7 +234,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.56 grades.
+ * … 40° board crimps V8); mean error ~0.46 grades.
  */
 export function toGrade(crux: number, hardMoves: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));
