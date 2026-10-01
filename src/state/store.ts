@@ -96,6 +96,8 @@ interface GameState {
   testClimb: () => Promise<void>;
   watch: () => Promise<void>;
   climbFinished: () => void;
+  /** Cut a playback short and go straight to its result. */
+  skipClimb: () => void;
   finish: () => void;
   setModal: (m: GameState['modal']) => void;
   resetView: () => void;
@@ -488,6 +490,13 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       if (s.phase !== 'climbing') return;
       set({ phase: s.lastTest ? 'review' : 'setting', modal: s.lastTest ? 'result' : null });
+    },
+
+    skipClimb() {
+      if (get().phase !== 'climbing') return;
+      get().climbFinished();
+      // The climber steps back onto the pad; the beta overlay still shows the route.
+      set({ playback: null });
     },
 
     finish() {

@@ -755,6 +755,35 @@ button {
   transition: width 0.3s ease, background 0.3s;
 }
 
+.ticker .playback {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ticker .playback button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 44px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(60, 55, 45, 0.18);
+  border-radius: 15px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ticker .playback button:hover {
+  background: rgba(60, 55, 45, 0.06);
+}
+.ticker .playback svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
 .sticky-cta {
   position: sticky;
   bottom: -18px;

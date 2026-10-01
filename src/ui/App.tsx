@@ -44,6 +44,7 @@ export function App() {
       if (e.key === 'q' || e.key === 'Q') s.rotate(ROTATE_STEP);
       else if (e.key === 'e' || e.key === 'E') s.rotate(-ROTATE_STEP);
       else if (e.key === 'Delete' || e.key === 'Backspace') s.remove();
+      else if (e.key === 'Escape' && s.phase === 'climbing') s.skipClimb();
       else if (e.key === 'Escape') {
         s.arm(null);
         s.select(null);

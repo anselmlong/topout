@@ -29,5 +29,32 @@ export function chalkHold(id: string) {
   useClimb.setState({ chalk: { ...c, [id]: Math.min(6, (c[id] ?? 0) + 1) } });
 }
 
+/** Playback speeds the ticker cycles through. */
+export const SPEEDS = [1, 2, 4] as const;
+export type Speed = (typeof SPEEDS)[number];
+
+function readSpeed(): Speed {
+  try {
+    const v = Number(localStorage.getItem('topout:speed'));
+    return (SPEEDS as readonly number[]).includes(v) ? (v as Speed) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** How fast playbacks run. A viewer preference, remembered across days. */
+export const usePlaySpeed = create<{ speed: Speed }>(() => ({ speed: readSpeed() }));
+
+export function cycleSpeed() {
+  const cur = usePlaySpeed.getState().speed;
+  const speed = SPEEDS[(SPEEDS.indexOf(cur) + 1) % SPEEDS.length];
+  usePlaySpeed.setState({ speed });
+  try {
+    localStorage.setItem('topout:speed', String(speed));
+  } catch {
+    // Not persisted; fine.
+  }
+}
+
 /** Where the climber's chest is, for the camera to follow. Mutated in place. */
 export const climberFocus = { pos: new THREE.Vector3(), active: false, shake: 0 };

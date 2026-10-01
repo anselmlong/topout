@@ -6,7 +6,7 @@ import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '..
 import type { HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
-import { useClimb } from '../state/climb';
+import { cycleSpeed, useClimb, usePlaySpeed } from '../state/climb';
 import { remaining, testLimit, useGame } from '../state/store';
 
 const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L' };
@@ -414,6 +414,8 @@ function MuteButton() {
 export function ClimbTicker() {
   const phase = useGame((s) => s.phase);
   const feed = useClimb();
+  const speed = usePlaySpeed((s) => s.speed);
+  const skip = useGame((s) => s.skipClimb);
   if (phase !== 'climbing') return null;
   return (
     <div className={`card ticker ${feed.status}`} role="status" aria-live="polite">
@@ -424,6 +426,17 @@ export function ClimbTicker() {
       <div className="label">{feed.label}</div>
       <div className="strain">
         <span style={{ width: `${Math.round(feed.strain * 100)}%`, background: strainColor(feed.strain) }} />
+      </div>
+      <div className="playback">
+        <button className="mono" onClick={cycleSpeed} title="Playback speed" aria-label={`Playback speed ${speed}×`}>
+          {speed}×
+        </button>
+        <button onClick={skip} title="Skip to the result">
+          Skip
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 6v12l8.5-6zm9 0v12h2V6z" />
+          </svg>
+        </button>
       </div>
     </div>
   );

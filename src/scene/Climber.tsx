@@ -10,7 +10,7 @@ import { bestPull, footTechnique, handGrip, handTechnique, highStep, type FootTe
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
-import { chalkHold, climberFocus, useClimb } from '../state/climb';
+import { chalkHold, climberFocus, useClimb, usePlaySpeed } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
 import { J, JOINTS, Ragdoll } from './ragdoll';
@@ -652,7 +652,7 @@ export function Climber({ day }: { day: Day }) {
     // Crux cam: the hardest move plays in slow motion.
     const cur = r.frame >= 0 ? timeline.frames[r.frame] : null;
     const slow = cur && cur.limb >= 0 && cur.strain >= 0.98 && timeline.ending === 'top' && !r.ended;
-    r.acc += Math.min(dt, 0.05) * (slow ? 0.45 : 1);
+    r.acc += Math.min(dt, 0.05) * (slow ? 0.45 : 1) * usePlaySpeed.getState().speed;
     while (r.acc >= STEP) {
       r.acc -= STEP;
       r.t += STEP;

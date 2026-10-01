@@ -24,7 +24,9 @@ dragged, an arc on the wall shows the climber's reach from the nearest handhold
 below (solid: static, dashed: dyno only; `src/game/reach.ts` mirrors the solver's
 hand-to-hand limit). Ctrl/Cmd+Z undoes any
 placement, move, rotation, removal or clear (Shift+Ctrl+Z or Ctrl+Y redoes); the
-action bar has an undo button for touch. On touch: tap to place, two
+action bar has an undo button for touch. While the climber is on the wall, the
+ticker's speed button cycles 1×/2×/4× (remembered) and Skip (or Esc) jumps
+straight to the result. On touch: tap to place, two
 fingers to orbit/zoom.
 
 **Practice** (top bar) builds any wall style, angle, grade and twist with a full
