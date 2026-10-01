@@ -406,7 +406,8 @@ class Context {
         hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) +
         barn +
         catchHard +
-        (dynamic ? 0.4 : 0) +
+        // Commitment: a deadpoint just past reach is nearly static; a real jump is not.
+        (dynamic ? 0.4 * Math.min(1, (ext - 1) / BODY.deadpoint) : 0) +
         // Matching is a shuffle: fine on the finish, a small cost anywhere else.
         (to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0);
       return { d, dynamic };

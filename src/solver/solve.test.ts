@@ -244,6 +244,27 @@ describe('solver', () => {
     expect(toed(facing)).toBe(false);
   });
 
+  it('a hold just past static reach is a deadpoint, not a grade cliff', () => {
+    // One jug above a single start jug: step it up 2 cm at a time across the static limit.
+    const one = (dv: number) => {
+      const holds: Hold[] = [{ id: 'a', type: 'jug', size: 'm', u: 200, v: 180 + dv, rot: 0 }];
+      for (let v = 40, j = 0; v < 200; v += 30, j++) holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 214 : 186, v, rot: 0 });
+      const s: Hold[] = [{ id: 's', type: 'jug', size: 'l', u: 200, v: 180, rot: 0, role: 'start' }];
+      const r = solve({ width: 400, panels: [{ length: 520, angle: 0 }], seed: 1 }, s, { ...finishAt(240 + dv), u: 200 }, holds);
+      if (!r.ok) throw new Error(r.message);
+      return r;
+    };
+    let prev = one(110);
+    let sawDyno = false;
+    for (let dv = 112; dv <= 120; dv += 2) {
+      const r = one(dv);
+      sawDyno ||= r.moves.some((m) => m.dynamic);
+      expect(r.grade - prev.grade).toBeLessThan(0.4);
+      prev = r;
+    }
+    expect(sawDyno).toBe(true);
+  });
+
   it('beta ends matched on the finish', () => {
     const r = solve(wall(0), start, finishAt(380), ladder('jug', 40));
     if (!r.ok) throw new Error();

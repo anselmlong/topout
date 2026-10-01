@@ -22,6 +22,12 @@ export const BODY = {
   stride: 150,
   /** Beyond static reach a move becomes a dyno, up to this multiple. */
   dynoLimit: 1.1,
+  /**
+   * Just past static reach a move is a deadpoint: a controlled pop, barely harder than
+   * the full lock-off. The cost of committing to a dyno ramps in over this much extra
+   * stretch (≈7 cm straight up) instead of switching on at once.
+   */
+  deadpoint: 0.06,
   /** How far (cm) the left hand may sit right of the right hand (a cross-through). */
   maxHandCross: 30,
   maxFootCross: 20,
@@ -315,7 +321,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.37 grades.
+ * … 40° board crimps V8); mean error ~0.39 grades.
  */
 export function toGrade(crux: number, hardMoves: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));
