@@ -3,6 +3,7 @@ import { dayNumber, generateDay, withVolumes } from '../gen/day';
 import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, verdictOf, type TestRun } from '../game/rules';
 import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
+import { defaultSpots, isSpotId, spotsFilled, spotsOf, withSpots, type SpotHold, type Spots } from '../game/spots';
 import { solveInWorker } from '../solver/client';
 import type { Day, Hold, HoldSize, HoldType, SolveResult, Volume, VolumeShape } from '../solver/types';
 import { loadDay, recordResult, saveDay } from './persist';
@@ -20,6 +21,8 @@ export interface Playback {
   /** The placed holds and volumes this was solved on (stance indices point into contactList). */
   holds: Hold[];
   volumes: Volume[];
+  /** Start/finish holds it was solved on; undefined = the day's jugs. */
+  spots?: Spots;
 }
 
 type Phase = 'setting' | 'solving' | 'climbing' | 'review';
@@ -42,12 +45,16 @@ interface GameState {
   saveKey: string;
   placed: Hold[];
   volumes: Volume[];
+  /** What's on the taped start/finish spots. Their positions are fixed by the day. */
+  spots: Spots;
   tests: TestRun[];
   done: boolean;
   phase: Phase;
   /** Viewing someone else's shared route (read-only, doesn't use tests). */
   viewing: Hold[] | null;
   viewingVolumes: Volume[];
+  /** The shared route's spot holds; undefined = the day's jugs. */
+  viewingSpots: Spots | undefined;
   viewingLabel: string;
 
   armed: Armed | null;
@@ -63,7 +70,7 @@ interface GameState {
   hoverHoldId: string | null;
   playback: Playback | null;
   /** Last solved route, shown as a beta overlay until the route is edited. */
-  beta: { result: SolveResult; holds: Hold[]; volumes: Volume[] } | null;
+  beta: { result: SolveResult; holds: Hold[]; volumes: Volume[]; spots?: Spots } | null;
   lastTest: TestRun | null;
   modal: 'help' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
@@ -80,6 +87,8 @@ interface GameState {
   startDrag: (id: string) => void;
   endDrag: () => void;
   rotate: (delta: number) => void;
+  /** Put a hold on a start/finish spot, or change the one there. */
+  setSpot: (id: string, hold: Partial<SpotHold>) => void;
   remove: (id?: string) => void;
   clear: () => void;
   undo: () => void;
@@ -91,7 +100,7 @@ interface GameState {
   setModal: (m: GameState['modal']) => void;
   resetView: () => void;
   exitViewing: () => void;
-  viewRoute: (holds: Hold[], label: string, volumes?: Volume[]) => void;
+  viewRoute: (holds: Hold[], label: string, volumes?: Volume[], spots?: Spots) => void;
   showToast: (t: string) => void;
 }
 
@@ -99,6 +108,7 @@ interface GameState {
 interface RouteSnapshot {
   placed: Hold[];
   volumes: Volume[];
+  spots: Spots;
 }
 
 const UNDO_LIMIT = 100;
@@ -129,14 +139,15 @@ export const remaining = (day: Day, placed: Hold[], volumes: Volume[], slot: Arm
 
 export const useGame = create<GameState>((set, get) => {
   const persist = () => {
-    const { day, placed, volumes, tests, done, viewing } = get();
+    const { day, placed, volumes, spots, tests, done, viewing } = get();
     // Drop the move lists (~15KB/test): only the grade is needed after a reload.
     const slim = tests.map((t) => (t.result.ok ? { ...t, result: { ...t.result, moves: [] } } : t));
-    if (day && !viewing) saveDay(get().saveKey, { placed, volumes, tests: slim, done });
+    if (day && !viewing) saveDay(get().saveKey, { placed, volumes, spots, tests: slim, done });
   };
+  /** Start/finish holds as set; an empty spot still keeps its default jug's room clear. */
   const fixed = () => {
-    const d = get().day!;
-    return [...d.start, d.finish];
+    const { day, spots } = get();
+    return spotsOf(day!).map((h) => (spots[h.id] ? { ...h, ...spots[h.id] } : h));
   };
   const editable = () => {
     const s = get();
@@ -144,7 +155,7 @@ export const useGame = create<GameState>((set, get) => {
   };
   /** Any edit to the route invalidates the last beta. */
   const edited = (patch: Partial<GameState>) => set({ ...patch, beta: null });
-  const snapshot = (): RouteSnapshot => ({ placed: get().placed, volumes: get().volumes });
+  const snapshot = (): RouteSnapshot => ({ placed: get().placed, volumes: get().volumes, spots: get().spots });
   /** Record the route as it was before an edit. A fresh edit forgets anything undone. */
   const remember = (snap: RouteSnapshot = snapshot()) => {
     lastRotate = { id: '', at: 0 };
@@ -169,11 +180,13 @@ export const useGame = create<GameState>((set, get) => {
     saveKey: '',
     placed: [],
     volumes: [],
+    spots: {},
     tests: [],
     done: false,
     phase: 'setting',
     viewing: null,
     viewingVolumes: [],
+    viewingSpots: undefined,
     viewingLabel: '',
     armed: null,
     selectedId: null,
@@ -233,10 +246,16 @@ export const useGame = create<GameState>((set, get) => {
         phase: 'setting',
         placed: save?.placed ?? [],
         volumes: save?.volumes ?? [],
+        // A fresh wall starts with empty spots; saves from before they were settable had jugs.
+        spots: save ? (save.spots ?? defaultSpots(day)) : {},
         tests: save?.tests ?? [],
         done: save?.done ?? false,
         viewing: sharedHere ? shared.holds : null,
         viewingVolumes: sharedHere ? shared.volumes : [],
+        viewingSpots:
+          sharedHere && shared.spots
+            ? Object.fromEntries(spotsOf(day).flatMap((h, i) => (shared.spots![i] ? [[h.id, shared.spots![i]]] : [])))
+            : undefined,
         viewingLabel: 'Shared route',
         undoStack: [],
         redoStack: [],
@@ -309,7 +328,7 @@ export const useGame = create<GameState>((set, get) => {
     },
 
     startDrag(id) {
-      if (!editable()) return;
+      if (!editable() || isSpotId(get().day!, id)) return;
       dragStart = snapshot();
       set({ draggingId: id, selectedId: id, armed: null });
     },
@@ -335,7 +354,12 @@ export const useGame = create<GameState>((set, get) => {
         if (lastRotate.id !== target || now - lastRotate.at > ROTATE_MERGE_MS) remember();
         lastRotate = { id: target, at: now };
       }
-      if (target && isVolumeId(target)) {
+      if (target && isSpotId(s.day!, target)) {
+        // Turning a hold in place never changes the room it takes.
+        const h = s.spots[target];
+        if (h) edited({ spots: { ...s.spots, [target]: { ...h, rot: h.rot + delta } } });
+        persist();
+      } else if (target && isVolumeId(target)) {
         edited({ volumes: s.volumes.map((v) => (v.id === target ? { ...v, rot: v.rot + delta } : v)) });
         persist();
       } else if (target) {
@@ -346,12 +370,36 @@ export const useGame = create<GameState>((set, get) => {
       }
     },
 
+    setSpot(id, hold) {
+      const s = get();
+      if (!editable() || !isSpotId(s.day!, id)) return;
+      const spot = spotsOf(s.day!).find((h) => h.id === id)!;
+      // A new spot hold takes the default's type, size and rotation unless told otherwise.
+      const next = { ...spot, ...s.spots[id], ...hold };
+      const others = fixed().filter((h) => h.id !== id);
+      const roomy =
+        canPlace(s.day!.wall, [...others, ...s.placed], next) &&
+        s.volumes.every((v) => canPlaceVolume(s.day!.wall, [], [next], v));
+      if (!roomy) return get().showToast('No room for that hold here.');
+      remember();
+      edited({ spots: { ...s.spots, [id]: { type: next.type, size: next.size, rot: next.rot } } });
+      persist();
+    },
+
     remove(id) {
       const s = get();
       if (!editable()) return;
       const target = id ?? s.selectedId;
       if (!target) return;
+      const spot = isSpotId(s.day!, target);
+      if (spot && !s.spots[target]) return;
       remember();
+      if (spot) {
+        const { [target]: _, ...spots } = s.spots;
+        edited({ spots });
+        persist();
+        return;
+      }
       // The removed mesh never fires pointer-out, so clear its hover too.
       edited({
         placed: s.placed.filter((h) => h.id !== target),
@@ -380,10 +428,18 @@ export const useGame = create<GameState>((set, get) => {
     async testClimb() {
       const s = get();
       if (!editable() || s.tests.length >= testLimit(s.mode)) return;
+      if (!spotsFilled(s.day!, s.spots)) {
+        // Point at the first empty spot rather than spending a test.
+        const empty = spotsOf(s.day!).find((h) => !s.spots[h.id])!;
+        set({ selectedId: empty.id, armed: null, ghost: null });
+        get().showToast('Put a hold on every taped start and finish spot first.');
+        return;
+      }
       set({ phase: 'solving', armed: null, selectedId: null, ghost: null, hoverHoldId: null });
       const holds = s.placed.map((h) => ({ ...h }));
       const volumes = s.volumes.map((v) => ({ ...v }));
-      const result = await solveInWorker(s.day!, holds, volumes);
+      const spots = { ...s.spots };
+      const result = await solveInWorker(withSpots(s.day!, spots), holds, volumes);
       if (!result.ok && result.reason === 'too-complex') {
         // Our limitation, not the player's: don't spend a test on it.
         set({ phase: 'setting' });
@@ -393,6 +449,7 @@ export const useGame = create<GameState>((set, get) => {
       const test: TestRun = {
         holds,
         volumes,
+        spots,
         result,
         verdict: verdictOf(result, s.day!.targetGrade),
         // Each volume counts as one hold.
@@ -402,8 +459,8 @@ export const useGame = create<GameState>((set, get) => {
         tests: [...get().tests, test],
         lastTest: test,
         phase: 'climbing',
-        playback: { result, run: ++playRun, holds, volumes },
-        beta: { result, holds, volumes },
+        playback: { result, run: ++playRun, holds, volumes, spots },
+        beta: { result, holds, volumes, spots },
       });
       persist();
     },
@@ -414,13 +471,16 @@ export const useGame = create<GameState>((set, get) => {
       const best = bestTest(s.tests, s.day.targetGrade);
       const holds = s.viewing ?? best?.holds ?? s.placed;
       const volumes = s.viewing ? s.viewingVolumes : (best?.volumes ?? s.volumes);
+      // Tests from before spots were settable ran on the day's jugs (spots undefined).
+      const spots = s.viewing ? s.viewingSpots : best ? best.spots : s.spots;
+      if (spots && !spotsFilled(s.day, spots)) return get().showToast('Put a hold on every taped spot first.');
       set({ phase: 'solving' });
-      const result = await solveInWorker(s.day, holds, volumes);
+      const result = await solveInWorker(withSpots(s.day, spots), holds, volumes);
       set({
         phase: 'climbing',
         lastTest: null,
-        playback: { result, run: ++playRun, holds, volumes },
-        beta: { result, holds, volumes },
+        playback: { result, run: ++playRun, holds, volumes, spots },
+        beta: { result, holds, volumes, spots },
       });
     },
 
@@ -452,10 +512,11 @@ export const useGame = create<GameState>((set, get) => {
       set({ viewNonce: get().viewNonce + 1 });
     },
 
-    viewRoute(holds, label, volumes = []) {
+    viewRoute(holds, label, volumes = [], spots) {
       set({
         viewing: holds,
         viewingVolumes: volumes,
+        viewingSpots: spots,
         viewingLabel: label,
         modal: null,
         playback: null,
@@ -466,7 +527,7 @@ export const useGame = create<GameState>((set, get) => {
 
     exitViewing() {
       history.replaceState(null, '', location.pathname + location.search);
-      set({ viewing: null, viewingVolumes: [], playback: null, beta: null });
+      set({ viewing: null, viewingVolumes: [], viewingSpots: undefined, playback: null, beta: null });
     },
 
     showToast(t) {

@@ -4,6 +4,7 @@ import { BODY, heightAt, wallHeight } from '../solver/model';
 import type { Day, Hold, HoldType } from '../solver/types';
 import { contactList } from '../solver/volumes';
 import type { TestRun } from './rules';
+import { withSpots } from './spots';
 
 const NAME: Partial<Record<HoldType, string>> = {
   jug: 'jug',
@@ -32,7 +33,8 @@ const metres = (cm: number) => `${(cm / 100).toFixed(1)} m`;
 /** The placed holds the climber's hands actually used, in climbing order. */
 function handHolds(day: Day, test: TestRun): Hold[] {
   if (!test.result.ok) return [];
-  const all = contactList(day.start, day.finish, test.holds, test.volumes, day.wall);
+  const tape = withSpots(day, test.spots);
+  const all = contactList(tape.start, tape.finish, test.holds, test.volumes, day.wall);
   const placed = new Set(test.holds.map((h) => h.id));
   const seen = new Set<string>();
   const out: Hold[] = [];
@@ -72,7 +74,8 @@ export function setterTip(day: Day, test: TestRun): string | null {
     return 'Too soft: make the crux harder. Use a worse hold there, rotate it off-axis, or take away a foothold near it.';
   }
   // Too stiff: point at the crux hold.
-  const all = contactList(day.start, day.finish, test.holds, test.volumes, day.wall);
+  const tape = withSpots(day, test.spots);
+  const all = contactList(tape.start, tape.finish, test.holds, test.volumes, day.wall);
   const crux = r.moves.reduce((a, b) => (b.difficulty > a.difficulty ? b : a), r.moves[0]);
   const h = crux ? all[crux.to.limbs[crux.limb]] : undefined;
   const what = h ? (h.id.startsWith('arete:') ? 'the arête' : `the ${NAME[h.type] ?? 'hold'}`) : 'the crux hold';

@@ -3,6 +3,7 @@ import { generateDay } from '../gen/day';
 import type { Hold, SolveResult } from '../solver/types';
 import { bestTest, canPlace, verdictOf, type TestRun } from './rules';
 import { decodeRoute, encodeRoute, shareText } from './share';
+import { defaultSpots, spotsFilled, withSpots } from './spots';
 
 const ok = (grade: number): SolveResult => ({ ok: true, grade, crux: 0, moves: [], start: {} as never });
 const fail: SolveResult = { ok: false, reason: 'unreachable', message: '' };
@@ -51,6 +52,20 @@ describe('sharing', () => {
     expect(decoded.holds[1].rot).toBeCloseTo(-Math.PI / 4, 1);
   });
 
+  it('carries start/finish spot holds, and old links mean the default jugs', () => {
+    const holds: Hold[] = [{ id: 'a', type: 'crimp', size: 's', u: 100, v: 200, rot: 0 }];
+    const spots = [
+      { type: 'crimp', size: 's', rot: 0.5 },
+      { type: 'sloper', size: 'l', rot: 0 },
+    ] as const;
+    const decoded = decodeRoute('#' + encodeRoute(7, holds, [], [...spots]))!;
+    expect(decoded.holds).toHaveLength(1);
+    expect(decoded.volumes).toEqual([]);
+    expect(decoded.spots!.map(({ type, size }) => ({ type, size }))).toEqual(spots.map(({ type, size }) => ({ type, size })));
+    expect(decoded.spots![0].rot).toBeCloseTo(0.5, 1);
+    expect(decodeRoute('#' + encodeRoute(7, holds))!.spots).toBeUndefined();
+  });
+
   it('rejects garbage', () => {
     expect(decodeRoute('#r=3-9.9.x.1.1')).toBeNull();
   });
@@ -61,6 +76,24 @@ describe('sharing', () => {
     expect(text).toMatch(/^Topout #12 · V\d/);
     expect(text).toContain('🟩');
     expect(text).toContain('5 holds (par 4)');
+  });
+});
+
+describe('start/finish spots', () => {
+  const day = { ...generateDay(12), par: 0 };
+  const finish = { finish: { type: 'crimp', size: 'm', rot: 0 } } as const;
+
+  it('keeps positions fixed and swaps in the chosen hold', () => {
+    const d = withSpots(day, { ...defaultSpots(day), ...finish });
+    expect(d.finish).toMatchObject({ u: day.finish.u, v: day.finish.v, type: 'crimp', role: 'finish' });
+    expect(d.start).toEqual(day.start);
+    expect(withSpots(day, undefined)).toBe(day);
+  });
+
+  it('knows when every spot is filled', () => {
+    expect(spotsFilled(day, {})).toBe(false);
+    expect(spotsFilled(day, finish)).toBe(false);
+    expect(spotsFilled(day, defaultSpots(day))).toBe(true);
   });
 });
 

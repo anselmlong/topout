@@ -3,6 +3,7 @@ import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rule
 import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
 import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
 import { encodeRoute, shareText } from '../game/share';
+import { spotsOf, withSpots } from '../game/spots';
 import { gapLabel, setterTip } from '../game/tips';
 import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { Day, HoldType, Twist } from '../solver/types';
@@ -40,7 +41,8 @@ export function HelpModal() {
       <h2>Set today’s problem on grade, with as few holds as you can.</h2>
       <ol className="steps">
         <li>
-          The <b>start</b> (two tape strips) and <b>finish</b> (tape crown) are fixed. Everything between is yours.
+          The <b>start</b> (two tape strips) and <b>finish</b> (tape crown) spots are fixed. Click one to choose the hold
+          that goes there; everything between is yours too.
         </li>
         <li>
           Place holds from the tray. Rotation matters: the arrow shows which way a hold wants to be pulled. While you place a
@@ -86,7 +88,8 @@ function cruxLine(day: Day, test: TestRun) {
   const moves = test.result.moves;
   const crux = moves.reduce((a, b) => (b.difficulty > a.difficulty ? b : a), moves[0]);
   if (!crux) return null;
-  const holds = contactList(day.start, day.finish, test.holds, test.volumes, day.wall);
+  const tape = withSpots(day, test.spots);
+  const holds = contactList(tape.start, tape.finish, test.holds, test.volumes, day.wall);
   const idx = crux.to.limbs[crux.limb];
   const h = idx >= 0 ? holds[idx] : undefined;
   const target = !h ? 'a smear' : h.id.startsWith('arete:') ? 'the arête' : h.type === 'volume' ? 'the volume' : HOLD_NAME[h.type].toLowerCase();
@@ -177,7 +180,7 @@ export function StatsModal() {
       s.showToast('Couldn’t reach the clipboard');
     }
   };
-  const link = best ? `${location.origin}${location.pathname}#${encodeRoute(day.number, best.holds, best.volumes)}` : '';
+  const link = best ? `${location.origin}${location.pathname}#${encodeRoute(day.number, best.holds, best.volumes, best.spots && spotsOf(withSpots(day, best.spots)))}` : '';
 
   const buckets = [-2, -1, 0, 1, 2, 3];
   const counts = buckets.map((b) =>

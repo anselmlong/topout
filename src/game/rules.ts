@@ -2,6 +2,7 @@
 import { PAD, vAtHeight, wallHeight } from '../solver/model';
 import type { Hold, HoldSize, HoldType, SolveResult, Volume, Wall } from '../solver/types';
 import { volumeRadius } from '../solver/volumes';
+import type { Spots } from './spots';
 
 const BASE_RADIUS: Record<HoldType, number> = {
   // Roughly the drawn half-width (see holdGeometry SIZE); keep the two in step.
@@ -72,6 +73,8 @@ export interface TestRun {
   holds: Hold[];
   /** Volumes on the wall when this was solved (older saves have none). */
   volumes?: Volume[];
+  /** The start/finish holds it was solved on (older saves: the day's jugs). */
+  spots?: Spots;
   result: SolveResult;
   verdict: Verdict;
   /** Holds plus volumes: each volume counts as one. */

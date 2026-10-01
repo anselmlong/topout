@@ -1,6 +1,7 @@
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import type { Day, Hold, HoldSize, HoldType, Volume, VolumeShape } from '../solver/types';
 import { SQUARE, bestTest, holds as nHolds, type TestRun } from './rules';
+import type { SpotHold } from './spots';
 
 export function shareText(day: Day, tests: TestRun[]): string {
   const best = bestTest(tests, day.targetGrade);
@@ -25,18 +26,24 @@ const SHAPES: VolumeShape[] = ['pyramid', 'wedge'];
 const VSIZES: Volume['size'][] = ['s', 'l'];
 const deg = (r: number) => Math.round((r * 180) / Math.PI);
 
-export function encodeRoute(day: number, holds: Hold[], volumes: Volume[] = []): string {
+// Start/finish spot holds follow after a '!', in spot order: type.size.rotDeg.
+// Links without them mean the day's default jugs.
+
+export function encodeRoute(day: number, holds: Hold[], volumes: Volume[] = [], spots: SpotHold[] = []): string {
   const body = holds
     .map((h) => [TYPES.indexOf(h.type), SIZES.indexOf(h.size), Math.round(h.u), Math.round(h.v), deg(h.rot)].join('.'))
     .join('_');
   const vols = volumes
     .map((v) => [SHAPES.indexOf(v.shape), VSIZES.indexOf(v.size), Math.round(v.u), Math.round(v.v), deg(v.rot)].join('.'))
     .join('_');
-  return `r=${day}-${body}${vols ? `~${vols}` : ''}`;
+  const tape = spots.map((h) => [TYPES.indexOf(h.type), SIZES.indexOf(h.size), deg(h.rot)].join('.')).join('_');
+  return `r=${day}-${body}${vols || tape ? `~${vols}` : ''}${tape ? `!${tape}` : ''}`;
 }
 
-export function decodeRoute(hash: string): { day: number; holds: Hold[]; volumes: Volume[] } | null {
-  const m = /r=(\d+)-([\d._-]*)(?:~([\d._-]*))?/.exec(hash);
+export function decodeRoute(
+  hash: string,
+): { day: number; holds: Hold[]; volumes: Volume[]; spots?: SpotHold[] } | null {
+  const m = /r=(\d+)-([\d._-]*)(?:~([\d._-]*))?(?:!([\d._-]*))?/.exec(hash);
   if (!m) return null;
   const holds: Hold[] = [];
   for (const [i, part] of m[2].split('_').filter(Boolean).entries()) {
@@ -50,5 +57,12 @@ export function decodeRoute(hash: string): { day: number; holds: Hold[]; volumes
     if (!SHAPES[sh] || !VSIZES[s] || [u, v, rot].some((x) => !Number.isFinite(x))) return null;
     volumes.push({ id: `v-shared-${i}`, shape: SHAPES[sh], size: VSIZES[s], u, v, rot: (rot * Math.PI) / 180 });
   }
-  return { day: Number(m[1]), holds, volumes };
+  if (m[4] === undefined) return { day: Number(m[1]), holds, volumes };
+  const spots: SpotHold[] = [];
+  for (const part of m[4].split('_').filter(Boolean)) {
+    const [t, s, rot] = part.split('.').map(Number);
+    if (!TYPES[t] || !SIZES[s] || !Number.isFinite(rot)) return null;
+    spots.push({ type: TYPES[t], size: SIZES[s], rot: (rot * Math.PI) / 180 });
+  }
+  return { day: Number(m[1]), holds, volumes, spots };
 }

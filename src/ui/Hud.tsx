@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
+import { isSpotId } from '../game/spots';
 import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
@@ -136,11 +137,14 @@ export function Brief() {
 export function Controls() {
   const armed = useGame((s) => s.armed);
   const selected = useGame((s) => s.selectedId);
+  const onSpot = useGame((s) => !!s.selectedId && isSpotId(s.day!, s.selectedId));
   const text = armed
       ? `Click the wall to place · Q / E or scroll to rotate · Esc to cancel`
-      : selected
-        ? 'Drag to move · Q / E to rotate · Delete to remove · Ctrl+Z undoes'
-        : 'Pick a hold from the tray · Q / E rotates the hold under the mouse · drag to look around · scroll zooms';
+      : onSpot
+        ? 'Choose the hold for this spot · Q / E to rotate · it stays on the tape'
+        : selected
+          ? 'Drag to move · Q / E to rotate · Delete to remove · Ctrl+Z undoes'
+          : 'Click a taped spot to choose its start or finish hold · pick holds from the tray · Q / E rotates the hold under the mouse';
   return <p className="controls">{text}</p>;
 }
 
@@ -203,11 +207,74 @@ export function Tray() {
   );
 }
 
+/** Anything but a volume can go on a start or finish spot. */
+const SPOT_TYPES: HoldType[] = ['jug', 'edge', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'jib'];
+const SIZES: HoldSize[] = ['s', 'm', 'l'];
+
+/** Picks the hold on a taped start/finish spot. The spot itself never moves. */
+function SpotPicker({ id }: { id: string }) {
+  const day = useGame((s) => s.day)!;
+  const hold = useGame((s) => s.spots[id]);
+  const setSpot = useGame((s) => s.setSpot);
+  const rotate = useGame((s) => s.rotate);
+  const remove = useGame((s) => s.remove);
+  const color = routeColor(day).hex;
+  const oneSize = !hold || hold.type === 'foot' || hold.type === 'jib';
+  return (
+    <div className="selection-bar spot-picker" role="toolbar" aria-label={id === 'finish' ? 'Finish hold' : 'Start hold'}>
+      <div className="spot-head">
+        <span className="eyebrow">{id === 'finish' ? 'Finish hold' : 'Start hold'}</span>
+        {!hold && <span className="dim">Pick one</span>}
+      </div>
+      <div className="spot-types">
+        {SPOT_TYPES.map((t) => (
+          <button
+            key={t}
+            className={hold?.type === t ? 'on' : undefined}
+            onClick={() => setSpot(id, { type: t, size: t === 'foot' || t === 'jib' ? 'm' : (hold?.size ?? 'm') })}
+            title={`${HOLD_NAME[t]}: ${HOLD_HINT[t]}`}
+            aria-label={HOLD_NAME[t]}
+            aria-pressed={hold?.type === t}
+          >
+            <HoldIcon type={t} color={color} />
+          </button>
+        ))}
+      </div>
+      {hold && (
+        <div className="spot-row">
+          {!oneSize &&
+            SIZES.map((z) => (
+              <button
+                key={z}
+                className={`mono ${hold.size === z ? 'on' : ''}`}
+                onClick={() => setSpot(id, { size: z })}
+                aria-pressed={hold.size === z}
+              >
+                {SIZE_LABEL[z]}
+              </button>
+            ))}
+          <button onClick={() => rotate(Math.PI / 12)} aria-label="Rotate left">
+            ↺
+          </button>
+          <button onClick={() => rotate(-Math.PI / 12)} aria-label="Rotate right">
+            ↻
+          </button>
+          <button onClick={() => remove(id)} className="danger">
+            Clear
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SelectionBar() {
   const selected = useGame((s) => s.selectedId);
   const armed = useGame((s) => s.armed);
   const rotate = useGame((s) => s.rotate);
   const remove = useGame((s) => s.remove);
+  const onSpot = useGame((s) => !!s.selectedId && isSpotId(s.day!, s.selectedId));
+  if (selected && onSpot) return <SpotPicker id={selected} />;
   if (!selected && !armed) return null;
   return (
     <div className="selection-bar" role="toolbar" aria-label="Hold controls">

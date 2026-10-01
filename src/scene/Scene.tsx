@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { defaultSpots, spotsOf } from '../game/spots';
 import { bestPull, wallHeight } from '../solver/model';
 import type { Day, Hold, Volume, Wall } from '../solver/types';
 import { surfaceAt } from '../solver/volumes';
@@ -195,7 +196,10 @@ function WallView({ day }: { day: Day }) {
   const placed = useGame((s) => s.placed);
   const viewing = useGame((s) => s.viewing);
   const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
+  const mySpots = useGame((s) => s.spots);
+  const viewingSpots = useGame((s) => s.viewingSpots);
   const holds = viewing ?? placed;
+  const spots = viewing ? (viewingSpots ?? defaultSpots(day)) : mySpots;
   const tint = routeColor(day).hex;
   return (
     <group>
@@ -206,9 +210,13 @@ function WallView({ day }: { day: Day }) {
       {volumes.map((v) => (
         <VolumeMesh key={v.id} vol={v} wall={day.wall} frames={frames} fixed={!!viewing} />
       ))}
-      {[...day.start, day.finish].map((h) => (
-        <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed tint={tint} />
-      ))}
+      {spotsOf(day).map((h) =>
+        spots[h.id] ? (
+          <HoldMesh key={h.id} hold={{ ...h, ...spots[h.id] }} wall={day.wall} frames={frames} fixed={!!viewing} spot tint={tint} />
+        ) : (
+          !viewing && <EmptySpot key={h.id} hold={h} wall={day.wall} frames={frames} />
+        ),
+      )}
       {day.start.map((h) => (
         <Tape key={`t-${h.id}`} hold={h} wall={day.wall} frames={frames} kind="start" />
       ))}
@@ -302,12 +310,15 @@ function HoldMesh({
   wall,
   frames,
   fixed,
+  spot,
   tint,
 }: {
   hold: Hold;
   wall: Wall;
   frames: PanelFrame[];
   fixed?: boolean;
+  /** On a taped start/finish spot: click selects it, but it can't be dragged off. */
+  spot?: boolean;
   tint: string;
 }) {
   const selected = useGame((s) => s.selectedId === hold.id);
@@ -342,6 +353,11 @@ function HoldMesh({
             return;
           }
           if (e.button !== 0) return;
+          if (spot) {
+            // Keep the wall from treating this as a click on empty wall (which deselects).
+            e.stopPropagation();
+            return useGame.getState().select(hold.id);
+          }
           // Don't stop propagation: the wall underneath keeps receiving moves while dragging.
           startDrag(hold.id);
         }}
@@ -507,6 +523,37 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
         <meshStandardMaterial color={color} transparent opacity={0.6} flatShading depthWrite={false} />
       </mesh>
       <PullArrow dir={bestPull(0)} color={color} />
+    </group>
+  );
+}
+
+/** An unfilled start/finish spot: a ring to click, then pick its hold. */
+function EmptySpot({ hold, wall, frames }: { hold: Hold; wall: Wall; frames: PanelFrame[] }) {
+  const selected = useGame((s) => s.selectedId === hold.id);
+  const f = frameAt(frames, hold.u, hold.v);
+  const position = uvToWorld(wall, frames, hold.u, hold.v).addScaledVector(f.normal, 0.007);
+  const editable = () => {
+    const s = useGame.getState();
+    return !s.done && !s.viewing && s.phase === 'setting';
+  };
+  return (
+    <group position={position} quaternion={holdQuaternion(f, 0)}>
+      <mesh
+        onPointerDown={(e) => {
+          if (e.button !== 0 || !editable()) return;
+          e.stopPropagation();
+          useGame.getState().select(hold.id);
+        }}
+        onPointerOver={(e) => editable() && e.buttons === 0 && useGame.setState({ hoverHoldId: hold.id })}
+        onPointerOut={() => useGame.getState().hoverHoldId === hold.id && useGame.setState({ hoverHoldId: null })}
+      >
+        <circleGeometry args={[0.08, 24]} />
+        <meshBasicMaterial color={PALETTE.tape} transparent opacity={selected ? 0.3 : 0.12} depthWrite={false} />
+      </mesh>
+      <mesh raycast={() => null}>
+        <ringGeometry args={[0.072, selected ? 0.086 : 0.08, 32]} />
+        <meshBasicMaterial color={selected ? PALETTE.ghostOk : PALETTE.tape} transparent opacity={selected ? 1 : 0.7} />
+      </mesh>
     </group>
   );
 }

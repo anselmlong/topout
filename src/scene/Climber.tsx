@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
+import { withSpots } from '../game/spots';
 import { bestPull, footTechnique, highStep, type FootTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
@@ -371,7 +372,8 @@ export function Climber({ day }: { day: Day }) {
     first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
     useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
     // Same list the solver indexed into, so chalk and hand direction hit the right holds.
-    const holds = contactList(day.start, day.finish, pb.holds, pb.volumes, day.wall);
+    const tape = withSpots(day, pb.spots);
+    const holds = contactList(tape.start, tape.finish, pb.holds, pb.volumes, day.wall);
     return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
