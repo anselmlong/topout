@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateDay } from '../gen/day';
+import { ALL_STYLES, generateDay, wallStyleOf } from '../gen/day';
 import type { Hold, SolveResult } from '../solver/types';
 import { bestTest, canPlace, verdictOf, type TestRun } from './rules';
 import { decodeRoute, encodeRoute, shareText } from './share';
@@ -100,5 +100,12 @@ describe('start/finish spots', () => {
 describe('generator', () => {
   it('is deterministic', () => {
     expect(generateDay(42)).toEqual(generateDay(42));
+  });
+});
+
+describe('wall styles', () => {
+  it('every generated wall reads back as the style it was built as', () => {
+    for (const style of ALL_STYLES)
+      for (let n = 1; n <= 30; n++) expect(wallStyleOf(generateDay(n, 0, { style }).wall)).toBe(style);
   });
 });
