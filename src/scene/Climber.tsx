@@ -58,7 +58,7 @@ function poseFrom(
   _hipV: number,
   /** Which way (-1 left, +1 right on screen) each free leg flags; decided once per move. */
   flagAway?: [number, number],
-  /** Heel hook / drop knee per foot (see footTechnique), decided once per move. */
+  /** Heel/toe hook or drop knee per foot (see footTechnique), decided once per move. */
   legs: [FootTechnique, FootTechnique] = [null, null],
   /** Feet in flight carry no weight: the hips shift over the standing foot first. */
   lifting: [boolean, boolean] = [false, false],
@@ -123,11 +123,14 @@ function poseFrom(
     // No feet on at all (campus): tucked up, knee bent, clear of the mat.
     target ??= pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
     // Knees out, frog-style, by default. A heel hook cocks the knee up and out to the side;
-    // a drop knee turns it in and down toward the other foot.
+    // a toe hook reaches the leg out long, knee up, so the shin can pull the toe back; a
+    // drop knee turns it in and down toward the other foot.
     const pole =
       legs[i] === 'heel'
         ? lateral.clone().multiplyScalar(side * 0.8).addScaledVector(torsoDir, 0.6).addScaledVector(normal, 0.4)
-        : legs[i] === 'drop-knee'
+        : legs[i] === 'toe'
+          ? torsoDir.clone().multiplyScalar(0.9).addScaledVector(normal, 0.3).addScaledVector(lateral, side * 0.2)
+          : legs[i] === 'drop-knee'
           ? torsoDir.clone().multiplyScalar(-1).addScaledVector(lateral, -side * 0.4).addScaledVector(normal, 0.2)
           : normal.clone().addScaledVector(lateral, side * 0.7);
     return ik(pelvis[i], target, LEG, pole);
@@ -442,11 +445,13 @@ export function Climber({ day }: { day: Day }) {
         label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
           tech === 'heel'
             ? ' (heel hook)'
-            : tech === 'drop-knee'
-              ? ' (drop knee)'
-              : h && foot && highStep(f.to.hands, foot) > 0.8
-                ? ' (high step)'
-                : ''
+            : tech === 'toe'
+              ? ' (toe hook)'
+              : tech === 'drop-knee'
+                ? ' (drop knee)'
+                : h && foot && highStep(f.to.hands, foot) > 0.8
+                  ? ' (high step)'
+                  : ''
         }${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
       });
     }

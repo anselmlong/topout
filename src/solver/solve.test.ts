@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
+import { footTechnique } from './model';
 import type { Hold, HoldType, Volume, Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
@@ -158,6 +159,37 @@ describe('solver', () => {
     const heeled = [withHeel.start, ...withHeel.moves.map((m) => m.to)].some((s) => s.limbs[2] === hookIdx || s.limbs[3] === hookIdx);
     expect(heeled).toBe(true);
     if (without.ok) expect(withHeel.grade).toBeLessThan(without.grade);
+  });
+
+  it('toe hooks a sidepull far out to the side, but only when it faces away', () => {
+    const steep = wall(35);
+    const hands: Hold[] = [
+      { id: 'a', u: 185, v: 215 },
+      { id: 'b', u: 215, v: 275 },
+      { id: 'c', u: 190, v: 330 },
+    ].map((h) => ({ ...h, type: 'edge' as const, size: 'm' as const, rot: 0 }));
+    const feet: Hold[] = [
+      { id: 'f1', type: 'foot', size: 'm', u: 180, v: 70, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 222, v: 95, rot: 0 },
+      { id: 'f3', type: 'foot', size: 'm', u: 196, v: 130, rot: 0 },
+    ];
+    const toeIdx = start.length + 1 + hands.length + feet.length;
+    // Any stance with a foot toe-hooked on the test hold.
+    const toed = (r: ReturnType<typeof solve>) =>
+      r.ok &&
+      [r.start, ...r.moves.map((m) => m.to)].some((s) =>
+        ([2, 3] as const).some((f) => s.limbs[f] === toeIdx && footTechnique(steep, [s.points[0], s.points[1]], s.points[f]) === 'toe'),
+      );
+    // An edge 90 cm out, turned so its lip faces away from the climber: the toe hooks behind it.
+    const away: Hold = { id: 'tk', type: 'edge', size: 'm', u: 290, v: 235, rot: -Math.PI / 2 };
+    const without = solve(steep, start, finishAt(380), [...hands, ...feet]);
+    const withToe = solve(steep, start, finishAt(380), [...hands, ...feet, away]);
+    if (!withToe.ok) throw new Error(withToe.message);
+    expect(toed(withToe)).toBe(true);
+    if (without.ok) expect(withToe.grade).toBeLessThanOrEqual(without.grade);
+    // Facing the climber there's nothing to hook behind.
+    const facing = solve(steep, start, finishAt(380), [...hands, ...feet, { ...away, rot: Math.PI / 2 }]);
+    expect(toed(facing)).toBe(false);
   });
 
   it('beta ends matched on the finish', () => {

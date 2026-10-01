@@ -195,20 +195,25 @@ export function footQuality(hold: Hold): number {
   return Math.min(1, GRIP[hold.type].foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) + tilt);
 }
 
-export type FootTechnique = 'heel' | 'drop-knee' | null;
+export type FootTechnique = 'heel' | 'toe' | 'drop-knee' | null;
+
+/** How far out to the side (cm from between the hands) a hooked foot stops being a heel and becomes a toe hook. */
+export const TOE_HOOK_OUT = 70;
 
 /**
  * What a foot on a hold is doing, from where it sits relative to the hands. Shared by
  * the solver (heel hooks and drop knees change the load) and the climber's pose.
- * - Heel hook: a foot up near the hands (validity rules live in the solver).
+ * - Heel hook: a foot up near the hands, knee bent (validity rules live in the solver).
+ * - Toe hook: a foot up near the hands but far out to the side, leg nearly straight,
+ *   the top of the foot pulling back against the far side of the hold.
  * - Drop knee: on steep ground, a foot out to the side at about hip height; the knee
  *   turns in and down so the hip presses to the wall.
  */
 export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): FootTechnique {
   const low = Math.min(hands[0].v, hands[1].v);
   const dv = low - foot.v;
-  if (dv < 35) return 'heel';
   const midU = (hands[0].u + hands[1].u) / 2;
+  if (dv < 35) return Math.abs(foot.u - midU) >= TOE_HOOK_OUT ? 'toe' : 'heel';
   if (angleAt(wall, low) > 10 && dv > 35 && dv < 110 && Math.abs(foot.u - midU) > 20) return 'drop-knee';
   return null;
 }
