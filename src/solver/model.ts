@@ -156,18 +156,16 @@ export function bestPull(rot: number): { u: number; v: number } {
 export const GASTON = 0.5;
 
 /**
- * Effective hand grip in (0, ~1.15] when pulled from `hold` toward `pullTo`
- * (usually the body's centre). Returns 0 when the hold is unusable that way.
+ * How a hand uses a hold pulled toward `pullTo`: the straight pull (0..1) and the gaston
+ * alternative (0..GASTON). Shared by handGrip and handTechnique.
  */
-export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wall): number {
-  const spec = GRIP[hold.type];
-  if (!spec.hand) return 0;
+function pullParts(hold: Hold, pullTo: { u: number; v: number }) {
   const du = pullTo.u - hold.u;
   const dv = pullTo.v - hold.v;
   const len = Math.hypot(du, dv) || 1;
   const best = bestPull(hold.rot);
   const c = (du * best.u + dv * best.v) / len;
-  const t = hold.tol ?? spec.tolerance;
+  const t = hold.tol ?? GRIP[hold.type].tolerance;
   const pull = Math.max(0, Math.min(1, (c + t) / (1 + t)));
   // Gaston: a hold whose edge faces away from the body, out to the side, isn't dead.
   // Thumb down, elbow out, the hand pulls it outward and the body stays on in
@@ -175,12 +173,43 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   // about half of the hold's grip, and only when the edge faces mostly sideways.
   const away = Math.abs(du) > 8 ? -Math.sign(du) * best.u : 0;
   const gaston = GASTON * Math.max(0, Math.min(1, (away - 0.3) / 0.7));
+  return { pull, gaston, best };
+}
+
+/**
+ * Effective hand grip in (0, ~1.15] when pulled from `hold` toward `pullTo`
+ * (usually the body's centre). Returns 0 when the hold is unusable that way.
+ */
+export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wall): number {
+  const spec = GRIP[hold.type];
+  if (!spec.hand) return 0;
+  const { pull, gaston } = pullParts(hold, pullTo);
   const orient = Math.max(pull, gaston);
   // Holds on a volume use that face's angle rather than the panel's.
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v))));
   const steepFactor = 1 - spec.steepLoss * steep;
   const base = hold.grip ?? spec.grip * SIZE_GRIP[hold.size];
   return base * orient * steepFactor;
+}
+
+export type HandTechnique = 'sidepull' | 'gaston' | 'undercling' | null;
+
+/**
+ * How a hand is holding a hold, from which way its lip faces relative to the body
+ * (`pullTo`, the same centre handGrip pulls toward). Shared by the climber's arm pose
+ * and move labels, and follows handGrip's own choice between pulling and gastoning.
+ * - Sidepull: the lip faces sideways toward the body; lean off it, elbow low.
+ * - Gaston: the lip faces away from the body; thumb down, elbow out, push it apart.
+ * - Undercling: the lip faces down; palm up, elbow tucked, feet high.
+ * Pinches are squeezed and arête slaps are laybacks, so neither gets a name here.
+ */
+export function handTechnique(hold: Hold, pullTo: { u: number; v: number }): HandTechnique {
+  if (!GRIP[hold.type].hand || hold.type === 'pinch' || hold.id.startsWith('arete:')) return null;
+  const { pull, gaston, best } = pullParts(hold, pullTo);
+  if (gaston > pull) return 'gaston';
+  if (best.v > 0.5) return 'undercling';
+  if (Math.abs(best.u) > 0.6) return 'sidepull';
+  return null;
 }
 
 /** Room for both hands on it? Finish (and a single start) are always matchable. */

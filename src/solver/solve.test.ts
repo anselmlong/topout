@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { footTechnique } from './model';
+import { footTechnique, handTechnique } from './model';
 import type { Hold, HoldType, Volume, Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
@@ -74,6 +74,20 @@ describe('solver', () => {
     const g = grade(wall(0), out);
     expect(g).toBeGreaterThan(grade(wall(0), ladder('edge', 45)));
     expect(g).toBeLessThan(8);
+  });
+
+  it('names how a hand holds a hold: sidepull, gaston, undercling', () => {
+    const edge = (rot: number): Hold => ({ id: 'e', type: 'edge', size: 'm', u: 150, v: 200, rot });
+    const body = { u: 200, v: 150 };
+    expect(handTechnique(edge(0), body)).toBe(null);
+    // Best pulled rightward, toward a body on its right: a sidepull.
+    expect(handTechnique(edge(Math.PI / 2), { u: 260, v: 200 })).toBe('sidepull');
+    // Best pulled leftward, away from a body on its right: a gaston.
+    expect(handTechnique(edge(-Math.PI / 2), { u: 260, v: 200 })).toBe('gaston');
+    // Lip facing down with the body level or above: an undercling.
+    expect(handTechnique(edge(Math.PI), { u: 150, v: 240 })).toBe('undercling');
+    // Pinches are squeezed, not sidepulled.
+    expect(handTechnique({ ...edge(Math.PI / 2), type: 'pinch' }, { u: 260, v: 200 })).toBe(null);
   });
 
   it('reports an unreachable finish instead of crashing', () => {

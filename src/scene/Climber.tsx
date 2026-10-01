@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { bestPull, footTechnique, highStep, type FootTechnique } from '../solver/model';
+import { bestPull, footTechnique, handTechnique, highStep, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -62,6 +62,8 @@ function poseFrom(
   legs: [FootTechnique, FootTechnique] = [null, null],
   /** Feet in flight carry no weight: the hips shift over the standing foot first. */
   lifting: [boolean, boolean] = [false, false],
+  /** Sidepull / gaston / undercling per hand (see handTechnique), decided once per move. */
+  arms: [HandTechnique, HandTechnique] = [null, null],
 ): Pose {
   // Facet nearest the hands (a dihedral has two faces at the same height).
   const normal = nearestFrame(frames, hands[0].clone().add(hands[1]).multiplyScalar(0.5)).normal;
@@ -86,6 +88,14 @@ function poseFrom(
     .clone()
     .addScaledVector(bodyDir, -chestDrop)
     .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep);
+  // Opposition shifts the body sideways: lean away from a sidepull (laying back off it),
+  // and in toward a gaston (the hand pushes the hold apart from the body).
+  const across = V().crossVectors(bodyDir, normal).normalize();
+  for (const i of [0, 1] as const) {
+    const shift = arms[i] === 'sidepull' ? -0.07 : arms[i] === 'gaston' ? 0.05 : 0;
+    const toHand = Math.sign(hands[i].clone().sub(handsMid).dot(across)) || (i === 0 ? -1 : 1);
+    if (shift && across.lengthSq() > 0.5) chest.addScaledVector(across, shift * toHand);
+  }
   // ...while the hips stay in to the wall, keeping weight on the feet. A heel hook or drop
   // knee pulls them in further.
   const twisted = legs[0] || legs[1] ? 1 : 0;
@@ -108,7 +118,19 @@ function poseFrom(
   ];
   const arm = (i: 0 | 1) => {
     const side = i === 0 ? -1 : 1;
-    const pole = torsoDir.clone().multiplyScalar(-0.6).addScaledVector(normal, 0.5).addScaledVector(lateral, side * 0.6);
+    // Which way the hand sits from the chest: a gaston's elbow points out that way.
+    const out = Math.sign(hands[i].clone().sub(chest).dot(lateral)) || side;
+    // Elbows down and out by default. An undercling tucks the elbow down by the ribs,
+    // palm up; a gaston flares the elbow out and up, thumb down; a sidepull keeps the
+    // elbow low and the arm long, leaning off the hold.
+    const pole =
+      arms[i] === 'undercling'
+        ? torsoDir.clone().multiplyScalar(-1).addScaledVector(normal, 0.35).addScaledVector(lateral, side * 0.15)
+        : arms[i] === 'gaston'
+          ? lateral.clone().multiplyScalar(out).addScaledVector(torsoDir, 0.45).addScaledVector(normal, 0.35)
+          : arms[i] === 'sidepull'
+            ? torsoDir.clone().multiplyScalar(-0.9).addScaledVector(normal, 0.45).addScaledVector(lateral, side * 0.25)
+            : torsoDir.clone().multiplyScalar(-0.6).addScaledVector(normal, 0.5).addScaledVector(lateral, side * 0.6);
     return ik(shoulders[i], hands[i], ARM, pole);
   };
   const leg = (i: 0 | 1) => {
@@ -317,6 +339,8 @@ interface Run {
   flagAway: [number, number];
   /** Heel hook / drop knee per foot for the current move. */
   legs: [FootTechnique, FootTechnique];
+  /** Sidepull / gaston / undercling per hand for the current move. */
+  arms: [HandTechnique, HandTechnique];
   lastThud: number;
 }
 
@@ -338,7 +362,12 @@ export function Climber({ day }: { day: Day }) {
   const normalAt = (p: Point) => frameAt(frames, p.u, p.v).normal;
 
   /** Posed skeleton for the ends' current positions (the "muscle" targets). */
-  const postureFor = (sim: Ragdoll, flagAway?: [number, number], legs?: [FootTechnique, FootTechnique]): THREE.Vector3[] => {
+  const postureFor = (
+    sim: Ragdoll,
+    flagAway?: [number, number],
+    legs?: [FootTechnique, FootTechnique],
+    arms?: [HandTechnique, HandTechnique],
+  ): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
     const feet: [THREE.Vector3 | null, THREE.Vector3 | null] = [
@@ -347,7 +376,7 @@ export function Climber({ day }: { day: Day }) {
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
     const lifting: [boolean, boolean] = [e[2].mode === 'moving', e[3].mode === 'moving'];
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting));
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms));
   };
 
   const start = (pb: Playback): Run | null => {
@@ -377,7 +406,7 @@ export function Climber({ day }: { day: Day }) {
     // Same list the solver indexed into, so chalk and hand direction hit the right holds.
     const tape = withSpots(day, pb.spots);
     const holds = contactList(tape.start, tape.finish, pb.holds, pb.volumes, day.wall);
-    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -413,6 +442,18 @@ export function Climber({ day }: { day: Day }) {
         const foot = f.to.feet[i];
         return foot && f.holds[2 + i] >= 0 ? footTechnique(day.wall, f.to.hands, foot) : null;
       }) as [FootTechnique, FootTechnique];
+      // The body centre each hand pulls toward, as the solver sees it: between the
+      // other hand and the feet.
+      const on = f.to.feet.filter(Boolean) as Point[];
+      r.arms = [0, 1].map((i) => {
+        const hold = r.holds[f.holds[i]];
+        if (!hold) return null;
+        const other = f.to.hands[1 - i];
+        const feet = on.length
+          ? { u: on.reduce((s, p) => s + p.u, 0) / on.length, v: on.reduce((s, p) => s + p.v, 0) / on.length }
+          : { u: other.u, v: other.v - 140 };
+        return handTechnique(hold, { u: (other.u + feet.u) / 2, v: (other.v + feet.v) / 2 });
+      }) as [HandTechnique, HandTechnique];
     }
     const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
     contacts.forEach((c, n) => {
@@ -438,7 +479,7 @@ export function Climber({ day }: { day: Day }) {
       const h = hold >= 0 ? r.holds[hold] : undefined;
       const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.type) : hold === -1 ? 'smear' : 'off';
       const foot = m >= 2 ? f.to.feet[m - 2] : null;
-      const tech = m >= 2 && h ? r.legs[m - 2] : null;
+      const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];
       useClimb.setState({
         move: f.move,
         strain: f.strain,
@@ -449,7 +490,9 @@ export function Climber({ day }: { day: Day }) {
               ? ' (toe hook)'
               : tech === 'drop-knee'
                 ? ' (drop knee)'
-                : h && foot && highStep(f.to.hands, foot) > 0.8
+                : tech
+                  ? ` (${tech})`
+                  : h && foot && highStep(f.to.hands, foot) > 0.8
                   ? ' (high step)'
                   : ''
         }${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
@@ -549,7 +592,7 @@ export function Climber({ day }: { day: Day }) {
           }
         } else sfx.foot();
       }
-      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs));
+      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {
