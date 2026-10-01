@@ -39,6 +39,8 @@ feet are driven along the solver's moves and pinned to holds, while the rest of
 the body is simulated with gravity, soft "muscle" springs toward an IK pose, and
 wall/pad collisions. Feet cut loose on campus moves and steep dynos, hard moves
 tremble, the crux plays in slow motion, and failed routes let go and fall.
+Before the crux, if one hand is on a good hold with a foot on, the climber hangs
+off it straight-armed, shakes out the other arm and chalks up.
 
 ## Layout
 

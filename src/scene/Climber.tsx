@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { bestPull, footTechnique, handTechnique, highStep, type FootTechnique, type HandTechnique } from '../solver/model';
+import { bestPull, footTechnique, handGrip, handTechnique, highStep, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -64,10 +64,13 @@ function poseFrom(
   lifting: [boolean, boolean] = [false, false],
   /** Sidepull / gaston / undercling per hand (see handTechnique), decided once per move. */
   arms: [HandTechnique, HandTechnique] = [null, null],
+  /** A hand off the wall shaking out: the body hangs straight-armed under the other one. */
+  resting: 0 | 1 | null = null,
 ): Pose {
+  const holding = resting === null ? hands : [hands[1 - resting], hands[1 - resting]];
   // Facet nearest the hands (a dihedral has two faces at the same height).
-  const normal = nearestFrame(frames, hands[0].clone().add(hands[1]).multiplyScalar(0.5)).normal;
-  const handsMid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
+  const normal = nearestFrame(frames, holding[0].clone().add(holding[1]).multiplyScalar(0.5)).normal;
+  const handsMid = holding[0].clone().add(holding[1]).multiplyScalar(0.5);
   const planted = feet.filter((f, i) => f && !lifting[i]) as THREE.Vector3[];
   const on = planted.length ? planted : (feet.filter(Boolean) as THREE.Vector3[]);
   const feetMid = on.length
@@ -96,6 +99,8 @@ function poseFrom(
     const toHand = Math.sign(hands[i].clone().sub(handsMid).dot(across)) || (i === 0 ? -1 : 1);
     if (shift && across.lengthSq() > 0.5) chest.addScaledVector(across, shift * toHand);
   }
+  // Hanging off one arm, that shoulder sits under its hand: the chest swings toward the free side.
+  if (resting !== null && across.lengthSq() > 0.5) chest.addScaledVector(across, resting === 0 ? -0.17 : 0.17);
   // ...while the hips stay in to the wall, keeping weight on the feet. A heel hook or drop
   // knee pulls them in further.
   const twisted = legs[0] || legs[1] ? 1 : 0;
@@ -124,7 +129,9 @@ function poseFrom(
     // palm up; a gaston flares the elbow out and up, thumb down; a sidepull keeps the
     // elbow low and the arm long, leaning off the hold.
     const pole =
-      arms[i] === 'undercling'
+      resting === i
+        ? normal.clone().multiplyScalar(0.6).addScaledVector(lateral, side * 0.5).addScaledVector(torsoDir, -0.3)
+        : arms[i] === 'undercling'
         ? torsoDir.clone().multiplyScalar(-1).addScaledVector(normal, 0.35).addScaledVector(lateral, side * 0.15)
         : arms[i] === 'gaston'
           ? lateral.clone().multiplyScalar(out).addScaledVector(torsoDir, 0.45).addScaledVector(normal, 0.35)
@@ -232,6 +239,8 @@ interface Keyframe {
   /** Difficulty relative to the route's crux, 0..1. */
   strain: number;
   move: number;
+  /** A shake-out: this hand lets go, shakes, chalks up and grabs the same hold again. */
+  rest?: 0 | 1;
 }
 
 interface Timeline {
@@ -242,13 +251,38 @@ interface Timeline {
   tail: number;
 }
 
-function buildTimeline(result: SolveResult, day: Day): Timeline {
+/** How long a shake-out before the crux takes (s). */
+const REST = 2.1;
+
+/**
+ * Before the crux, a climber who can hang off a good hold shakes out the hand that is
+ * about to move and chalks up: the other hand on a jug-like grip, a foot on to take
+ * some weight. Returns the hand to rest, or null if there's no rest to be had there.
+ */
+function restBefore(stance: Stance, hand: 0 | 1, holds: Hold[], wall: Wall): 0 | 1 | null {
+  const stay = holds[stance.limbs[1 - hand]];
+  if (!stay || holds[stance.limbs[hand]] === undefined) return null;
+  if (stance.limbs[2] === OFF && stance.limbs[3] === OFF) return null;
+  const feet = [2, 3].filter((f) => stance.limbs[f] !== OFF).map((f) => stance.points[f]);
+  const below = { u: feet.reduce((s, p) => s + p.u, 0) / feet.length, v: feet.reduce((s, p) => s + p.v, 0) / feet.length };
+  return handGrip(stay, below, wall) >= 0.7 ? hand : null;
+}
+
+function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
   const frames: Keyframe[] = [];
   if (result.ok) {
     const crux = Math.max(result.crux, 0.3);
     frames.push({ to: contactsOf(result.start), holds: [...result.start.limbs], limb: -1, duration: 0.9, strain: 0, move: -1 });
+    let rested = false;
     result.moves.forEach((m, i) => {
       const strain = Math.min(1, m.difficulty / crux);
+      if (!rested && strain >= 0.98 && m.limb < 2) {
+        rested = true;
+        const before = i === 0 ? result.start : result.moves[i - 1].to;
+        const hand = restBefore(before, m.limb as 0 | 1, holds, day.wall);
+        if (hand !== null)
+          frames.push({ to: contactsOf(before), holds: [...before.limbs], limb: -1, duration: REST, strain: 0, move: -1, rest: hand });
+      }
       // Hard moves are slower and more deliberate; dynos are quick.
       // A touch slower than real time reads smoother; hard moves take longer still.
       const base = m.limb >= 2 ? 0.5 : 0.65 + strain * 0.4;
@@ -341,6 +375,8 @@ interface Run {
   legs: [FootTechnique, FootTechnique];
   /** Sidepull / gaston / undercling per hand for the current move. */
   arms: [HandTechnique, HandTechnique];
+  /** A shake-out in progress: which hand, when it began, and the hold it goes back to. */
+  rest: { hand: 0 | 1; t0: number; hold: number; at: THREE.Vector3; dipped: boolean } | null;
   lastThud: number;
 }
 
@@ -367,6 +403,7 @@ export function Climber({ day }: { day: Day }) {
     flagAway?: [number, number],
     legs?: [FootTechnique, FootTechnique],
     arms?: [HandTechnique, HandTechnique],
+    resting: 0 | 1 | null = null,
   ): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
@@ -376,11 +413,14 @@ export function Climber({ day }: { day: Day }) {
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
     const lifting: [boolean, boolean] = [e[2].mode === 'moving', e[3].mode === 'moving'];
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms));
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting));
   };
 
   const start = (pb: Playback): Run | null => {
-    const timeline = buildTimeline(pb.result, day);
+    // Same list the solver indexed into, so chalk and hand direction hit the right holds.
+    const tape = withSpots(day, pb.spots);
+    const holds = contactList(tape.start, tape.finish, pb.holds, pb.volumes, day.wall);
+    const timeline = buildTimeline(pb.result, day, holds);
     if (!timeline.frames.length) return null;
     const first = timeline.frames[0].to;
     const hands = first.hands.map((p) => toWorld(p, 0.07)) as [THREE.Vector3, THREE.Vector3];
@@ -403,10 +443,7 @@ export function Climber({ day }: { day: Day }) {
     );
     first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
     useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
-    // Same list the solver indexed into, so chalk and hand direction hit the right holds.
-    const tape = withSpots(day, pb.spots);
-    const holds = contactList(tape.start, tape.finish, pb.holds, pb.volumes, day.wall);
-    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -429,6 +466,7 @@ export function Climber({ day }: { day: Day }) {
 
   const enterFrame = (r: Run, f: Keyframe) => {
     const { sim } = r;
+    r.rest = null;
     // Decide which way a free leg flags: away from the hands, on the supporting foot's side.
     const handsU = (f.to.hands[0].u + f.to.hands[1].u) / 2;
     r.flagAway = [0, 1].map((i) => {
@@ -463,6 +501,13 @@ export function Climber({ day }: { day: Day }) {
       else sim.drive(n, target, normal, 0.3, 0.05);
     });
     sim.tone = 1 - 0.45 * f.strain;
+    if (f.rest !== undefined) {
+      const hand = f.rest;
+      r.rest = { hand, t0: r.t, hold: f.holds[hand], at: toWorld(f.to.hands[hand], 0.07), dipped: false };
+      r.grip[hand] = -1;
+      r.arms[hand] = null;
+      useClimb.setState({ strain: 0, label: 'Shaking out before the crux…' });
+    }
     if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + f.duration * 0.85, limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
     if (f.dynamic) {
       // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
@@ -498,6 +543,56 @@ export function Climber({ day }: { day: Day }) {
         }${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
       });
     }
+  };
+
+  /**
+   * Drive a resting hand along its shake-out: down beside the hip, arm hanging, shaking
+   * the pump out; into the chalk bag behind the hips; then back up to the same hold.
+   */
+  const shakeOut = (r: Run) => {
+    const rest = r.rest!;
+    const { sim } = r;
+    const k = r.t - rest.t0;
+    const side = rest.hand === 0 ? -1 : 1;
+    const hip = sim.pos[J.pelvis];
+    const up = sim.pos[J.chest].clone().sub(hip).normalize();
+    const right = sim.pos[J.shoulderR].clone().sub(sim.pos[J.shoulderL]).normalize();
+    // Away from the wall (the body faces it).
+    const away = V().crossVectors(right, up).normalize();
+    const shake = hip.clone().addScaledVector(up, 0.1).addScaledVector(right, side * 0.24).addScaledVector(away, 0.16);
+    const bag = hip.clone().addScaledVector(up, 0.02).addScaledVector(right, side * 0.05).addScaledVector(away, 0.2);
+    const ease = (a: number, b: number) => {
+      const x = Math.max(0, Math.min(1, (k - a) / (b - a)));
+      return x * x * (3 - 2 * x);
+    };
+    let to: THREE.Vector3;
+    if (k < 0.4) to = rest.at.clone().lerp(shake, ease(0, 0.4));
+    else if (k < 1.15) {
+      // A loose flick of the wrist, dying away.
+      const w = Math.sin((k - 0.4) * Math.PI * 2 * 5.5) * (1 - (k - 0.4) / 0.9);
+      to = shake.addScaledVector(right, side * 0.04 * w).addScaledVector(up, 0.02 * w);
+    } else if (k < 1.45) to = shake.lerp(bag, ease(1.15, 1.45));
+    else if (k < 1.7) {
+      to = bag.addScaledVector(up, 0.025 * Math.sin((k - 1.45) * Math.PI * 2 * 4));
+      if (!rest.dipped) {
+        rest.dipped = true;
+        puff(bag, up, 5, 0.3);
+        useClimb.setState({ label: 'Chalking up…' });
+      }
+    } else {
+      // Back up to the hold, the hand arcing out from the wall rather than dragging up it.
+      const x = ease(1.7, REST * 0.95);
+      to = bag.lerp(rest.at, x).addScaledVector(away, Math.sin(Math.PI * x) * 0.08);
+      if (x >= 1 && r.grip[rest.hand] < 0) {
+        r.grip[rest.hand] = rest.hold;
+        sfx.grab(0.2);
+        const hold = r.holds[rest.hold];
+        if (hold) chalkHold(hold.id);
+      }
+    }
+    const end = sim.ends[rest.hand];
+    end.mode = 'pinned';
+    end.to.copy(to);
   };
 
   const endRun = (r: Run) => {
@@ -592,7 +687,8 @@ export function Climber({ day }: { day: Day }) {
           }
         } else sfx.foot();
       }
-      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms));
+      if (r.rest) shakeOut(r);
+      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {
