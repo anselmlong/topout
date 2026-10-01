@@ -327,7 +327,7 @@ function HoldMesh({
   const startDrag = useGame((s) => s.startDrag);
   const remove = useGame((s) => s.remove);
   const rightDown = useRef<{ x: number; y: number } | null>(null);
-  const { geometry, bolt } = holdMesh(hold.type, hold.size, variantOf(hold.id));
+  const { geometry, bolt, screw } = holdMesh(hold.type, hold.size, variantOf(hold.id));
   const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot, volumes);
   // Used holds get chalky.
@@ -403,6 +403,23 @@ function HoldMesh({
           <mesh position={[0, 0.0021, 0]} raycast={() => null}>
             <cylinderGeometry args={[0.0032, 0.0032, 0.0004, 6]} />
             <meshBasicMaterial color="#161616" />
+          </mesh>
+        </group>
+      )}
+      {screw && (
+        // A wood screw sunk in the chip's countersink: a domed head with a cross slot.
+        <group position={screw.at} rotation={[Math.PI / 2, 0, 0]} scale={screw.size}>
+          <mesh raycast={() => null}>
+            <cylinderGeometry args={[0.0026, 0.0034, 0.0014, 10]} />
+            <meshStandardMaterial color="#8a8c90" metalness={0.6} roughness={0.4} flatShading />
+          </mesh>
+          <mesh position={[0, 0.00072, 0]} raycast={() => null}>
+            <boxGeometry args={[0.0036, 0.0002, 0.0007]} />
+            <meshBasicMaterial color="#1c1c1c" />
+          </mesh>
+          <mesh position={[0, 0.00072, 0]} raycast={() => null}>
+            <boxGeometry args={[0.0007, 0.0002, 0.0036]} />
+            <meshBasicMaterial color="#1c1c1c" />
           </mesh>
         </group>
       )}

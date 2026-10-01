@@ -302,16 +302,8 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   shade.push(1);
   for (let j = 0; j < N; j++) index.push(base, (j + 1) % N, j);
 
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos.map((v) => v * S), 3));
-  g.setAttribute('shade', new THREE.Float32BufferAttribute(shade, 1));
-  g.setIndex(index);
-  const flat = g.toNonIndexed();
-  const shadeOf = flat.attributes.shade.array as Float32Array;
-  flat.deleteAttribute('shade');
   return {
-    geometry: flat,
-    shade: (i: number) => shadeOf[i],
+    ...indexedToFlat(pos, shade, index, S),
     // Chalk rings the hole: its bottom lip and floor take the fingers, the
     // hood a little; the rest of the body only where it faces up.
     grip: ((n, c) => {
@@ -319,6 +311,151 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
       return d < 1.4 ? 0.45 + 0.55 * smooth(-0.2, 0.6, n.y) : d < 2 ? 0.3 * smooth(0.2, 0.8, n.y) : 0.2 * TOP_GRIP(n, c);
     }) as GripFn,
   };
+}
+
+/**
+ * A screw-on foot chip: a D-shaped nub, flat across the top and rounded below,
+ * built in rings from the outline in to a countersunk screw hole. The top edge
+ * stands proud and is slightly incut (a little shelf the toe of a shoe sits on)
+ * while the face ramps down toward the wall underneath, like the poured chips
+ * gyms screw between the bolt holes. Returns the screw head's spot too.
+ */
+function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+  const N = 24;
+  const W = 0.028 * (0.92 + 0.16 * k);
+  const H = 0.021 * (1.04 - 0.08 * k);
+  const Z = 0.017;
+  // Screw hole: centre and countersink radius.
+  const hy = -0.002;
+  const rh = 0.0042;
+  const incut = 0.003 + 0.002 * k;
+  const p1 = r.range(0, 6.3);
+  const wobble = Array.from({ length: N }, (_, j) => 1 + 0.04 * Math.sin(2 * ((j / N) * Math.PI * 2) + p1));
+  const outline = (c: number, s: number, j: number): [number, number] => [
+    W * sgnpow(c, 0.75) * wobble[j],
+    H * (s > 0 ? sgnpow(s, 0.45) : sgnpow(s, 0.9)) * wobble[j],
+  ];
+  // Tall at the top edge, ramping down to the bottom.
+  const tall = (s: number) => Z * (0.62 + 0.38 * s);
+  type Ring = [t: number, lift: number, shade: number];
+  // Skirt rises steeply, then a flattish crown out to the countersink's rim.
+  const rings: Ring[] = [
+    [0, 0, 1],
+    [0.06, 0.62, 1],
+    [0.2, 0.92, 1],
+    [0.45, 1, 1],
+    [0.75, 0.98, 1],
+    [1, 0.95, 0.92],
+  ];
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  const ringZ = (lift: number, s: number) => tall(s) * lift;
+  const quad = (i: number) => {
+    for (let j = 0; j < N; j++) {
+      const A = (i - 1) * N + j;
+      const B = (i - 1) * N + ((j + 1) % N);
+      index.push(A, B, i * N + ((j + 1) % N), A, i * N + ((j + 1) % N), i * N + j);
+    }
+  };
+  rings.forEach(([t, lift, sh], i) => {
+    for (let j = 0; j < N; j++) {
+      const th = (j / N) * Math.PI * 2;
+      const c = Math.cos(th), s = Math.sin(th);
+      const [ox, oy] = outline(c, s, j);
+      const x = ox + (1.7 * rh * c - ox) * t;
+      let y = oy + (hy + 1.7 * rh * s - oy) * t;
+      // The top lip leans out over its own base: a small incut shelf.
+      if (t > 0 && t < 0.3) y += incut * Math.max(0, s) ** 3;
+      // Hand-poured, so the skirt is a little uneven; the crown stays smooth.
+      const jz = t > 0 && t < 0.3 ? r.range(0.95, 1.05) : 1;
+      // The tilt fades out toward the middle, so the screw seats level.
+      pos.push(x, y, ringZ(lift, s * (1 - t)) * jz);
+      shade.push(sh);
+    }
+    if (i) quad(i);
+  });
+  // Countersink: a shallow shadowed cone down to a nearly flush screw head.
+  const crown = rings[rings.length - 1][1];
+  const sink = 0.0016;
+  for (const [m, d, sh] of [
+    [1, 0.75, 0.55],
+    [0.85, 1, 0.4],
+  ] as const) {
+    const i = pos.length / 3 / N;
+    for (let j = 0; j < N; j++) {
+      const th = (j / N) * Math.PI * 2;
+      const s = Math.sin(th);
+      pos.push(rh * m * Math.cos(th), hy + rh * m * s, ringZ(crown, 0) - sink * d);
+      shade.push(sh);
+    }
+    quad(i);
+  }
+  const last = pos.length / 3 - N;
+  const centre = pos.length / 3;
+  const screwZ = ringZ(crown, 0) - sink;
+  pos.push(0, hy, screwZ);
+  shade.push(0.3);
+  for (let j = 0; j < N; j++) index.push(last + j, last + ((j + 1) % N), centre);
+  const base = pos.length / 3;
+  pos.push(0, 0, 0);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(base, (j + 1) % N, j);
+  return {
+    ...indexedToFlat(pos, shade, index, S),
+    screw: new THREE.Vector3(0, hy * S, screwZ * S),
+    screwSize: S,
+  };
+}
+
+/**
+ * A jib: a small chipped stone screwed to the wall. An icosphere squashed into
+ * a low pebble, then knocked flat by a handful of random cuts so it has the
+ * broad, sharp-edged facets of knapped rock rather than an even tessellation.
+ * A screw goes through the middle of its top facet.
+ */
+function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+  const g = new THREE.IcosahedronGeometry(1, 1);
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  const scale: [number, number, number] = [0.019 * (0.85 + 0.3 * k), 0.015 * (1.1 - 0.2 * k), 0.013];
+  // Cutting planes, mostly facing out of the wall and around the sides.
+  const cuts = Array.from({ length: 6 }, (_, i) => {
+    const a = (i / 6) * Math.PI * 2 + r.range(-0.4, 0.4);
+    const tilt = i === 0 ? 0.1 : r.range(0.45, 1.1);
+    const n = new THREE.Vector3(Math.sin(tilt) * Math.cos(a), Math.sin(tilt) * Math.sin(a), Math.cos(tilt)).normalize();
+    return { n, d: r.range(0.62, 0.82) };
+  });
+  // Shared vertices move together, so faces stay closed.
+  const moved = new Map<string, THREE.Vector3>();
+  const p = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    const id = `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`;
+    let q = moved.get(id);
+    if (!q) {
+      q = p.clone().multiplyScalar(r.range(0.94, 1.06));
+      for (const { n, d } of cuts) {
+        const over = q.dot(n) - d;
+        if (over > 0) q.addScaledVector(n, -over);
+      }
+      q.z = Math.max(0, q.z + 0.15);
+      moved.set(id, q);
+    }
+    pos.setXYZ(i, q.x * scale[0] * S, q.y * scale[1] * S, q.z * scale[2] * S);
+  }
+  const top = cuts[0];
+  return { geometry: g, screw: new THREE.Vector3(0, 0, (top.d / top.n.z + 0.15) * scale[2] * S * 0.995), screwSize: S * 0.8 };
+}
+
+function indexedToFlat(pos: number[], shade: number[], index: number[], S: number) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos.map((v) => v * S), 3));
+  g.setAttribute('shade', new THREE.Float32BufferAttribute(shade, 1));
+  g.setIndex(index);
+  const flat = g.toNonIndexed();
+  const shadeOf = flat.attributes.shade.array as Float32Array;
+  flat.deleteAttribute('shade');
+  return { geometry: flat, shade: (i: number) => shadeOf[i] };
 }
 
 const SHAPES: Record<HoldType, Shape> = {
@@ -397,25 +534,19 @@ const SHAPES: Record<HoldType, Shape> = {
   },
   // Built by pocketGeometry; only `bolt` is read here.
   pocket: { scale: [0.066, 0.056, 0.028], detail: 0, jitter: 0, bolt: false },
-  // A screw-on chip: low dome with a countersunk screw hole in the middle.
+  // Built by footChipGeometry and jibGeometry; only `grip` is read here.
+  // Rubber and chalk land on the top: shoes stand on it from above.
   foot: {
     scale: [0.028, 0.022, 0.016],
-    detail: 2,
-    jitter: 0.07,
+    detail: 0,
+    jitter: 0,
     bolt: false,
-    shape: (p, k) => {
-      p.x *= 0.9 + 0.2 * k;
-      const d = Math.hypot(p.x, p.y + 0.05);
-      if (d < 0.32 && p.z > 0) p.z *= 0.25 + d * 1.6;
-    },
-    shade: (p) => (Math.hypot(p.x, p.y + 0.05) < 0.28 ? 0.4 : 1),
-    // Rubber and chalk land on the top: shoes stand on it from above.
     grip: (n) => smooth(0.0, 0.7, n.y + 0.3 * n.z) * 0.8,
   },
   jib: {
-    scale: [0.016, 0.013, 0.011],
+    scale: [0.019, 0.015, 0.013],
     detail: 0,
-    jitter: 0.12,
+    jitter: 0,
     bolt: false,
     grip: (n) => smooth(0.0, 0.7, n.y + 0.3 * n.z) * 0.8,
   },
@@ -436,6 +567,8 @@ export interface HoldMeshData {
   geometry: THREE.BufferGeometry;
   /** Where the bolt washer sits (local), or null for bolt-less holds. */
   bolt: THREE.Vector3 | null;
+  /** A small countersunk wood screw (foot chips, jibs): its head's centre and size scale. */
+  screw?: { at: THREE.Vector3; size: number };
 }
 
 const cache = new Map<string, HoldMeshData>();
@@ -451,6 +584,14 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   if (type === 'pocket') {
     const p = pocketGeometry(SIZE[size], k, r);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
+    cache.set(key, data);
+    return data;
+  }
+  if (type === 'foot' || type === 'jib') {
+    const p = type === 'foot' ? footChipGeometry(SIZE[size], k, r) : jibGeometry(SIZE[size], k, r);
+    const shade = 'shade' in p ? p.shade : () => 1;
+    const data = finish(p.geometry, r, false, (_x, _y, _z, i) => shade(i), spec.grip!);
+    data.screw = { at: p.screw, size: p.screwSize };
     cache.set(key, data);
     return data;
   }
