@@ -18,7 +18,7 @@ export function dateOf(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral';
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop';
 
 export const STYLE_LABEL: Record<WallStyle, string> = {
   slab: 'Slab',
@@ -33,6 +33,7 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   cave: 'Cave',
   prow: 'Prow',
   dihedral: 'Steep corner',
+  scoop: 'Scoop',
 };
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
@@ -101,6 +102,20 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
       ];
       break;
     }
+    case 'scoop': {
+      // A curved wave wall, faceted like the plywood ones: a slabby toe that bends through
+      // vertical and a gentle overhang into a steep top. Balance low, power high.
+      const toe = r.int(90, 115);
+      const mid = r.int(95, 120);
+      const lean = r.int(95, 120);
+      panels = [
+        { length: toe, angle: -r.int(4, 12) },
+        { length: mid, angle: r.int(2, 8) },
+        { length: lean, angle: r.int(15, 22) },
+        { length: Math.max(90, tall - toe - mid - lean), angle: r.int(28, 38) },
+      ];
+      break;
+    }
     case 'arete': {
       // An outside corner: faces turned away, the edge itself a hold. Sharper is juggier.
       panels = [{ length: tall, angle: r.int(-5, 15) }];
@@ -125,6 +140,7 @@ export function wallStyleOf(wall: Wall): WallStyle {
     return a >= 18 ? 'prow' : 'arete';
   }
   const p = wall.panels;
+  if (p.length === 4) return 'scoop';
   if (p.length === 3) return 'cave';
   if (p.length === 2) {
     if (p[0].angle > p[1].angle + 15) return 'bulge';
@@ -144,10 +160,10 @@ const STYLE_BY_WEEKDAY: WallStyle[][] = [
   ['overhang', 'headwall', 'kicker', 'corner', 'arete'], // Sun
   ['vertical', 'slab', 'overhang', 'corner'], // Mon
   ['vertical', 'overhang', 'slab', 'corner', 'arete'], // Tue
-  ['overhang', 'kicker', 'vertical', 'corner', 'bulge'], // Wed
-  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow'], // Thu
+  ['overhang', 'kicker', 'vertical', 'corner', 'bulge', 'scoop'], // Wed
+  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop'], // Thu
   ['steep', 'kicker', 'headwall', 'bulge', 'cave', 'prow', 'dihedral'], // Fri
-  ['overhang', 'steep', 'headwall', 'corner', 'bulge', 'cave', 'prow', 'dihedral'], // Sat
+  ['overhang', 'steep', 'headwall', 'corner', 'bulge', 'cave', 'prow', 'dihedral', 'scoop'], // Sat
 ];
 
 /** One or two volumes for a day's tray; they change the wall under the route. */
@@ -175,7 +191,7 @@ export function withVolumes(day: Day): Day {
 
 function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
   // Easier days and steeper walls get kinder holds.
-  const steep = style === 'steep' || style === 'kicker' || style === 'headwall' || style === 'bulge' || style === 'cave' || style === 'prow' || style === 'dihedral';
+  const steep = style === 'steep' || style === 'kicker' || style === 'headwall' || style === 'bulge' || style === 'cave' || style === 'prow' || style === 'dihedral' || style === 'scoop';
   // Jugs are a treat, not the default: a couple on easy or steep days, few otherwise.
   const weights: Record<Exclude<HoldType, 'foot' | 'jib' | 'volume'>, number> = {
     jug: Math.max(0.15, 1.6 - grade * 0.4) + (steep ? 0.4 : 0),
@@ -217,7 +233,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   return [...volumeSlots(r), ...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
 }
 
-/** Angle range per style for practice (two-panel walls: the top panel; caves: the roof). */
+/** Angle range per style for practice (multi-panel walls: the top panel; caves: the roof). */
 export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   slab: [-25, -5],
   vertical: [0, 8],
@@ -231,6 +247,7 @@ export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   cave: [40, 60],
   prow: [18, 40],
   dihedral: [21, 40],
+  scoop: [25, 45],
 };
 
 export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];
