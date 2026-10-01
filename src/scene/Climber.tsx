@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
-import { bestPull, footTechnique, type FootTechnique } from '../solver/model';
+import { bestPull, footTechnique, highStep, type FootTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -59,11 +59,14 @@ function poseFrom(
   flagAway?: [number, number],
   /** Heel hook / drop knee per foot (see footTechnique), decided once per move. */
   legs: [FootTechnique, FootTechnique] = [null, null],
+  /** Feet in flight carry no weight: the hips shift over the standing foot first. */
+  lifting: [boolean, boolean] = [false, false],
 ): Pose {
   // Facet nearest the hands (a dihedral has two faces at the same height).
   const normal = nearestFrame(frames, hands[0].clone().add(hands[1]).multiplyScalar(0.5)).normal;
   const handsMid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
-  const on = feet.filter(Boolean) as THREE.Vector3[];
+  const planted = feet.filter((f, i) => f && !lifting[i]) as THREE.Vector3[];
+  const on = planted.length ? planted : (feet.filter(Boolean) as THREE.Vector3[]);
   const feetMid = on.length
     ? on.reduce((s, f) => s.add(f), V()).multiplyScalar(1 / on.length)
     : handsMid.clone().add(V(0, -1.35, 0));
@@ -339,7 +342,8 @@ export function Climber({ day }: { day: Day }) {
       e[3].mode === 'free' ? null : sim.pos[J.footR].clone(),
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs));
+    const lifting: [boolean, boolean] = [e[2].mode === 'moving', e[3].mode === 'moving'];
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting));
   };
 
   const start = (pb: Playback): Run | null => {
@@ -428,11 +432,19 @@ export function Climber({ day }: { day: Day }) {
       const hold = f.holds[m];
       const h = hold >= 0 ? r.holds[hold] : undefined;
       const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.type) : hold === -1 ? 'smear' : 'off';
+      const foot = m >= 2 ? f.to.feet[m - 2] : null;
+      const tech = m >= 2 && h ? r.legs[m - 2] : null;
       useClimb.setState({
         move: f.move,
         strain: f.strain,
         label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
-          m >= 2 && h ? (r.legs[m - 2] === 'heel' ? ' (heel hook)' : r.legs[m - 2] === 'drop-knee' ? ' (drop knee)' : '') : ''
+          tech === 'heel'
+            ? ' (heel hook)'
+            : tech === 'drop-knee'
+              ? ' (drop knee)'
+              : h && foot && highStep(f.to.hands, foot) > 0.8
+                ? ' (high step)'
+                : ''
         }${f.strain >= 0.98 && m < 2 ? ' · crux' : ''}`,
       });
     }

@@ -18,6 +18,7 @@ import {
   handMatchable,
   handLoad,
   heightAt,
+  highStep,
   stemBonus,
   vAtHeight,
   wallPoint,
@@ -391,8 +392,19 @@ class Context {
     // Feet share a hold only when there's nothing better nearby.
     const match = to >= 0 && to === l[stay] ? 0.12 : 0;
     // Getting a heel up takes effort.
-    const heelUp = this.isHeel(next, limb as 2 | 3, np) ? 0.3 * load : 0;
-    return { d: load / g + match + heelUp, dynamic: false };
+    const heel = this.isHeel(next, limb as 2 | 3, np);
+    const heelUp = heel ? 0.3 * load : 0;
+    // High steps: a big lift, or a foot tucked up near the hips, takes hip mobility and
+    // a rockover, while the arms hold on. Climbers take an intermediate foot instead.
+    // In a corner the other foot stems against the opposite face and makes it easy.
+    let high = 0;
+    if (to >= 0 && !heel) {
+      const lift = l[limb] >= 0 ? Math.max(0, np[limb].v - p[limb].v) : 0;
+      const stem = l[stay] !== OFF ? stemBonus(this.wall, [np[2].u, np[3].u]) : 0;
+      high =
+        (load / g) * (1 - stem) * ((0.25 * Math.max(0, lift - 35)) / 60 + 1.0 * highStep([np[0], np[1]], np[limb]));
+    }
+    return { d: load / g + match + heelUp + high, dynamic: false };
   }
 
   neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {

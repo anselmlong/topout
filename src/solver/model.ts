@@ -210,6 +210,16 @@ export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): F
 }
 
 /**
+ * High step: how tucked a foot is under the hands, 0 (normal stance) .. 1 (foot up at the
+ * hips, nearly a heel hook). Getting a foot that high takes hip mobility, and standing up
+ * on it is a rockover: the hips have to come over the foot before it holds any weight.
+ */
+export function highStep(hands: [Point, Point], foot: Point): number {
+  const dv = Math.min(hands[0].v, hands[1].v) - foot.v;
+  return Math.max(0, Math.min(1, (95 - dv) / 50));
+}
+
+/**
  * Share of body weight hanging on the hands (≈0.3 on vertical with good feet,
  * → 1+ on steep walls with feet off).
  */
