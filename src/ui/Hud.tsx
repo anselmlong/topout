@@ -144,7 +144,7 @@ export function Controls() {
         ? 'Choose the hold for this spot · Q / E to rotate · it stays on the tape'
         : selected
           ? 'Drag to move · Q / E to rotate · Delete to remove · Ctrl+Z undoes'
-          : 'Click a taped spot to choose its start or finish hold · pick holds from the tray · Q / E rotates the hold under the mouse';
+          : 'Click a taped spot to choose its start or finish hold · pick holds from the tray · drag to orbit · right-drag or Shift+drag to pan · scroll zooms';
   return <p className="controls">{text}</p>;
 }
 

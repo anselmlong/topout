@@ -157,10 +157,11 @@ function CameraRig({ wall }: { wall: Wall }) {
       maxAzimuthAngle={1.25}
       minDistance={2.5}
       maxDistance={18}
-      // Left button belongs to setting (unless Space is held); right orbits, middle pans.
+      // Over a hold, the left button edits it instead.
       enabled={!editingHold}
-      // Left-drag orbits (Shift+left pans); a click without dragging still places/selects.
-      mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
+      // Left-drag orbits (Shift+left pans); right- or middle-drag pans (two-finger click-drag on a
+      // trackpad). A click without dragging still places/selects.
+      mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN }}
       touches={{ ONE: null as unknown as THREE.TOUCH, TWO: THREE.TOUCH.DOLLY_ROTATE }}
     />
   );
