@@ -31,7 +31,11 @@ interface GripSpec {
   grip: number;
   /** Orientation tolerance: how well it holds when pulled off-axis. */
   tolerance: number;
-  /** Extra grip lost per unit of overhang steepness (slopers hate steep walls). */
+  /**
+   * Extra grip lost per unit of overhang steepness. On an overhang the pull swings
+   * outward from the wall: slopers roll off, shallow crimps open up, while deep incut
+   * edges and jugs still hold.
+   */
   steepLoss: number;
   hand: boolean;
   /** Quality as a foothold. */
@@ -40,12 +44,12 @@ interface GripSpec {
 
 export const GRIP: Record<HoldType, GripSpec> = {
   jug: { grip: 0.95, tolerance: 0.7, steepLoss: 0, hand: true, foot: 0.95 },
-  edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.12, hand: true, foot: 0.85 },
+  edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.06, hand: true, foot: 0.85 },
   pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7 },
   // Pinches squeeze: good pulled along their axis, poor across it.
   pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.12, hand: true, foot: 0.6 },
   sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.62, hand: true, foot: 0.6 },
-  crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.1, hand: true, foot: 0.75 },
+  crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.16, hand: true, foot: 0.75 },
   foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7 },
   jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5 },
   // A volume's face; real grip/foot values come per face (see volumes.ts).
@@ -244,7 +248,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.46 grades.
+ * … 40° board crimps V8); mean error ~0.38 grades.
  */
 export function toGrade(crux: number, hardMoves: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));

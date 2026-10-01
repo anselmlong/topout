@@ -332,14 +332,16 @@ class Context {
       const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
       const g = handGrip(this.holds[l[other]], c, this.wall);
       if (g < MIN_GRIP) return null;
-      // Hanging stretched out (feet far below) loads the arms much more.
+      // Hanging stretched out (feet far below) loads the arms more. Kept moderate: a
+      // long body with straight arms is how climbers rest, so the hold and the angle
+      // should drive the grade, not the stance alone.
       let stretch = 0;
       for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
       // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
       const stem = l[2] !== OFF && l[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
       const load =
         handLoad(handsAngle, this.feetQ(l, p)) *
-        (1 + 2.5 * Math.max(0, stretch - 0.8)) *
+        (1 + 1.5 * Math.max(0, stretch - 0.8)) *
         (1 - 0.75 * stem);
 
       const target = np[limb];
