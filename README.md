@@ -19,7 +19,10 @@ Pushing to `main` deploys to https://topout.anselmlong.com (Vercel Git integrati
 Left-drag on the wall or background orbits; Shift+drag or middle-drag pans; the
 wheel zooms (or rotates the armed/selected hold). A click without dragging places
 or selects, and a drag that starts on a placed hold moves it.
-Q/E rotate, right-click (without dragging) removes. Ctrl/Cmd+Z undoes any
+Q/E rotate, right-click (without dragging) removes. While a handhold is armed or
+dragged, an arc on the wall shows the climber's reach from the nearest handhold
+below (solid: static, dashed: dyno only; `src/game/reach.ts` mirrors the solver's
+hand-to-hand limit). Ctrl/Cmd+Z undoes any
 placement, move, rotation, removal or clear (Shift+Ctrl+Z or Ctrl+Y redoes); the
 action bar has an undo button for touch. On touch: tap to place, two
 fingers to orbit/zoom.

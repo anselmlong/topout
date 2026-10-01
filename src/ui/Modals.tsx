@@ -42,7 +42,11 @@ export function HelpModal() {
         <li>
           The <b>start</b> (two tape strips) and <b>finish</b> (tape crown) are fixed. Everything between is yours.
         </li>
-        <li>Place holds from the tray. Rotation matters: the arrow shows which way a hold wants to be pulled.</li>
+        <li>
+          Place holds from the tray. Rotation matters: the arrow shows which way a hold wants to be pulled. While you place a
+          handhold, an arc shows how far the climber reaches from the nearest handhold below: inside the solid line is a static
+          move, out to the dashed line only a dyno.
+        </li>
         <li>
           <b>Test climb</b> sends our climber up. They find the easiest beta and grade it. You get {MAX_TESTS} tests.
         </li>

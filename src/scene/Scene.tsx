@@ -14,6 +14,7 @@ import { PALETTE, routeColor } from './palette';
 import { BetaOverlay } from './BetaOverlay';
 import { ChalkDust } from './Chalk';
 import { Gym } from './Gym';
+import { ReachGuide } from './ReachGuide';
 import { GhostVolume, VolumeMesh } from './Volumes';
 import { frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
 import { useWallPointer } from './wallPointer';
@@ -216,6 +217,7 @@ function WallView({ day }: { day: Day }) {
         <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed={!!viewing} tint={tint} />
       ))}
       <GhostHold wall={day.wall} frames={frames} />
+      <ReachGuide day={day} frames={frames} />
     </group>
   );
 }
