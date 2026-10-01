@@ -3,7 +3,8 @@
 // Anchors (commonly accepted gym/board grades; each ±1):
 //   vertical jug ladder ≈ V0, vertical edges ≈ V1-2, vertical crimps ≈ V3,
 //   20° jugs ≈ V1-2, 20° edges ≈ V4, 40° board jugs ≈ V3-4 (MoonBoard floor is V4),
-//   40° edges ≈ V6, 40° crimps ≈ V8, slab crimps + smears ≈ V2-3.
+//   40° edges ≈ V6, 40° crimps ≈ V8, slab crimps + smears ≈ V2-3,
+//   vertical gaston edges ≈ V4-5.
 import { solve } from '../src/solver/solve';
 import type { Hold, HoldSize, HoldType, Wall } from '../src/solver/types';
 
@@ -20,6 +21,8 @@ export interface Anchor {
   /** Hand holds straight up the middle instead of zig-zagging. */
   column?: boolean;
   feetU?: number;
+  /** Turn the hand holds' edges to face out, away from the line (gastons). */
+  gaston?: boolean;
 }
 
 export const ANCHORS: Anchor[] = [
@@ -41,6 +44,8 @@ export const ANCHORS: Anchor[] = [
   { name: '20° corner edges', angle: 20, type: 'edge', size: 'm', spacing: 55, feet: false, expect: 4, fold: 90 },
   { name: 'vertical arête crimps', angle: 0, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 4, fold: -70 },
   // A committing jump between jugs.
+  // Edges turned outward, so every hand is a thumb-down gaston: strenuous on any wall.
+  { name: 'vertical gaston edges', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 5, gaston: true },
   { name: 'vertical jug dyno', angle: 0, type: 'jug', size: 'l', spacing: 125, feet: true, expect: 4, column: true },
 ];
 
@@ -63,7 +68,8 @@ export function anchorRoute(a: Anchor) {
   for (let v = 150 + a.spacing; v < TOP - 20 - a.spacing / 2; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot: 0 });
+    const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : 0;
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < TOP - 120; v += 38, j++)

@@ -152,6 +152,9 @@ export function bestPull(rot: number): { u: number; v: number } {
   return { u: Math.sin(rot), v: -Math.cos(rot) };
 }
 
+/** How much of a hold's grip a gaston (pulling the hold outward, away from the body) keeps. */
+export const GASTON = 0.5;
+
 /**
  * Effective hand grip in (0, ~1.15] when pulled from `hold` toward `pullTo`
  * (usually the body's centre). Returns 0 when the hold is unusable that way.
@@ -165,7 +168,14 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const best = bestPull(hold.rot);
   const c = (du * best.u + dv * best.v) / len;
   const t = hold.tol ?? spec.tolerance;
-  const orient = Math.max(0, Math.min(1, (c + t) / (1 + t)));
+  const pull = Math.max(0, Math.min(1, (c + t) / (1 + t)));
+  // Gaston: a hold whose edge faces away from the body, out to the side, isn't dead.
+  // Thumb down, elbow out, the hand pulls it outward and the body stays on in
+  // opposition (the other hand and the feet push back). Strenuous, so it only reaches
+  // about half of the hold's grip, and only when the edge faces mostly sideways.
+  const away = Math.abs(du) > 8 ? -Math.sign(du) * best.u : 0;
+  const gaston = GASTON * Math.max(0, Math.min(1, (away - 0.3) / 0.7));
+  const orient = Math.max(pull, gaston);
   // Holds on a volume use that face's angle rather than the panel's.
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v))));
   const steepFactor = 1 - spec.steepLoss * steep;

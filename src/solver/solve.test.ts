@@ -68,6 +68,14 @@ describe('solver', () => {
     if (flipped.ok) expect(flipped.grade).toBeGreaterThan(upright);
   });
 
+  it('gastons: an edge facing away from the body is hard but climbable', () => {
+    // Left holds face left, right holds face right: each one has to be pulled outward.
+    const out = ladder('edge', 45).map((h) => (h.type === 'edge' ? { ...h, rot: h.u < 200 ? -Math.PI / 2 : Math.PI / 2 } : h));
+    const g = grade(wall(0), out);
+    expect(g).toBeGreaterThan(grade(wall(0), ladder('edge', 45)));
+    expect(g).toBeLessThan(8);
+  });
+
   it('reports an unreachable finish instead of crashing', () => {
     const r = solve(wall(0), start, finishAt(400), []);
     expect(r.ok).toBe(false);
