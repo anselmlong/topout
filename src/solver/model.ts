@@ -182,6 +182,24 @@ function pullParts(hold: Hold, pullTo: { u: number; v: number }) {
 }
 
 /**
+ * Extra steepness of a face hold on an arête. Each face is turned away from the room by
+ * half the fold, and while the body hangs in front of the edge (straddling it, as on any
+ * arête line) it can't square up to either face: the pull comes off the hold at an
+ * outward angle, as on an overhang. Edges and crimps open up, slopers roll; jugs don't
+ * care. With the body well round onto the hold's own face, it squares up and this fades.
+ */
+export function areteYaw(hold: Hold, pullTo: { u: number; v: number }, wall: Wall): number {
+  const fold = wall.fold;
+  if (!fold || fold.angle >= 0 || hold.angle !== undefined || hold.id.startsWith('arete:')) return 0;
+  const side = Math.sign(hold.u - fold.u);
+  if (!side) return 0;
+  // How far the body has come round onto the hold's face (cm past the edge).
+  const round = side * (pullTo.u - fold.u);
+  const straddle = Math.max(0, Math.min(1, 1 - round / 60));
+  return Math.sin(rad(Math.min(100, -fold.angle) / 2)) * straddle;
+}
+
+/**
  * Effective hand grip in (0, ~1.15] when pulled from `hold` toward `pullTo`
  * (usually the body's centre). Returns 0 when the hold is unusable that way.
  */
@@ -191,7 +209,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const { pull, gaston } = pullParts(hold, pullTo);
   const orient = Math.max(pull, gaston);
   // Holds on a volume use that face's angle rather than the panel's.
-  const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v))));
+  const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v)))) + areteYaw(hold, pullTo, wall);
   const steepFactor = 1 - spec.steepLoss * steep;
   const base = hold.grip ?? spec.grip * SIZE_GRIP[hold.size];
   return base * orient * steepFactor;
@@ -297,7 +315,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.38 grades.
+ * … 40° board crimps V8); mean error ~0.37 grades.
  */
 export function toGrade(crux: number, hardMoves: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));

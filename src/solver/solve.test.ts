@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { footTechnique, handTechnique } from './model';
+import { footTechnique, handGrip, handTechnique } from './model';
 import type { Hold, HoldType, Volume, Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
@@ -178,6 +178,17 @@ describe('solver', () => {
     expect(edge.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= firstEdge)).toBe(true);
     const flat = solve(wall(0), start, finishAt(380), holds);
     if (flat.ok) expect(edge.grade).toBeLessThan(flat.grade);
+  });
+
+  it('face holds on an arête are worse while the body straddles the edge', () => {
+    const arete: Wall = { ...wall(0), fold: { u: 200, angle: -70 } };
+    const crimp: Hold = { id: 'c', type: 'crimp', size: 'm', u: 230, v: 250, rot: 0 };
+    const jug: Hold = { ...crimp, id: 'j', type: 'jug' };
+    const straddling = { u: 200, v: 180 };
+    expect(handGrip(crimp, straddling, arete)).toBeLessThan(handGrip(crimp, straddling, wall(0)));
+    // Jugs don't open up, and once round onto the hold's face the body squares up.
+    expect(handGrip(jug, straddling, arete)).toBeCloseTo(handGrip(jug, straddling, wall(0)));
+    expect(handGrip(crimp, { u: 270, v: 180 }, arete)).toBeCloseTo(handGrip(crimp, { u: 270, v: 180 }, wall(0)));
   });
 
   it('heel hooks a big hold out to the side on steep ground', () => {
