@@ -56,6 +56,16 @@ interface Profile {
   bend?: number;
   /** How much the ends shrink in height too (0 = full height to the tip). */
   heightTaper?: number;
+  /**
+   * Hand-sculpted lip: how far (as a fraction) the reach out of the wall and
+   * the top edge wander along the width, in two or three soft lumps. Real
+   * edges are shaped by hand, so the lip is never a ruler-straight rail.
+   */
+  lumps?: number;
+  /** Per-variant range for `bend`: below 0 the ends curl up into a smile instead of drooping. */
+  bendRange?: [number, number];
+  /** Cross-sections along the width (default 6); more lets the lumps show. */
+  steps?: number;
   shade?: (x: number, y: number, z: number) => number;
   grip?: GripFn;
 }
@@ -86,6 +96,9 @@ const PROFILES: Partial<Record<HoldType, Profile>> = {
     taper: 0.7,
     bend: 0.035,
     heightTaper: 0.45,
+    lumps: 0.06,
+    bendRange: [0.75, 1.25],
+    steps: 8,
     // Inside the scoop reads dark; the rim and belly stay bright.
     shade: (_x, y, z) => (y > 0.002 && y < 0.05 && z > 0.01 && z < 0.056 ? 0.42 : 1),
   },
@@ -104,6 +117,9 @@ const PROFILES: Partial<Record<HoldType, Profile>> = {
     taper: 0.4,
     bend: 0.012,
     heightTaper: 0.35,
+    lumps: 0.13,
+    bendRange: [-0.6, 1.6],
+    steps: 10,
   },
   // A thin rail: barely a finger pad deep.
   crimp: {
@@ -119,6 +135,9 @@ const PROFILES: Partial<Record<HoldType, Profile>> = {
     taper: 0.35,
     bend: 0.008,
     heightTaper: 0.4,
+    lumps: 0.16,
+    bendRange: [-0.8, 1.8],
+    steps: 10,
   },
   // A tall fin to squeeze from both sides: a lozenge from the front with
   // rounded ends, thick where it's bolted and thinning to a blunt spine, like
@@ -154,7 +173,7 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   const bevel = 0.004 * scale;
   const ext = new THREE.ExtrudeGeometry(shape, {
     depth: width,
-    steps: 6,
+    steps: pr.steps ?? 6,
     bevelEnabled: true,
     bevelThickness: bevel,
     bevelSize: bevel,
@@ -167,6 +186,14 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   const yMax = Math.max(...pts.map((p) => p[1]));
   const outMax = Math.max(...pts.map((p) => p[0]));
   const jitter = new Map<string, number>();
+  // Lumps along the lip: two soft waves with this variant's phases, plus a
+  // lean so one end is a little fuller than the other.
+  const ph = [r.range(0, 6.3), r.range(0, 6.3), r.range(0, 6.3)];
+  const lean = r.range(-0.6, 0.6);
+  const wave = (u: number) => 0.6 * Math.sin(Math.PI * (1.4 + 0.5 * k) * u + ph[0]) + 0.4 * Math.sin(Math.PI * 2.7 * u + ph[1]) + lean * u;
+  const crest = (u: number) => Math.sin(Math.PI * (1.8 + 0.4 * k) * u + ph[2]);
+  const lumps = pr.lumps ?? 0;
+  const bend = (pr.bend ?? 0) * (pr.bendRange ? r.range(...pr.bendRange) : 1);
   for (let i = 0; i < pos.count; i++) {
     // Shape x = out of wall, shape y = up, extrude z = across → hold (x across, y up, z out).
     const out = pos.getX(i);
@@ -180,11 +207,16 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
     const id = `${out.toFixed(4)},${up.toFixed(4)},${across.toFixed(4)}`;
     if (!jitter.has(id)) jitter.set(id, r.range(0.94, 1.06));
     const j = jitter.get(id)!;
-    const droop = (pr.bend ?? 0) * scale * t * t;
+    const droop = bend * scale * t * t;
+    // Lumps push the lip out and in along its length, and the top edge
+    // (not the base on the wall) rises and dips with them.
+    const u = Math.max(-1, Math.min(1, across / (width / 2)));
+    const lump = 1 + lumps * wave(u) * ho;
+    const rise = lumps * 0.3 * (yMax - yMin) * crest(u) * smooth(0.35, 1, hy) * ho;
     // Shrink toward the profile's middle height at the tips: a crescent, not a brick.
     const mid = (yMin + yMax) / 2;
     const h = 1 - (pr.heightTaper ?? 0) * t * t;
-    pos.setXYZ(i, across * narrow, mid + (up - mid) * h - droop, Math.max(0, out * round * j));
+    pos.setXYZ(i, across * narrow, mid + (up - mid) * h - droop + rise, Math.max(0, out * round * j * lump));
   }
   // Swapping the extrusion's x and z axes mirrors it, which turns every face
   // inside out; swap two corners of each triangle so the outside faces out.
