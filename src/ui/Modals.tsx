@@ -3,6 +3,7 @@ import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rule
 import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
 import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
 import { encodeRoute, shareText } from '../game/share';
+import { gapLabel, setterTip } from '../game/tips';
 import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { Day, HoldType, Twist } from '../solver/types';
 import { contactList } from '../solver/volumes';
@@ -100,6 +101,7 @@ export function ResultModal() {
   const out = !practice && s.tests.length >= MAX_TESTS;
   const close = () => s.setModal(null);
   const r = test.result;
+  const tip = setterTip(day, test);
   return (
     <Modal open={open} onClose={close} title="Test result">
       <div className="eyebrow">{practice ? `Practice test ${s.tests.length}` : `Test ${s.tests.length} of ${MAX_TESTS}`}</div>
@@ -109,10 +111,11 @@ export function ResultModal() {
       </div>
       <p className="lede">
         {r.ok
-          ? `Target V${day.targetGrade}. ${nHolds(test.holdCount)}${day.par > 0 ? `, par ${day.par}` : ''}.`
+          ? `Target V${day.targetGrade}${test.verdict === 'exact' ? '' : `, ${gapLabel(r.grade - day.targetGrade)}`}. ${nHolds(test.holdCount)}${day.par > 0 ? `, par ${day.par}` : ''}.`
           : r.message}
       </p>
       {r.ok && <p className="fine">Crux: {cruxLine(day, test)}</p>}
+      {tip && <p className="tip">{tip}</p>}
       <div className="row">
         {practice ? (
           <button className="btn primary wide" onClick={close}>

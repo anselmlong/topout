@@ -551,6 +551,16 @@ button {
   margin: 4px 0;
   color: var(--ink-2);
 }
+.tip {
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--near);
+  border-radius: 4px;
+  background: rgba(179, 151, 75, 0.1);
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.4;
+}
 
 .verdict {
   display: flex;
