@@ -477,7 +477,7 @@ export function Climber({ day }: { day: Day }) {
       const m = f.limb;
       const hold = f.holds[m];
       const h = hold >= 0 ? r.holds[hold] : undefined;
-      const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.type) : hold === -1 ? 'smear' : 'off';
+      const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.id.startsWith('lip:') ? 'lip' : h.type) : hold === -1 ? 'smear' : 'off';
       const foot = m >= 2 ? f.to.feet[m - 2] : null;
       const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];
       useClimb.setState({

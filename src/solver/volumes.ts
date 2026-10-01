@@ -5,7 +5,7 @@
 // The solver sees a volume as one extra contact per face: an up-facing face is
 // a foothold and a sloper-ish handhold, side faces are sidepulls, a down face
 // is an undercling. Holds bolted onto a face take that face's angle.
-import { angleAt } from './model';
+import { angleAt, lipV } from './model';
 import type { Hold, Volume, VolumeShape, Wall } from './types';
 
 interface Dims {
@@ -162,7 +162,7 @@ export function onVolumes(holds: Hold[], volumes: Volume[] | undefined, wall: Wa
  * then each volume's face contacts. Solver, climber, beta and crux text all use this.
  */
 export function contactList(start: Hold[], finish: Hold, placed: Hold[], volumes: Volume[] | undefined, wall: Wall) {
-  return [...start, finish, ...onVolumes(placed, volumes, wall), ...volumeContacts(volumes, wall), ...areteContacts(wall)];
+  return [...start, finish, ...onVolumes(placed, volumes, wall), ...volumeContacts(volumes, wall), ...areteContacts(wall), ...lipContacts(wall)];
 }
 
 /**
@@ -187,6 +187,34 @@ export function areteContacts(wall: Wall): Hold[] {
       // Edging the corner is a poor foothold: about a smear.
       foot: 0.18 + 0.08 * sharp,
       tol: 1.4,
+    });
+  return out;
+}
+
+/**
+ * A rollover lip is itself a hold: a rounded edge every 40 cm along the break into
+ * the top panel. Pulled down from below (a big sloping rail you can match and shuffle
+ * along), and a heel goes over it to rock up onto the slab: the classic mantle top-out.
+ */
+export function lipContacts(wall: Wall): Hold[] {
+  if (!wall.lip || wall.panels.length < 2) return [];
+  const p = wall.panels;
+  const v = lipV(wall);
+  // Sharper roll (steeper below, slabbier above) wraps the hand further over.
+  const roll = Math.min(1, Math.max(0, (p[p.length - 2].angle - p[p.length - 1].angle - 25) / 30));
+  const out: Hold[] = [];
+  for (let u = 40, i = 0; u <= wall.width - 40; u += 40, i++)
+    out.push({
+      id: `lip:${i}`,
+      type: 'volume',
+      size: 'm',
+      u,
+      // Just under the edge, so it's pulled (and hooked) on the overhang's angle.
+      v: v - 3,
+      rot: 0,
+      grip: 0.5 + 0.12 * roll,
+      foot: 0.45,
+      tol: 0.9,
     });
   return out;
 }

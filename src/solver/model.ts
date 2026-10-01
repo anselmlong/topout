@@ -144,6 +144,11 @@ export function wallHeight(wall: Wall): number {
   return wall.panels.reduce((h, p) => h + p.length, 0);
 }
 
+/** Wall v (cm) of a rollover lip (Wall.lip): the break into the top panel. */
+export function lipV(wall: Wall): number {
+  return wall.panels.slice(0, -1).reduce((h, p) => h + p.length, 0);
+}
+
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
 /** The direction (unit vector in u,v) a hold is best pulled toward. */

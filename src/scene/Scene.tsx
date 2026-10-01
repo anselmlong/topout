@@ -4,7 +4,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { defaultSpots, spotsOf } from '../game/spots';
-import { bestPull, wallHeight } from '../solver/model';
+import { bestPull, lipV, wallHeight } from '../solver/model';
 import type { Day, Hold, Volume, Wall } from '../solver/types';
 import { surfaceAt } from '../solver/volumes';
 import { climberFocus, useClimb } from '../state/climb';
@@ -208,6 +208,7 @@ function WallView({ day }: { day: Day }) {
         <PanelMesh key={f.index} wall={day.wall} frame={f} />
       ))}
       <Bolts wall={day.wall} frames={frames} />
+      {day.wall.lip && <Lip wall={day.wall} frames={frames} />}
       {volumes.map((v) => (
         <VolumeMesh key={v.id} vol={v} wall={day.wall} frames={frames} fixed={!!viewing} />
       ))}
@@ -254,6 +255,26 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
         <meshStandardMaterial color={PALETTE.plyDark} roughness={0.95} flatShading />
       </mesh>
     </group>
+  );
+}
+
+/** A rollover's rounded lip: a faceted plywood roll along the break into the top slab. */
+function Lip({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
+  const { position, quaternion } = useMemo(() => {
+    const v = lipV(wall);
+    const a = uvToWorld(wall, frames, 0, v);
+    const b = uvToWorld(wall, frames, wall.width, v);
+    // Tuck it into the corner between the overhang below and the slab above.
+    const n = frameAt(frames, wall.width / 2, v - 1).normal.clone().add(frameAt(frames, wall.width / 2, v + 1).normal).normalize();
+    const position = a.clone().add(b).multiplyScalar(0.5).addScaledVector(n, -0.012);
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    return { position, quaternion };
+  }, [wall, frames]);
+  return (
+    <mesh position={position} quaternion={quaternion} castShadow receiveShadow raycast={() => null}>
+      <cylinderGeometry args={[0.04, 0.04, wall.width / 100, 8]} />
+      <meshStandardMaterial color={PALETTE.ply} roughness={0.9} flatShading />
+    </mesh>
   );
 }
 

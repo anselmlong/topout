@@ -92,7 +92,7 @@ function cruxLine(day: Day, test: TestRun) {
   const holds = contactList(tape.start, tape.finish, test.holds, test.volumes, day.wall);
   const idx = crux.to.limbs[crux.limb];
   const h = idx >= 0 ? holds[idx] : undefined;
-  const target = !h ? 'a smear' : h.id.startsWith('arete:') ? 'the arête' : h.type === 'volume' ? 'the volume' : HOLD_NAME[h.type].toLowerCase();
+  const target = !h ? 'a smear' : h.id.startsWith('arete:') ? 'the arête' : h.id.startsWith('lip:') ? 'the lip' : h.type === 'volume' ? 'the volume' : HOLD_NAME[h.type].toLowerCase();
   return `${LIMB[crux.limb]} to ${target}${crux.dynamic ? ' (dyno)' : ''} · ${moves.length} moves`;
 }
 

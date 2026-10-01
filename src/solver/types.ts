@@ -56,6 +56,11 @@ export interface Wall {
    * Only on single-panel walls.
    */
   fold?: { u: number; angle: number };
+  /**
+   * The break into the top panel is a rounded top-out lip (an overhang rolling over
+   * into a slab): the edge itself can be grabbed, matched and heel-hooked.
+   */
+  lip?: boolean;
   /** Cosmetic relief seed. */
   seed: number;
 }

@@ -144,6 +144,25 @@ describe('solver', () => {
     expect(smearing).toBe(true);
   });
 
+  it('a rollover lip is a hold that gets you over onto the slab', () => {
+    const roll: Wall = { width: 400, panels: [{ length: 320, angle: 25 }, { length: 110, angle: -15 }], seed: 1, lip: true };
+    const holds: Hold[] = [
+      { id: 'a', type: 'edge', size: 'm', u: 170, v: 205, rot: 0 },
+      { id: 'b', type: 'edge', size: 'm', u: 230, v: 260, rot: 0 },
+      { id: 'f0', type: 'foot', size: 'm', u: 190, v: 70, rot: 0 },
+      { id: 'f1', type: 'foot', size: 'm', u: 215, v: 85, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 215, v: 110, rot: 0 },
+      { id: 'f3', type: 'foot', size: 'm', u: 185, v: 160, rot: 0 },
+      { id: 'f4', type: 'foot', size: 'm', u: 200, v: 215, rot: 0 },
+    ];
+    // Without the lip the finish up on the slab is out of reach; with it, the beta grabs the lip.
+    expect(solve({ ...roll, lip: undefined }, start, finishAt(395), holds).ok).toBe(false);
+    const r = solve(roll, start, finishAt(395), holds);
+    if (!r.ok) throw new Error(r.message);
+    const firstLip = start.length + 1 + holds.length;
+    expect(r.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= firstLip)).toBe(true);
+  });
+
   it('an arête helps but is not climbable bare', () => {
     const arete: Wall = { ...wall(0), fold: { u: 200, angle: -70 } };
     // Bare: impossible.

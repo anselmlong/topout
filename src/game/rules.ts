@@ -1,5 +1,5 @@
 // Placement and scoring rules shared by the game UI and the curation script.
-import { PAD, vAtHeight, wallHeight } from '../solver/model';
+import { lipV, PAD, vAtHeight, wallHeight } from '../solver/model';
 import type { Hold, HoldSize, HoldType, SolveResult, Volume, Wall } from '../solver/types';
 import { volumeRadius } from '../solver/volumes';
 import type { Spots } from './spots';
@@ -29,6 +29,8 @@ export function canPlace(wall: Wall, others: Hold[], h: Hold): boolean {
   if (h.u < EDGE + r || h.u > wall.width - EDGE - r) return false;
   // Nothing below the crash pad.
   if (h.v < vAtHeight(wall, PAD) + 2 + r || h.v > wallHeight(wall) - EDGE - r) return false;
+  // A rollover lip is a rounded edge: nothing bolts onto the roll itself.
+  if (wall.lip && Math.abs(h.v - lipV(wall)) < r + 4) return false;
   for (const o of others) {
     if (o.id === h.id) continue;
     if (Math.hypot(o.u - h.u, o.v - h.v) < r + holdRadius(o) + MIN_GAP) return false;

@@ -78,7 +78,7 @@ export function setterTip(day: Day, test: TestRun): string | null {
   const all = contactList(tape.start, tape.finish, test.holds, test.volumes, day.wall);
   const crux = r.moves.reduce((a, b) => (b.difficulty > a.difficulty ? b : a), r.moves[0]);
   const h = crux ? all[crux.to.limbs[crux.limb]] : undefined;
-  const what = h ? (h.id.startsWith('arete:') ? 'the arête' : `the ${NAME[h.type] ?? 'hold'}`) : 'the crux hold';
+  const what = h ? (h.id.startsWith('arete:') ? 'the arête' : h.id.startsWith('lip:') ? 'the lip' : `the ${NAME[h.type] ?? 'hold'}`) : 'the crux hold';
   if (crux?.dynamic) return `Too stiff: the crux is a dyno to ${what}. Add an intermediate between, or move it closer.`;
   if (crux && crux.limb > 1) return `Too stiff: the crux is a foot move. Add a better foothold nearby.`;
   return `Too stiff: the crux is the move to ${what}. Use a bigger hold there, turn it to face the pull, or add a foot under it.`;
