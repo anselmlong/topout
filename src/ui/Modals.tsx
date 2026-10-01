@@ -67,7 +67,7 @@ export function HelpModal() {
         ))}
       </ul>
       <p className="fine">
-        Every day brings a new wall: slabs, overhangs, headwalls, caves with a lip to pull, corners you can stem, and arêtes and overhanging prows whose edge is itself a hold.
+        Every day brings a new wall: slabs, overhangs, headwalls, caves with a lip to pull, corners you can stem (some of them overhanging), and arêtes and overhanging prows whose edge is itself a hold.
         After a test, numbered tags show the climber’s beta, coloured by how hard each move was. The climber is 175 cm, every day.
       </p>
       <div className="sticky-cta">
