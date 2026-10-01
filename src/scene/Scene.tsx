@@ -371,10 +371,21 @@ function HoldMesh({
         />
       </mesh>
       {bolt && (
-        <mesh position={bolt} rotation={[Math.PI / 2, 0, 0]} raycast={() => null}>
-          <cylinderGeometry args={[0.009, 0.009, 0.004, 6]} />
-          <meshStandardMaterial color="#5b5d61" metalness={0.6} roughness={0.4} flatShading />
-        </mesh>
+        // A countersunk bolt hole: a shadowed recess with a hex-socket bolt head in it.
+        <group position={bolt} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh raycast={() => null}>
+            <cylinderGeometry args={[0.0115, 0.009, 0.002, 10]} />
+            <meshStandardMaterial color="#2c2b2a" roughness={0.95} flatShading />
+          </mesh>
+          <mesh position={[0, 0.0012, 0]} raycast={() => null}>
+            <cylinderGeometry args={[0.0068, 0.0072, 0.0016, 12]} />
+            <meshStandardMaterial color="#6a6c70" metalness={0.65} roughness={0.38} flatShading />
+          </mesh>
+          <mesh position={[0, 0.0021, 0]} raycast={() => null}>
+            <cylinderGeometry args={[0.0032, 0.0032, 0.0004, 6]} />
+            <meshBasicMaterial color="#161616" />
+          </mesh>
+        </group>
       )}
       {selected && <Selection hold={hold} />}
     </group>
@@ -382,21 +393,56 @@ function HoldMesh({
 }
 
 /**
- * Mixes chalk white into the hold's colour where the geometry's `grip` attribute
- * says hands and feet go (the incut of an edge, a pinch's flanks, a sloper's
- * dome), scaled by how much the hold has been used.
+ * Hold surface: a fine sandy grit, like the textured polyurethane real holds are
+ * cast in, then chalk white mixed in where the geometry's `grip` attribute says
+ * hands and feet go (the incut of an edge, a pinch's flanks, a sloper's dome),
+ * scaled by how much the hold has been used. The grit is a few-millimetre speckle
+ * in the hold's own frame, so it sticks to the hold, and it fades out once its
+ * grains get smaller than a pixel instead of shimmering at a distance.
  */
 function chalkShader(amount: { value: number }) {
   return (shader: { uniforms: Record<string, { value: unknown }>; vertexShader: string; fragmentShader: string }) => {
     shader.uniforms.uChalk = amount;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float grip;\nvarying float vGrip;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrip = grip;');
+      .replace(
+        '#include <common>',
+        '#include <common>\nattribute float grip;\nvarying float vGrip;\nvarying vec3 vHoldPos;',
+      )
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrip = grip;\nvHoldPos = position;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uChalk;\nvarying float vGrip;')
+      .replace(
+        '#include <common>',
+        `#include <common>
+uniform float uChalk;
+varying float vGrip;
+varying vec3 vHoldPos;
+float gritHash(vec3 p) {
+  p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+  p += dot(p, p.yxz + 33.33);
+  return fract((p.x + p.y) * p.z);
+}
+float gritNoise(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(gritHash(i), gritHash(i + vec3(1, 0, 0)), f.x), mix(gritHash(i + vec3(0, 1, 0)), gritHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(gritHash(i + vec3(0, 0, 1)), gritHash(i + vec3(1, 0, 1)), f.x), mix(gritHash(i + vec3(0, 1, 1)), gritHash(i + vec3(1, 1, 1)), f.x), f.y),
+    f.z);
+}`,
+      )
       .replace(
         '#include <color_fragment>',
-        '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * uChalk, 0.0, 0.85));',
+        `#include <color_fragment>
+{
+  // Grains about 2.5 mm across (coarser than real grit so it reads at game zoom), and a soft mottle a couple of centimetres wide.
+  vec3 gp = vHoldPos * 420.0;
+  float perPixel = length(fwidth(gp));
+  float grain = (gritHash(floor(gp)) - 0.5) * (1.0 - smoothstep(0.35, 1.1, perPixel));
+  float mottle = gritNoise(vHoldPos * 55.0) - 0.5;
+  diffuseColor.rgb *= 1.0 + 0.24 * grain + 0.16 * mottle;
+}
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * uChalk, 0.0, 0.85));`,
       );
   };
 }
