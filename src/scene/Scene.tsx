@@ -39,7 +39,7 @@ export function Scene() {
       <ChalkDust />
       <BetaOverlay day={day} />
       <Floor wall={day.wall} />
-      <Gym wall={day.wall} />
+      <Gym wall={day.wall} avoid={routeColor(day).hex} />
       <CameraRig wall={day.wall} />
     </Canvas>
   );
