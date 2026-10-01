@@ -196,6 +196,131 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   return g;
 }
 
+/**
+ * A finger pocket: a domed teardrop body with a crisp oval hole above
+ * centre. Built as rings around the hole rather than a dented ball, so the
+ * rim is a sharp rolled edge, the hole has real walls and a floor, and the
+ * top of the hole is hooded: the cavity runs up behind the lip, which is what
+ * makes a good pocket incut. Large pockets take three fingers, small ones two.
+ * Local frame and units as the other holds; `S` is the size scale.
+ */
+function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+  const N = 28;
+  const W = 0.066 * (0.94 + 0.1 * k);
+  const H = 0.056 * (1.04 - 0.08 * k);
+  // Hole: centre, half-width (finger count) and half-height.
+  const hy = 0.012 + 0.006 * k;
+  const a = 0.023 + 0.006 * k;
+  const b = 0.012;
+  const Z = 0.028;
+  const floorZ = 0.008;
+  const undercut = 0.009;
+  // Each ring: (θ) => [x, y, z] in unscaled metres, plus its colour shade.
+  type Ring = { at: (c: number, s: number, j: number) => [number, number, number]; shade: number; jitter: number };
+  // Low-frequency lumps in the outline, so it's hand-shaped, not lathe-turned.
+  const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
+  const wobble = Array.from({ length: N }, (_, j) => {
+    const th = (j / N) * Math.PI * 2;
+    return 1 + 0.035 * Math.sin(2 * th + p1) + 0.025 * Math.sin(3 * th + p2);
+  });
+  const outline = (c: number, s: number, j: number): [number, number] => {
+    // Rounded teardrop: squarish superellipse, fuller toward the bottom.
+    const e = 0.8;
+    return [W * sgnpow(c, e) * (1 - 0.06 * s) * wobble[j], H * sgnpow(s, e) * (s < 0 ? 1.06 : 0.96) * wobble[j]];
+  };
+  const hole = (c: number, s: number, m: number): [number, number] => [a * c * m, hy + b * s * m];
+  // The hood above the hole stands proud of the bottom lip.
+  const rimZ = (s: number) => Z * (1 + 0.1 * s);
+  const rings: Ring[] = [];
+  const RIM = 1.45;
+  for (const t of [0, 0.18, 0.4, 0.62, 0.82]) {
+    rings.push({
+      at: (c, s, j) => {
+        const [ox, oy] = outline(c, s, j);
+        const [rx, ry] = hole(c, s, RIM);
+        // A skirt that meets the wall steeply, then a dome up to the rim.
+        const z = rimZ(s) * (t === 0 ? 0 : Math.sin((Math.PI / 2) * t) ** 1.4);
+        return [ox + (rx - ox) * t, oy + (ry - oy) * t, z];
+      },
+      shade: 1,
+      jitter: t === 0 ? 0 : 0.02,
+    });
+  }
+  rings.push({ at: (c, s) => [...hole(c, s, RIM), rimZ(s)], shade: 1, jitter: 0.01 });
+  // Rolled rim: crest, then the lip curling over into the hole.
+  rings.push({ at: (c, s) => [...hole(c, s, 1.25), rimZ(s) + 0.002], shade: 1, jitter: 0 });
+  rings.push({ at: (c, s) => [...hole(c, s, 1.0), rimZ(s) - 0.003], shade: 0.8, jitter: 0 });
+  // Walls: the top of the cavity runs up and out behind the lip.
+  for (const f of [0.35, 0.7, 1]) {
+    rings.push({
+      at: (c, s) => {
+        const [x, y] = hole(c, s, 1 + 0.12 * f);
+        return [x, y + undercut * f * Math.max(0, s), rimZ(s) - (rimZ(s) - floorZ) * f];
+      },
+      shade: 0.5 - 0.22 * f,
+      jitter: 0,
+    });
+  }
+  rings.push({
+    at: (c, s) => {
+      const [x, y] = hole(c, s, 0.55);
+      return [x, y + 0.5 * undercut * Math.max(0, s), floorZ - 0.0015];
+    },
+    shade: 0.26,
+    jitter: 0,
+  });
+
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  rings.forEach((ring, i) => {
+    for (let j = 0; j < N; j++) {
+      const th = (j / N) * Math.PI * 2;
+      const [x, y, z] = ring.at(Math.cos(th), Math.sin(th), j);
+      const jz = ring.jitter ? r.range(1 - ring.jitter, 1 + ring.jitter) : 1;
+      pos.push(x, y, z * jz);
+      shade.push(ring.shade);
+    }
+    if (i === 0) return;
+    for (let j = 0; j < N; j++) {
+      const A = (i - 1) * N + j;
+      const B = (i - 1) * N + ((j + 1) % N);
+      const C = i * N + ((j + 1) % N);
+      const D = i * N + j;
+      index.push(A, B, C, A, C, D);
+    }
+  });
+  // Pocket floor: a fan to the centre of the hole.
+  const last = (rings.length - 1) * N;
+  const centre = pos.length / 3;
+  pos.push(0, hy + 0.4 * undercut, floorZ - 0.0025);
+  shade.push(0.24);
+  for (let j = 0; j < N; j++) index.push(last + j, last + ((j + 1) % N), centre);
+  // Base against the wall, so the mesh is closed.
+  const base = pos.length / 3;
+  pos.push(0, 0, 0);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(base, (j + 1) % N, j);
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos.map((v) => v * S), 3));
+  g.setAttribute('shade', new THREE.Float32BufferAttribute(shade, 1));
+  g.setIndex(index);
+  const flat = g.toNonIndexed();
+  const shadeOf = flat.attributes.shade.array as Float32Array;
+  flat.deleteAttribute('shade');
+  return {
+    geometry: flat,
+    shade: (i: number) => shadeOf[i],
+    // Chalk rings the hole: its bottom lip and floor take the fingers, the
+    // hood a little; the rest of the body only where it faces up.
+    grip: ((n, c) => {
+      const d = Math.hypot(c.x / S / a, (c.y / S - hy) / b);
+      return d < 1.4 ? 0.45 + 0.55 * smooth(-0.2, 0.6, n.y) : d < 2 ? 0.3 * smooth(0.2, 0.8, n.y) : 0.2 * TOP_GRIP(n, c);
+    }) as GripFn,
+  };
+}
+
 const SHAPES: Record<HoldType, Shape> = {
   jug: {
     scale: [0.085, 0.056, 0.056],
@@ -270,23 +395,8 @@ const SHAPES: Record<HoldType, Shape> = {
     },
     grip: (n) => smooth(0.35, 0.85, Math.abs(n.x)) * 0.9,
   },
-  pocket: {
-    scale: [0.062, 0.06, 0.042],
-    detail: 3,
-    jitter: 0.04,
-    bolt: false,
-    // A deep finger hole just above centre.
-    shape: (p, k) => {
-      const d = Math.hypot(p.x * (1.2 - 0.3 * k), p.y - 0.12);
-      if (d < 0.5 && p.z > 0) p.z *= 0.12 + d * 1.6;
-    },
-    shade: (p) => (Math.hypot(p.x, p.y - 0.12) < 0.42 ? 0.55 : 1),
-    // Chalk rings the hole's rim and bottom lip, where the fingers go in.
-    grip: (n, c) => {
-      const d = Math.hypot(c.x, c.y - 0.12);
-      return d < 0.55 ? 0.35 + 0.65 * smooth(0.1, 0.7, n.y) : 0.25 * TOP_GRIP(n, c);
-    },
-  },
+  // Built by pocketGeometry; only `bolt` is read here.
+  pocket: { scale: [0.066, 0.056, 0.028], detail: 0, jitter: 0, bolt: false },
   // A screw-on chip: low dome with a countersunk screw hole in the middle.
   foot: {
     scale: [0.028, 0.022, 0.016],
@@ -338,6 +448,12 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   const spec = SHAPES[type];
   const r = rng(hash(type.length, type.charCodeAt(0), type.charCodeAt(1), size.charCodeAt(0), v));
   const k = v / (VARIANTS - 1);
+  if (type === 'pocket') {
+    const p = pocketGeometry(SIZE[size], k, r);
+    const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
+    cache.set(key, data);
+    return data;
+  }
   const profile = PROFILES[type];
   if (profile) {
     const S = SIZE[size];
