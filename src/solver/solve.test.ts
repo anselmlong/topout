@@ -298,6 +298,18 @@ describe('solver', () => {
     expect(pumped.grade - rested.grade).toBeGreaterThan(fromCrux + 0.2);
   });
 
+  it('footholds bolted upside down are poor feet', () => {
+    // A vertical edge line where the only footholds are edges: upright, then flipped.
+    const feet = (rot: number) => {
+      const holds = ladder('edge', 45).filter((h) => h.type !== 'foot');
+      for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `e${j}`, type: 'edge', size: 'm', u: j % 2 ? 215 : 185, v, rot });
+      return grade(wall(0), holds);
+    };
+    const upright = feet(0);
+    expect(feet(Math.PI / 2)).toBeGreaterThan(upright + 0.2);
+    expect(feet(Math.PI)).toBeGreaterThan(feet(Math.PI / 2));
+  });
+
   it('beta ends matched on the finish', () => {
     const r = solve(wall(0), start, finishAt(380), ladder('jug', 40));
     if (!r.ok) throw new Error();

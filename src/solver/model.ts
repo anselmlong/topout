@@ -46,20 +46,26 @@ interface GripSpec {
   hand: boolean;
   /** Quality as a foothold. */
   foot: number;
+  /**
+   * How much of that foot quality depends on the hold facing up (see footQuality): a
+   * flat edge turned on its side or upside down gives the shoe nothing to stand on,
+   * while a round sloper or a pinch rib is much the same lump whichever way it's bolted.
+   */
+  footFacing: number;
 }
 
 export const GRIP: Record<HoldType, GripSpec> = {
-  jug: { grip: 0.95, tolerance: 0.7, steepLoss: 0, hand: true, foot: 0.95 },
-  edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.06, hand: true, foot: 0.85 },
-  pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7 },
+  jug: { grip: 0.95, tolerance: 0.7, steepLoss: 0, hand: true, foot: 0.95, footFacing: 0.55 },
+  edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.06, hand: true, foot: 0.85, footFacing: 0.8 },
+  pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7, footFacing: 0.6 },
   // Pinches squeeze: good pulled along their axis, poor across it.
-  pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.12, hand: true, foot: 0.6 },
-  sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.62, hand: true, foot: 0.6 },
-  crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.16, hand: true, foot: 0.75 },
-  foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7 },
-  jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5 },
+  pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.12, hand: true, foot: 0.6, footFacing: 0.3 },
+  sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.62, hand: true, foot: 0.6, footFacing: 0.25 },
+  crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.16, hand: true, foot: 0.75, footFacing: 0.8 },
+  foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7, footFacing: 0.5 },
+  jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5, footFacing: 0.3 },
   // A volume's face; real grip/foot values come per face (see volumes.ts).
-  volume: { grip: 0.5, tolerance: 0.35, steepLoss: 0.4, hand: true, foot: 0.5 },
+  volume: { grip: 0.5, tolerance: 0.35, steepLoss: 0.4, hand: true, foot: 0.5, footFacing: 0 },
 };
 
 export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15 };
@@ -278,9 +284,15 @@ export function footMatchable(hold: Hold): boolean {
 
 export function footQuality(hold: Hold): number {
   if (hold.foot !== undefined) return hold.foot;
+  const spec = GRIP[hold.type];
   // A foothold on an up-facing volume face is easier to stand on.
   const tilt = hold.angle !== undefined ? Math.max(0, -Math.sin(rad(hold.angle))) * 0.2 : 0;
-  return Math.min(1, GRIP[hold.type].foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) + tilt);
+  // Which way the standing surface faces: 1 with the lip up (rot 0, pulled straight down),
+  // 0.5 turned on its side, 0 upside down. A shoe edges on the top of a hold; on its side
+  // only the corner of the sole bites, and upside down it's a smear on the hold's back.
+  const up = (1 + Math.cos(hold.rot)) / 2;
+  const facing = 1 - spec.footFacing * (1 - up);
+  return Math.min(1, spec.foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) * facing + tilt);
 }
 
 export type FootTechnique = 'heel' | 'toe' | 'drop-knee' | null;
