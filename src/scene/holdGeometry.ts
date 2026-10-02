@@ -1,8 +1,8 @@
 // Procedural low-poly hold meshes. Local frame: base on z = 0 (the wall),
 // +z out of the wall, +y is the incut side (hold "up" at rot = 0). Metres.
 //
-// Jugs, edges, crimps and pinches are side profiles extruded across their
-// width; slopers, pockets and foot chips are built in rings around their
+// Jugs, edges and crimps are side profiles extruded across their width;
+// slopers, pinches, pockets and foot chips are built in rings around their
 // outline; jibs are knapped icospheres. Each is jittered per variant so
 // no two look quite alike. Per-face colour grain is baked in as vertex colours
 // (multiplied with the material colour). A per-vertex `grip` attribute marks
@@ -139,28 +139,6 @@ const PROFILES: Partial<Record<HoldType, Profile>> = {
     lumps: 0.16,
     bendRange: [-0.8, 1.8],
     steps: 10,
-  },
-  // A tall fin to squeeze from both sides: a lozenge from the front with
-  // rounded ends, thick where it's bolted and thinning to a blunt spine, like
-  // the rib pinches setters stack up a wall. The spine leans out at the top.
-  pinch: {
-    pts: [
-      [0, -0.078],
-      [0.014, -0.074],
-      [0.03, -0.058],
-      [0.042, -0.03],
-      [0.048, 0.004],
-      [0.05, 0.036],
-      [0.044, 0.062],
-      [0.03, 0.078],
-      [0.012, 0.084],
-      [0, 0.084],
-    ],
-    width: 0.062,
-    taper: 0.05,
-    widthAt: (hy, ho) => (0.4 + 0.6 * Math.sin(Math.PI * Math.min(1, Math.max(0, hy))) ** 0.5) * (1 - 0.5 * ho),
-    // Thumb on one side, fingers on the other: chalk goes on both flanks.
-    grip: (n) => smooth(0.35, 0.85, Math.abs(n.x)) * 0.9 + smooth(0.3, 0.8, n.y) * 0.4,
   },
 };
 
@@ -430,6 +408,107 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
 }
 
 /**
+ * A rib pinch: a tall fin bolted on end, built in rings from its outline in
+ * to a blunt spine that runs most of its length. The flanks are steep so a
+ * thumb and fingers can squeeze them; the spine leans a little to one side
+ * and stands proudest near the top, and both ends roll over to the wall. Real
+ * pinches are sculpted for the hand, so the finger flank carries a few soft
+ * horizontal ribs where the fingertips sit and the thumb flank a shallow
+ * dimple for the thumb pad. The outline is a lozenge, fuller at the bottom.
+ * Local frame and units as the other holds; `S` is the size scale.
+ */
+function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+  const N = 40;
+  const W = 0.031 * (0.9 + 0.2 * k);
+  const H = 0.081;
+  const oy0 = 0.003;
+  const Z = 0.048 * (1.04 - 0.08 * k);
+  // Spine: how far it leans across the hold over its length, and how much it bows.
+  const lean = r.range(-0.18, 0.18) * W;
+  const bow = r.range(-0.12, 0.12) * W;
+  const spineX = (yn: number) => lean * yn + bow * (1 - yn * yn);
+  // Which flank the fingers take (the other gets the thumb); this variant's ribs.
+  const fingers = r.chance(0.5) ? -1 : 1;
+  const ribs = 2.5 + 1.5 * k;
+  const ribPhase = r.range(0, 6.3);
+  const ribDepth = r.range(0.1, 0.15);
+  const thumbY = r.range(-0.25, 0.1);
+  const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
+  const wobble = Array.from({ length: N }, (_, j) => {
+    const th = (j / N) * Math.PI * 2;
+    return 1 + 0.03 * Math.sin(2 * th + p1) + 0.02 * Math.sin(3 * th + p2);
+  });
+  const outline = (c: number, s: number, j: number): [number, number] => [
+    W * sgnpow(c, 0.8) * (1 - 0.12 * s) * wobble[j],
+    oy0 + H * sgnpow(s, 0.9) * wobble[j],
+  ];
+  // Height of the spine along the hold: proudest near the top, rolling off at the ends.
+  const spineZ = (yn: number) => Z * (0.9 + 0.1 * yn) * (1 - 0.18 * yn * yn);
+  // Rings: [t (outline → spine), lift (fraction of the spine's height)]. A steep
+  // skirt, then flat, wedge-like flanks up to a crest a few millimetres wide.
+  const rings: [number, number][] = [
+    [0, 0],
+    [0.05, 0.22],
+    [0.2, 0.41],
+    [0.4, 0.61],
+    [0.6, 0.79],
+    [0.8, 0.92],
+    [0.93, 0.98],
+    [1, 1],
+  ];
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  rings.forEach(([t, lift], i) => {
+    for (let j = 0; j < N; j++) {
+      const th = (j / N) * Math.PI * 2;
+      const c = Math.cos(th), s = Math.sin(th);
+      const [ox, oy] = outline(c, s, j);
+      // The spine stops short of the ends, so they roll over instead of ending in a cliff.
+      const ty = oy0 + (oy - oy0) * 0.55;
+      const yn = (ty - oy0) / H;
+      const tx = spineX(yn) + 0.06 * ox;
+      const x = ox + (tx - ox) * t;
+      const y = oy + (ty - oy) * t;
+      const yr = Math.max(-1, Math.min(1, (y - oy0) / H));
+      // Mid-flank only: the skirt and the crest stay clean.
+      const flank = Math.sin(Math.PI * Math.min(1, t / 0.8)) * (t < 0.8 ? 1 : 0);
+      const side = Math.sign(c);
+      let dent = 0;
+      if (side === fingers) dent = ribDepth * (0.5 + 0.5 * Math.cos(2 * Math.PI * ribs * yr + ribPhase)) * (1 - yr * yr);
+      else dent = 0.16 * Math.exp(-(((yr - thumbY) / 0.28) ** 2));
+      dent *= flank;
+      const jz = t > 0 && t < 1 ? r.range(0.985, 1.015) : 1;
+      pos.push(x, y, spineZ(yr) * lift * (1 - dent) * jz);
+      // The skirt sits in shadow, and the ribs' troughs and the thumb dimple read a touch darker.
+      shade.push(t === 0 ? 0.86 : 1 - 1.4 * dent);
+    }
+    if (i === 0) return;
+    for (let j = 0; j < N; j++) {
+      const A = (i - 1) * N + j;
+      const B = (i - 1) * N + ((j + 1) % N);
+      const C = i * N + ((j + 1) % N);
+      const D = i * N + j;
+      index.push(A, B, C, A, C, D);
+    }
+  });
+  const last = (rings.length - 1) * N;
+  const crest = pos.length / 3;
+  pos.push(spineX(0), oy0, spineZ(0));
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(last + j, last + ((j + 1) % N), crest);
+  const base = pos.length / 3;
+  pos.push(0, 0, 0);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(base, (j + 1) % N, j);
+  return {
+    ...indexedToFlat(pos, shade, index, S),
+    // Thumb on one side, fingers on the other: chalk goes on both flanks, a little on the crest.
+    grip: ((n) => smooth(0.3, 0.8, Math.abs(n.x)) * 0.9 + smooth(0.3, 0.8, n.y) * 0.3) as GripFn,
+  };
+}
+
+/**
  * A screw-on foot chip: a D-shaped nub, flat across the top and rounded below,
  * built in rings from the outline in to a countersunk screw hole. The top edge
  * stands proud and is slightly incut (a little shelf the toe of a shoe sits on)
@@ -615,19 +694,8 @@ const SHAPES: Record<HoldType, Shape> = {
   },
   // Built by sloperGeometry; only `bolt` is read here.
   sloper: { scale: [0.1, 0.078, 0.05], detail: 0, jitter: 0, bolt: true },
-  pinch: {
-    scale: [0.03, 0.08, 0.046],
-    detail: 2,
-    box: 0.6,
-    jitter: 0.05,
-    bolt: true,
-    // Tapered blade: narrower toward the top, faces squeezable on both sides.
-    shape: (p, k) => {
-      p.x *= 1 - 0.35 * Math.max(0, p.y) + 0.1 * k;
-      p.z *= 1 - 0.25 * Math.abs(p.y);
-    },
-    grip: (n) => smooth(0.35, 0.85, Math.abs(n.x)) * 0.9,
-  },
+  // Built by pinchGeometry; only `bolt` is read here.
+  pinch: { scale: [0.031, 0.081, 0.048], detail: 0, jitter: 0, bolt: true },
   // Built by pocketGeometry; only `bolt` is read here.
   pocket: { scale: [0.066, 0.056, 0.028], detail: 0, jitter: 0, bolt: false },
   // Built by footChipGeometry and jibGeometry; only `grip` is read here.
@@ -677,8 +745,8 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   const spec = SHAPES[type];
   const r = rng(hash(type.length, type.charCodeAt(0), type.charCodeAt(1), size.charCodeAt(0), v));
   const k = v / (VARIANTS - 1);
-  if (type === 'pocket' || type === 'sloper') {
-    const p = (type === 'pocket' ? pocketGeometry : sloperGeometry)(SIZE[size], k, r);
+  if (type === 'pocket' || type === 'sloper' || type === 'pinch') {
+    const p = (type === 'pocket' ? pocketGeometry : type === 'sloper' ? sloperGeometry : pinchGeometry)(SIZE[size], k, r);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;
