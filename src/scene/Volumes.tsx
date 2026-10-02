@@ -104,7 +104,7 @@ export function VolumeMesh({ vol, wall, frames, fixed }: { vol: Volume; wall: Wa
             rightDown.current = { x: e.clientX, y: e.clientY };
             return;
           }
-          if (e.button === 0 && s.hoverHoldId === vol.id) s.startDrag(vol.id);
+          if (e.button === 0 && !s.draggingId && s.hoverHoldId === vol.id) s.startDrag(vol.id);
         }}
         onPointerUp={(e) => {
           e.stopPropagation();

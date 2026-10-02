@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_STYLES, generateDay, wallStyleOf } from '../gen/day';
 import type { Hold, SolveResult } from '../solver/types';
-import { bestTest, canPlace, verdictOf, type TestRun } from './rules';
+import { bestTest, canPlace, holdNear, verdictOf, type TestRun } from './rules';
 import { decodeRoute, encodeRoute, shareText } from './share';
 import { defaultSpots, spotsFilled, withSpots } from './spots';
 
@@ -35,6 +35,16 @@ describe('placement', () => {
     expect(canPlace(day.wall, [], h(200, 200))).toBe(true);
     expect(canPlace(day.wall, [{ ...h(205, 200), id: 'y' }], h(200, 200))).toBe(false);
     expect(canPlace(day.wall, [], h(2, 200))).toBe(false);
+  });
+  it('a touch beside a hold grabs the nearest edge within the slop', () => {
+    const chip: Hold = { id: 'chip', type: 'foot', size: 's', u: 100, v: 100, rot: 0 };
+    const jug: Hold = { id: 'jug', type: 'jug', size: 'l', u: 130, v: 100, rot: 0 };
+    // 8 cm right of a 2.8 cm chip: 5.2 cm off its edge, and 10.75 cm off the jug's.
+    expect(holdNear([chip, jug], 108, 100, 6)?.id).toBe('chip');
+    expect(holdNear([chip, jug], 108, 100, 4)).toBeNull();
+    // On the jug itself (inside its radius) always wins.
+    expect(holdNear([chip, jug], 125, 100, 0)?.id).toBe('jug');
+    expect(holdNear([], 0, 0, 50)).toBeNull();
   });
 });
 

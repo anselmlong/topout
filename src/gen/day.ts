@@ -277,6 +277,17 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
     slot.count++;
     counts.set(key, slot);
   }
+  // A V0-V2 brief wants a ladder of big holds, and a phone wants holds big enough to see:
+  // top the easy days up with L jugs (L edges with no jugs) so the draw can't leave them short.
+  const isBig = (s: TraySlot) => s.type === 'jug' || (s.type === 'edge' && s.size === 'l');
+  const big = [...counts.values()].filter(isBig).reduce((n, s) => n + s.count, 0);
+  const bigType = twist === 'no-jugs' ? 'edge' : 'jug';
+  for (let i = big; i < ([5, 4, 3][grade] ?? 0); i++) {
+    const key = `${bigType}:l`;
+    const slot = counts.get(key) ?? { type: bigType, size: 'l', count: 0 };
+    slot.count++;
+    counts.set(key, slot);
+  }
   const feet = twist === 'no-smear' ? r.int(8, 10) : r.int(5, 7);
   const jibs = r.int(3, 5);
   const order: HoldType[] = ['jug', 'edge', 'pocket', 'pinch', 'sloper', 'crimp'];

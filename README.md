@@ -28,7 +28,9 @@ placement, move, rotation, removal or clear (Shift+Ctrl+Z or Ctrl+Y redoes); the
 action bar has undo and redo buttons for touch. While the climber is on the wall, the
 ticker's speed button cycles 1×/2×/4× (remembered) and Skip (or Esc) jumps
 straight to the result. On touch: tap to place, two
-fingers to orbit/zoom.
+fingers to orbit/zoom. A finger that lands just beside a hold (within ~18 px of its edge)
+grabs it, so foot chips a few pixels wide on a phone are easy to pick up, and a dragged hold
+keeps the spot it was grabbed by instead of jumping under the pointer.
 
 The taped Start and Finish spots are labelled on the wall and start with the day's
 jugs on them; click one to swap its hold. A short spotlight tour opens on every visit

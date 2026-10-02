@@ -122,6 +122,12 @@ let nextId = 1;
 let lastRotate = { id: '', at: 0 };
 /** Route state when the current drag began; pushed to history only if the hold moved. */
 let dragStart: RouteSnapshot | null = null;
+/**
+ * Where the pointer grabbed the dragged hold, relative to its centre (cm). Measured on the
+ * first pointer position after the grab, so a hold picked up off-centre (or by a finger
+ * landing beside it) follows the pointer without jumping under it.
+ */
+let dragGrab: { du: number; dv: number } | null = null;
 let playRun = 0;
 
 const isVolumeId = (id: string) => id.startsWith('v');
@@ -291,6 +297,14 @@ export const useGame = create<GameState>((set, get) => {
       if (!editable()) return;
       const wall = s.day!.wall;
       if (s.draggingId) {
+        const at = (isVolumeId(s.draggingId) ? s.volumes : s.placed).find((p) => p.id === s.draggingId);
+        if (!at) return;
+        if (!dragGrab) {
+          dragGrab = { du: at.u - u, dv: at.v - v };
+          return;
+        }
+        u += dragGrab.du;
+        v += dragGrab.dv;
         if (isVolumeId(s.draggingId)) {
           const vol = s.volumes.find((p) => p.id === s.draggingId);
           if (!vol) return;
@@ -349,6 +363,7 @@ export const useGame = create<GameState>((set, get) => {
     startDrag(id) {
       if (!editable() || isSpotId(get().day!, id)) return;
       dragStart = snapshot();
+      dragGrab = null;
       set({ draggingId: id, selectedId: id, armed: null });
     },
 

@@ -89,11 +89,25 @@ failures) so today's in-progress saves aren't disturbed.
   choreography), and a crux slow-mo of 0.55× (was 0.45×). Retrying is one tap (Keep
   setting) plus the edit. *Left:* a throttled-phone Playwright timing wasn't meaningful
   here (software WebGL dominates); worth a real-device check.
-- [ ] **6. Bigger, more readable holds** ("more bigger holds"). The tray mix now
+- [x] **6. Bigger, more readable holds** ("more bigger holds"). The tray mix now
   favours L. Check how holds read on a phone at the default camera: L holds should
   look clearly big, S clearly small, and every hold should be easy to tap and drag
   (raise the touch hit area, not the mesh). Check daily trays over the next few weeks
   of generated days have enough jugs and L holds for low grades.
+  *Done:* at the default camera on an iPhone 13 the wall is ~8 px per 10 cm, so a foot
+  chip is a ~6 px speck and an L jug ~18 px: too small to hit with a finger, while the
+  L/M/S steps (1.5/1.2/0.95 drawn scale) still read apart. Instead of growing the
+  meshes, a touch on the wall that misses every hold grabs the hold whose edge is within
+  18 px (`holdNear` in `src/game/rules.ts`, sized in screen pixels at the touch's depth),
+  or selects a Start/Finish hold; only the primary finger, and never while a tray hold is
+  armed, so tapping to place and two-finger orbiting are unchanged. Every drag (mouse or
+  touch) now keeps its grab offset instead of snapping the hold's centre under the
+  pointer. Trays: over 400 generated days, V0-V2 briefs could draw as few as 0-2 jugs or
+  L edges; the generator now tops V0/V1/V2 trays up to 5/4/3 of them (L jugs, or L edges
+  on no-jug days) without consuming randomness, so other days are untouched. Re-curated
+  the next 5 days: only day 7 (V0) changed; day 4 (today) is kept as served so in-progress
+  saves stay valid. *Left:* curated days 10+ still carry the tray mix from before b1be7a3
+  (fewer L holds, no top-up) and pick it up as later runs re-curate them.
 - [ ] **7. Grades you can learn from** ("maybe a grade guide"). The guide now lists
   what each grade looks like. Make results teach the scale: on the result card, say
   what drove the grade (the crux move's hold, reach, steepness, feet, pump) and what

@@ -20,6 +20,24 @@ const SIZE_SCALE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25 };
 
 export const holdRadius = (h: Pick<Hold, 'type' | 'size'>) => BASE_RADIUS[h.type] * SIZE_SCALE[h.size];
 
+/**
+ * The hold a touch at (u, v) means: the one whose edge is nearest, if the touch lands on it
+ * or within `slop` cm of its edge. A fingertip covers a foot chip several times over, so
+ * holds take a touch that misses them by a little rather than demanding a pixel-exact tap.
+ */
+export function holdNear<H extends Pick<Hold, 'type' | 'size' | 'u' | 'v'>>(holds: H[], u: number, v: number, slop: number): H | null {
+  let best: H | null = null;
+  let bestGap = slop;
+  for (const h of holds) {
+    const gap = Math.hypot(h.u - u, h.v - v) - holdRadius(h);
+    if (gap <= bestGap) {
+      best = h;
+      bestGap = gap;
+    }
+  }
+  return best;
+}
+
 /** Minimum clear gap between two holds, in cm. */
 export const MIN_GAP = 4;
 const EDGE = 8;
