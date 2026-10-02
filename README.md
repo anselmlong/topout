@@ -43,6 +43,9 @@ wall/pad collisions. Feet cut loose on campus moves and steep dynos, hard moves
 tremble, the crux plays in slow motion, and failed routes let go and fall.
 In a corner with a foot on each face, the climber bridges: the body squares up
 to the crease and each knee points out over its own foot, pushing the faces apart.
+When a hand ends up down by the hips (a rockover, a hand-foot match, a mantle onto a
+lip) on ground no steeper than ~15°, it presses instead of pulling: elbow up and back,
+palm flat with the fingers turned in, shoulder over the hand, hips in over the feet.
 Before the crux, if one hand is on a good hold with a foot on, the climber hangs
 off it straight-armed, shakes out the other arm and chalks up. The head follows
 the eyes: it spots each hold before the move, watches a foot all the way onto its

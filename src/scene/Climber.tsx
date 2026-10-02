@@ -22,6 +22,11 @@ const ARM = [0.3, 0.29];
 const LEG = [0.43, 0.42];
 const TORSO = 0.5;
 const PAD_TOP = 0.3;
+/** A hand on a hold less than this far (cm) above the feet is down by the hips: it presses. */
+const PRESS_ABOVE_FEET = 60;
+
+/** The solver's hand techniques, plus a press: palm down on a hold at waist height (a mantle). */
+type ArmTechnique = HandTechnique | 'press';
 
 interface Pose {
   hip: THREE.Vector3;
@@ -64,8 +69,8 @@ function poseFrom(
   legs: [FootTechnique, FootTechnique] = [null, null],
   /** Feet in flight carry no weight: the hips shift over the standing foot first. */
   lifting: [boolean, boolean] = [false, false],
-  /** Sidepull / gaston / undercling per hand (see handTechnique), decided once per move. */
-  arms: [HandTechnique, HandTechnique] = [null, null],
+  /** Sidepull / gaston / undercling / press per hand (see handTechnique), decided once per move. */
+  arms: [ArmTechnique, ArmTechnique] = [null, null],
   /** A hand off the wall shaking out: the body hangs straight-armed under the other one. */
   resting: 0 | 1 | null = null,
 ): Pose {
@@ -99,17 +104,23 @@ function poseFrom(
   // On steep ground climbers hang off straight arms (skeleton, not biceps), so the chest
   // drops further and sits out from the wall below the hands.
   const chestDrop = Math.max(0.12 + 0.2 * steep, Math.min(0.42 + 0.1 * steep, handsToFeet - 0.75 + 0.12 * steep));
+  // Pressing (a mantle): the shoulders come up over the hands that push down, arms
+  // locking out, instead of hanging below them. Both hands pressing puts the chest well
+  // above them; one hand pressing lifts the body to reach up with the other.
+  const press = ((arms[0] === 'press' ? 1 : 0) + (arms[1] === 'press' ? 1 : 0)) / 2;
   // Bunched up (feet close to hands): sit the hips back off the wall instead of squashing.
-  const lean = Math.max(0, Math.min(1, (1.3 - handsToFeet) / 0.6));
+  // Not while pressing: a mantle keeps the hips in, over the feet, to stand up on them.
+  const lean = Math.max(0, Math.min(1, (1.3 - handsToFeet) / 0.6)) * (1 - press);
   const chest = handsMid
     .clone()
-    .addScaledVector(bodyDir, -chestDrop)
-    .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep);
+    .addScaledVector(bodyDir, -chestDrop + press * (chestDrop + 0.3))
+    .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep + 0.06 * press);
   // Opposition shifts the body sideways: lean away from a sidepull (laying back off it),
   // and in toward a gaston (the hand pushes the hold apart from the body).
   const across = V().crossVectors(bodyDir, normal).normalize();
   for (const i of [0, 1] as const) {
-    const shift = arms[i] === 'sidepull' ? -0.07 : arms[i] === 'gaston' ? 0.05 : 0;
+    // A lone pressing hand gets the shoulder over it.
+    const shift = arms[i] === 'sidepull' ? -0.07 : arms[i] === 'gaston' || (arms[i] === 'press' && press < 1) ? 0.05 : 0;
     const toHand = Math.sign(hands[i].clone().sub(handsMid).dot(across)) || (i === 0 ? -1 : 1);
     if (shift && across.lengthSq() > 0.5) chest.addScaledVector(across, shift * toHand);
   }
@@ -141,10 +152,13 @@ function poseFrom(
     const out = Math.sign(hands[i].clone().sub(chest).dot(lateral)) || side;
     // Elbows down and out by default. An undercling tucks the elbow down by the ribs,
     // palm up; a gaston flares the elbow out and up, thumb down; a sidepull keeps the
-    // elbow low and the arm long, leaning off the hold.
+    // elbow low and the arm long, leaning off the hold. A press points the elbow up and
+    // back, over the hand, so the arm can straighten down onto it.
     const pole =
       resting === i
         ? normal.clone().multiplyScalar(0.6).addScaledVector(lateral, side * 0.5).addScaledVector(torsoDir, -0.3)
+        : arms[i] === 'press'
+        ? torsoDir.clone().multiplyScalar(0.7).addScaledVector(normal, 0.6).addScaledVector(lateral, side * 0.35)
         : arms[i] === 'undercling'
         ? torsoDir.clone().multiplyScalar(-1).addScaledVector(normal, 0.35).addScaledVector(lateral, side * 0.15)
         : arms[i] === 'gaston'
@@ -393,8 +407,8 @@ interface Run {
   flagAway: [number, number];
   /** Heel hook / drop knee per foot for the current move. */
   legs: [FootTechnique, FootTechnique];
-  /** Sidepull / gaston / undercling per hand for the current move. */
-  arms: [HandTechnique, HandTechnique];
+  /** Sidepull / gaston / undercling / press per hand for the current move. */
+  arms: [ArmTechnique, ArmTechnique];
   /** A shake-out in progress: which hand, when it began, and the hold it goes back to. */
   rest: { hand: 0 | 1; t0: number; hold: number; at: THREE.Vector3; dipped: boolean } | null;
   lastThud: number;
@@ -422,7 +436,7 @@ export function Climber({ day }: { day: Day }) {
     sim: Ragdoll,
     flagAway?: [number, number],
     legs?: [FootTechnique, FootTechnique],
-    arms?: [HandTechnique, HandTechnique],
+    arms?: [ArmTechnique, ArmTechnique],
     resting: 0 | 1 | null = null,
   ): THREE.Vector3[] => {
     const e = sim.ends;
@@ -476,6 +490,13 @@ export function Climber({ day }: { day: Day }) {
     if (!hold || r.grip[hand] < 0) return null;
     const face = frameAt(frames, hold.u, hold.v);
     const up = face.up;
+    // Pressing: palm flat on top of the hold, fingers turned in toward the other hand
+    // and back into the wall, so the heel of the hand is under the shoulder.
+    if (r.arms[hand] === 'press') {
+      const other = r.sim.pos[hand === 0 ? J.handR : J.handL];
+      const inward = Math.sign(other.clone().sub(r.sim.pos[hand === 0 ? J.handL : J.handR]).dot(face.right)) || (hand === 0 ? 1 : -1);
+      return face.right.clone().multiplyScalar(0.8 * inward).addScaledVector(face.normal, -0.6).normalize();
+    }
     const pull = bestPull(hold.rot);
     // Fingers wrap over the incut, against the pull...
     let du = -pull.u;
@@ -514,8 +535,14 @@ export function Climber({ day }: { day: Day }) {
         const feet = on.length
           ? { u: on.reduce((s, p) => s + p.u, 0) / on.length, v: on.reduce((s, p) => s + p.v, 0) / on.length }
           : { u: other.u, v: other.v - 140 };
-        return handTechnique(hold, { u: (other.u + feet.u) / 2, v: (other.v + feet.v) / 2 });
-      }) as [HandTechnique, HandTechnique];
+        const tech = handTechnique(hold, { u: (other.u + feet.u) / 2, v: (other.v + feet.v) / 2 });
+        // A hold pulled down that's now down by the hips (a rockover, a hand-foot match, a
+        // mantle) can't be hung from: the climber turns the hand over and presses down on
+        // it. Only up to ~15° overhanging; steeper, the body hangs below it instead.
+        const low = f.to.hands[i].v - feet.v < PRESS_ABOVE_FEET;
+        if (!tech && low && on.length && hold.type !== 'pinch' && normalAt(f.to.hands[i]).y > -0.26) return 'press';
+        return tech;
+      }) as [ArmTechnique, ArmTechnique];
     }
     const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
     contacts.forEach((c, n) => {
@@ -560,7 +587,9 @@ export function Climber({ day }: { day: Day }) {
               ? ' (toe hook)'
               : tech === 'drop-knee'
                 ? ' (drop knee)'
-                : tech
+                : tech === 'press'
+                  ? h?.id.startsWith('lip:') ? ' (mantle)' : ' (press)'
+                  : tech
                   ? ` (${tech})`
                   : foot && across && stemBonus(day.wall, [foot.u, across.u]) > 0
                   ? ' (stem)'
