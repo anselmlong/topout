@@ -50,11 +50,12 @@ export const ANCHORS: Anchor[] = [
 ];
 
 const TOP = 400;
-const start: Hold[] = [
+/** Every reference problem's start and finish. */
+export const ANCHOR_START: Hold[] = [
   { id: 's1', type: 'jug', size: 'l', u: 180, v: 150, rot: 0, role: 'start' },
   { id: 's2', type: 'jug', size: 'l', u: 220, v: 150, rot: 0, role: 'start' },
 ];
-const finish: Hold = { id: 'f', type: 'jug', size: 'l', u: 200, v: TOP - 20, rot: 0, role: 'finish' };
+export const ANCHOR_FINISH: Hold = { id: 'f', type: 'jug', size: 'l', u: 200, v: TOP - 20, rot: 0, role: 'finish' };
 
 export function anchorRoute(a: Anchor) {
   const wall: Wall = {
@@ -79,7 +80,7 @@ export function anchorRoute(a: Anchor) {
 
 export function gradeAnchor(a: Anchor) {
   const { wall, holds } = anchorRoute(a);
-  return solve(wall, start, finish, holds);
+  return solve(wall, ANCHOR_START, ANCHOR_FINISH, holds);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

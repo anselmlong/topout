@@ -3,9 +3,10 @@ import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rule
 import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
 import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
 import { EXAMPLES } from '../game/examples';
+import { GRADE_GUIDE, guideRange } from '../game/guide';
 import { encodeRoute, shareText } from '../game/share';
 import { spotsOf, withSpots } from '../game/spots';
-import { gapLabel, setterTip } from '../game/tips';
+import { gapLabel, gradeDrivers, setterTip, type Driver } from '../game/tips';
 import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
 import type { Day, HoldType, Twist } from '../solver/types';
 import { contactList } from '../solver/volumes';
@@ -139,16 +140,6 @@ function ExampleGallery() {
   );
 }
 
-/** What each V-grade looks like in Topout, from the solver's calibration problems. */
-const GRADE_GUIDE: { g: string; text: string }[] = [
-  { g: 'V0', text: 'Jugs close together on a vertical wall or a slab, good feet all the way.' },
-  { g: 'V1–2', text: 'Edges on a vertical wall, or jugs on a gentle (20°) overhang.' },
-  { g: 'V3', text: 'Crimps on a vertical wall, or small holds and smears on a slab.' },
-  { g: 'V4', text: 'Edges on a 20° overhang, jugs on a steep 40° wall, or a jump between jugs.' },
-  { g: 'V5–6', text: 'Pinches and gastons, or edges on a 40° wall.' },
-  { g: 'V7–8', text: 'Crimps and slopers on a 40° board, far apart, poor feet.' },
-];
-
 export function GradesModal() {
   const open = useGame((s) => s.modal === 'grades');
   const setModal = useGame((s) => s.setModal);
@@ -159,8 +150,8 @@ export function GradesModal() {
       <h2>V-grades run from V0 (anyone can climb it) up through V8 and beyond.</h2>
       <ul className="grade-guide">
         {GRADE_GUIDE.map((r) => {
-          const [lo, hi] = r.g.slice(1).split('–').map(Number);
-          const here = target !== undefined && target >= lo && target <= (hi ?? lo);
+          const [lo, hi] = guideRange(r);
+          const here = target !== undefined && target >= lo && target <= hi;
           return (
             <li key={r.g} className={here ? 'here' : undefined}>
               <b className="mono">{r.g}</b>
@@ -220,6 +211,30 @@ function cruxLine(day: Day, test: TestRun) {
   const h = idx >= 0 ? holds[idx] : undefined;
   const target = !h ? 'a smear' : h.id.startsWith('arete:') ? 'the arête' : h.id.startsWith('lip:') ? 'the lip' : h.type === 'volume' ? 'the volume' : HOLD_NAME[h.type].toLowerCase();
   return `${LIMB[crux.limb]} to ${target}${crux.dynamic ? ' (dyno)' : ''} · ${moves.length} moves`;
+}
+
+/**
+ * What made the crux hard: each part as the grades it adds (how much easier the crux
+ * would climb with that part made easy), biggest first, so a test teaches the scale.
+ */
+function Drivers({ drivers, grade }: { drivers: Driver[]; grade: number }) {
+  if (!drivers.length) return null;
+  const top = drivers.slice(0, 3);
+  const max = Math.max(1, top[0].grades);
+  return (
+    <div className="drivers">
+      <div className="eyebrow">What made it V{grade.toFixed(1)} · grades each adds</div>
+      <ul>
+        {top.map((d) => (
+          <li key={d.key}>
+            <span className="label">{d.label}</span>
+            <span className="bar" style={{ width: `${(d.grades / max) * 100}%` }} />
+            <b className="mono">+{d.grades.toFixed(1)}</b>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 const VERDICT_TEXT = { exact: 'Dead on', pass: 'Within a grade', fail: 'Off target' } as const;
@@ -300,6 +315,7 @@ export function ResultModal() {
       </p>
       {s.tests.some((t) => t.result.ok) && <GradeScale tests={practice ? s.tests.slice(-MAX_TESTS) : s.tests} target={day.targetGrade} />}
       {r.ok && <p className="fine">Crux: {cruxLine(day, test)}</p>}
+      {r.ok && <Drivers drivers={gradeDrivers(day, test)} grade={r.grade} />}
       {tip && <p className="tip">{tip}</p>}
       <div className="row">
         {practice ? (

@@ -108,8 +108,19 @@ failures) so today's in-progress saves aren't disturbed.
   the next 5 days: only day 7 (V0) changed; day 4 (today) is kept as served so in-progress
   saves stay valid. *Left:* curated days 10+ still carry the tray mix from before b1be7a3
   (fewer L holds, no top-up) and pick it up as later runs re-curate them.
-- [ ] **7. Grades you can learn from** ("maybe a grade guide"). The guide now lists
+- [x] **7. Grades you can learn from** ("maybe a grade guide"). The guide now lists
   what each grade looks like. Make results teach the scale: on the result card, say
   what drove the grade (the crux move's hold, reach, steepness, feet, pump) and what
   one change would move it toward the target. Add a test that the guide's examples
   grade as the guide says (reuse scripts/calibrate.ts anchors).
+  *Done:* the solver can hand back the pieces a move's difficulty is built from
+  (`moveParts`/`moveDifficulty` in `src/solver/solve.ts`, rebuilt exactly; scoring and
+  every grade unchanged). The result card's "What made it V5.1" lists the crux's top three
+  drivers as grades each adds: each part swapped for a neutral one (a jug to hang off or
+  catch, a short static reach, a vertical wall, good feet, no barn door, no high step) plus
+  the pump (`gradeDrivers` in `src/game/tips.ts`). A stiff route's tip now goes after the
+  biggest driver (the hold you hang off, the catch, the reach or dyno, the feet, the barn
+  door, the high step, or the pump). The grade guide moved to `src/game/guide.ts`, each line
+  naming the calibration anchors behind it; `guide.test.ts` checks every one grades within
+  0.8 of its line's band. *Left:* the suggested change isn't re-solved to prove the new
+  grade; drivers describe the crux move only.

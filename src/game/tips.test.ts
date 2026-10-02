@@ -3,7 +3,10 @@ import { generateDay } from '../gen/day';
 import { solve } from '../solver/solve';
 import type { Hold, SolveResult } from '../solver/types';
 import { verdictOf, type TestRun } from './rules';
-import { gapLabel, setterTip } from './tips';
+import { gapLabel, gradeDrivers, setterTip } from './tips';
+import { ANCHORS, ANCHOR_FINISH as ROUTE_FINISH, ANCHOR_START as ROUTE_START, anchorRoute, gradeAnchor } from '../../scripts/calibrate';
+import { moveDifficulty, moveParts } from '../solver/solve';
+
 
 const run = (result: SolveResult, holds: Hold[] = []): TestRun => ({ holds, result, verdict: verdictOf(result, 4), holdCount: holds.length });
 
@@ -29,5 +32,39 @@ describe('setter tips', () => {
     expect(setterTip(day, run(ok(4.2)))).toBeNull();
     expect(setterTip(day, run(ok(2)))).toMatch(/soft/);
     expect(setterTip(day, run(ok(6.5)))).toMatch(/stiff/);
+  });
+});
+
+describe('grade drivers', () => {
+  // Rebuild real calibration routes as days, so the breakdown runs on the solver's own beta.
+  const day = (name: string) => {
+    const a = ANCHORS.find((x) => x.name === name)!;
+    const { wall, holds } = anchorRoute(a);
+    const result = gradeAnchor(a);
+    const d = { ...generateDay(5), wall, start: ROUTE_START, finish: ROUTE_FINISH, targetGrade: 0 };
+    return { d, test: run(result, holds), result };
+  };
+
+  it('rebuilds every move of the beta exactly from its parts', () => {
+    for (const a of ANCHORS) {
+      const { wall, holds } = anchorRoute(a);
+      const r = gradeAnchor(a);
+      if (!r.ok) continue;
+      for (const m of r.moves) expect(moveDifficulty(moveParts(wall, ROUTE_START, ROUTE_FINISH, holds, m)!)).toBeCloseTo(m.difficulty, 9);
+    }
+  });
+
+  it('names what makes the classic problems hard', () => {
+    const top = (name: string) => gradeDrivers(day(name).d, day(name).test).map((x) => x.key);
+    expect(top('40° jugs')[0]).toBe('steep');
+    expect(top('40° slopers')[0]).toBe('hold');
+    expect(top('vertical jug dyno')[0]).toBe('reach');
+    expect(top('slab crimps, smears')).toContain('feet');
+    expect(top('slab jugs')).toEqual([]);
+  });
+
+  it('turns the biggest driver into the tip on a stiff route', () => {
+    const { d, test } = day('40° slopers');
+    expect(setterTip(d, test)).toMatch(/hangs off the big sloper/);
   });
 });

@@ -41,6 +41,10 @@ help (behind the ? button) has a worked example, a gallery of hand-built example
 plays yesterday's setter route, and a grade guide (also behind the ? on the brief's
 grade). Playback defaults to 2×.
 
+After each test the result card breaks the crux down ("What made it V5.1"): the hold hung
+off, the catch, the reach, the steepness, the feet, a barn door or high step, and the pump,
+each as the grades it adds, and the tip goes after the biggest one.
+
 **Practice** (top bar) builds any wall style, angle, grade and twist with a full
 tray and unlimited tests. The wall is encoded in the URL
 (`?practice=style.angle.grade.twist.seed`), so it survives reloads and can be shared.

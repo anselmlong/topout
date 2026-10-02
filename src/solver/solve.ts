@@ -134,6 +134,61 @@ export function hardStreak(moves: Move[], crux: number, hang: number[]): number 
   return longest;
 }
 
+/**
+ * What one move's difficulty is made of, as scored by the solver: enough to rebuild it
+ * (moveDifficulty) with any piece swapped for a neutral one, which is how the result
+ * card says what drove the crux.
+ * - angle, feetQ: wall angle at the hands and both feet's quality; with loadMul they set
+ *   the share of body weight on the arms (handLoad).
+ * - g: grip of the hand that stays on (both hands' grips summed, for a foot move).
+ * Hand moves: gt the grip of the hold caught; ext the stretch (1 = full static reach, more
+ * is a dyno), travel the distance (m) and r the reach term; barnK the barn-door swing;
+ * commit the cost of jumping. Foot moves: hookK a heel or toe hook, highK a high step.
+ */
+export type MoveParts =
+  | {
+      kind: 'hand';
+      angle: number;
+      feetQ: [number, number];
+      loadMul: number;
+      g: number;
+      gt: number;
+      ext: number;
+      travel: number;
+      r: number;
+      resmear: number;
+      cross: number;
+      barnK: number;
+      commit: number;
+      match: number;
+    }
+  | { kind: 'foot'; angle: number; feetQ: [number, number]; g: number; match: number; hookK: number; highK: number };
+
+/** A move's difficulty rebuilt from its parts: the same sum moveCost scores. */
+export function moveDifficulty(m: MoveParts): number {
+  if (m.kind === 'foot') {
+    const load = handLoad(m.angle, m.feetQ);
+    return (load / m.g) * (1 + m.highK) + m.match + m.hookK * load;
+  }
+  const load = handLoad(m.angle, m.feetQ) * m.loadMul;
+  const steepness = 0.6 + Math.max(0, Math.sin((m.angle * Math.PI) / 180));
+  return (
+    (load / m.g) * (0.72 + 0.85 * m.travel + 0.7 * m.r + 0.3 * m.resmear + 0.5 * m.cross) +
+    m.barnK * load * steepness +
+    0.12 * (1 / m.gt - 1) * (1 + m.r) +
+    m.commit +
+    m.match
+  );
+}
+
+/** The parts of a solved move (one from a SolveResult on the same wall and holds). */
+export function moveParts(wall: Wall, start: Hold[], finish: Hold, placed: Hold[], move: Move, opts: SolveOptions = {}): MoveParts | null {
+  const ctx = new Context(wall, contactList(start, finish, placed, opts.volumes, wall), opts);
+  const parts: MoveParts[] = [];
+  ctx.moveCost(move.from.limbs, move.limb, move.to.limbs[move.limb], undefined, parts);
+  return parts[0] ?? null;
+}
+
 function orderHands(start: Hold[]): [number, number] {
   return start[0].u <= start[1].u ? [0, 1] : [1, 0];
 }
@@ -394,8 +449,11 @@ class Context {
     return apart.length ? apart : out;
   }
 
-  /** Cost of moving `limb` to `to` from stance `l`, or null if impossible. */
-  moveCost(l: Limbs, limb: number, to: number, p = this.points(l)): { d: number; dynamic: boolean } | null {
+  /**
+   * Cost of moving `limb` to `to` from stance `l`, or null if impossible. Pass `parts` to
+   * get the pieces the cost is built from (moveDifficulty rebuilds it from them).
+   */
+  moveCost(l: Limbs, limb: number, to: number, p = this.points(l), parts?: MoveParts[]): { d: number; dynamic: boolean } | null {
     const next = [...l] as Limbs;
     next[limb] = to;
     const np = this.points(next);
@@ -424,8 +482,9 @@ class Context {
       for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
       // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
       const stem = l[2] !== OFF && l[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
+      const feetQ = this.feetQ(l, p);
       const load =
-        handLoad(handsAngle, this.feetQ(l, p)) *
+        handLoad(handsAngle, feetQ) *
         (1 + 1.5 * Math.max(0, stretch - 0.8)) *
         (1 - 0.75 * stem);
 
@@ -459,15 +518,29 @@ class Context {
       const out = Math.max(0, target.u < lo ? lo - target.u : target.u - hi) - 15;
       const flagging = onFeet.length === 1;
       const steepness = 0.6 + Math.max(0, Math.sin((handsAngle * Math.PI) / 180));
-      const barn = narrow * Math.max(0, out / 100) * load * steepness * 1.1 * (flagging ? 0.35 : 1);
-      const d =
-        hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) +
-        barn +
-        catchHard +
-        // Commitment: a deadpoint just past reach is nearly static; a real jump is not.
-        (dynamic ? 0.4 * Math.min(1, (ext - 1) / BODY.deadpoint) : 0) +
-        // Matching is a shuffle: fine on the finish, a small cost anywhere else.
-        (to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0);
+      const barnK = narrow * Math.max(0, out / 100) * 1.1 * (flagging ? 0.35 : 1);
+      const barn = barnK * load * steepness;
+      // Commitment: a deadpoint just past reach is nearly static; a real jump is not.
+      const commit = dynamic ? 0.4 * Math.min(1, (ext - 1) / BODY.deadpoint) : 0;
+      // Matching is a shuffle: fine on the finish, a small cost anywhere else.
+      const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
+      const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
+      parts?.push({
+        kind: 'hand',
+        angle: handsAngle,
+        feetQ,
+        loadMul: (1 + 1.5 * Math.max(0, stretch - 0.8)) * (1 - 0.75 * stem),
+        g,
+        gt,
+        ext,
+        travel,
+        r,
+        resmear,
+        cross,
+        barnK,
+        commit,
+        match,
+      });
       return { d, dynamic };
     }
 
@@ -493,6 +566,15 @@ class Context {
       high =
         (load / g) * (1 - stem) * ((0.25 * Math.max(0, lift - 35)) / 60 + 1.0 * highStep([np[0], np[1]], np[limb]));
     }
+    parts?.push({
+      kind: 'foot',
+      angle: handsAngle,
+      feetQ: [this.footQ(l[stay], p[stay]), 0],
+      g,
+      match,
+      hookK: hook === 'heel' ? 0.3 : hook === 'toe' ? 0.2 : 0,
+      highK: load > 0 ? (high * g) / load : 0,
+    });
     return { d: load / g + match + heelUp + high, dynamic: false };
   }
 
