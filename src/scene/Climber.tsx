@@ -73,6 +73,8 @@ function poseFrom(
   arms: [ArmTechnique, ArmTechnique] = [null, null],
   /** A hand off the wall shaking out: the body hangs straight-armed under the other one. */
   resting: 0 | 1 | null = null,
+  /** Winding up a dyno, 0..1: hips sink down and back off straight arms, knees bent. */
+  sink = 0,
 ): Pose {
   const holding = resting === null ? hands : [hands[1 - resting], hands[1 - resting]];
   // Stemming: the feet bridged across an inside corner, one on each face, pressing them
@@ -111,10 +113,13 @@ function poseFrom(
   // Bunched up (feet close to hands): sit the hips back off the wall instead of squashing.
   // Not while pressing: a mantle keeps the hips in, over the feet, to stand up on them.
   const lean = Math.max(0, Math.min(1, (1.3 - handsToFeet) / 0.6)) * (1 - press);
+  // Loading a dyno: arms lock straight and the hips drop low and back, as far as the
+  // legs have room to bend, so the legs can drive the body up from there.
+  const load = sink * Math.max(0, Math.min(1, (handsToFeet - 0.85) / 0.45));
   const chest = handsMid
     .clone()
-    .addScaledVector(bodyDir, -chestDrop + press * (chestDrop + 0.3))
-    .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep + 0.06 * press);
+    .addScaledVector(bodyDir, -chestDrop + press * (chestDrop + 0.3) - 0.2 * load)
+    .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep + 0.06 * press + 0.06 * load);
   // Opposition shifts the body sideways: lean away from a sidepull (laying back off it),
   // and in toward a gaston (the hand pushes the hold apart from the body).
   const across = V().crossVectors(bodyDir, normal).normalize();
@@ -130,7 +135,7 @@ function poseFrom(
   // knee pulls them in further.
   const twisted = legs[0] || legs[1] ? 1 : 0;
   const hipsIn = (0.3 * steep + 0.18 * twisted) * (1 - lean);
-  const torsoDir = bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean).normalize();
+  const torsoDir = bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean - 0.35 * load).normalize();
   const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
   // Climber's right. We see their back, so this is +x on screen.
   const lateral = V().crossVectors(torsoDir, normal).normalize();
@@ -273,6 +278,8 @@ interface Keyframe {
   move: number;
   /** A shake-out: this hand lets go, shakes, chalks up and grabs the same hold again. */
   rest?: 0 | 1;
+  /** Winding up the dyno that follows: pump the hips down twice, launch from the low point. */
+  windup?: boolean;
 }
 
 interface Timeline {
@@ -287,6 +294,17 @@ interface Timeline {
 const REST = 1.6;
 /** The shake-out's choreography (shakeOut) is written over this many seconds, then fitted into REST. */
 const SHAKE_SCRIPT = 2.1;
+/** How long the pumps before a dyno take (s). */
+const WINDUP = 0.5;
+
+/**
+ * Hip sink through a dyno's wind-up (k 0..1): a shallow pump to find the rhythm, then
+ * a deep one, bottoming out at the end so the launch fires from the lowest point.
+ */
+function windupSink(k: number): number {
+  if (k < 0.4) return 0.45 * Math.sin((Math.PI * k) / 0.4);
+  return 0.5 - 0.5 * Math.cos((Math.PI * (k - 0.4)) / 0.6);
+}
 
 /**
  * Before the crux, a climber who can hang off a good hold shakes out the hand that is
@@ -320,6 +338,11 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
       // Hard moves are slower and more deliberate; dynos are quick. Easy moves stay
       // brisk so a daily test doesn't drag; the crux keeps its full weight.
       const base = m.limb >= 2 ? 0.42 : 0.55 + strain * 0.45;
+      // Before a dyno the climber pumps: same holds, eyes on the target, hips sinking.
+      if (m.dynamic && m.limb < 2) {
+        const before = i === 0 ? result.start : result.moves[i - 1].to;
+        frames.push({ to: contactsOf(before), holds: [...before.limbs], limb: -1, duration: WINDUP, strain: 0, move: -1, windup: true });
+      }
       frames.push({
         to: contactsOf(m.to),
         holds: [...m.to.limbs],
@@ -413,6 +436,8 @@ interface Run {
   arms: [ArmTechnique, ArmTechnique];
   /** A shake-out in progress: which hand, when it began, and the hold it goes back to. */
   rest: { hand: 0 | 1; t0: number; hold: number; at: THREE.Vector3; dipped: boolean } | null;
+  /** Hip sink of a dyno's wind-up this step (see windupSink). */
+  sink: number;
   lastThud: number;
 }
 
@@ -440,6 +465,7 @@ export function Climber({ day }: { day: Day }) {
     legs?: [FootTechnique, FootTechnique],
     arms?: [ArmTechnique, ArmTechnique],
     resting: 0 | 1 | null = null,
+    sink = 0,
   ): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
@@ -449,7 +475,7 @@ export function Climber({ day }: { day: Day }) {
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
     const lifting: [boolean, boolean] = [e[2].mode === 'moving', e[3].mode === 'moving'];
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting));
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting, sink));
   };
 
   const start = (pb: Playback): Run | null => {
@@ -483,7 +509,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -561,6 +587,7 @@ export function Climber({ day }: { day: Day }) {
       r.arms[hand] = null;
       useClimb.setState({ strain: 0, label: 'Shaking out before the crux…' });
     }
+    if (f.windup) useClimb.setState({ strain: 0, label: 'Pumping for the dyno…' });
     if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + f.duration * 0.85, limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
     if (f.dynamic) {
       // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
@@ -771,7 +798,9 @@ export function Climber({ day }: { day: Day }) {
         }
       }
       if (r.rest) shakeOut(r);
-      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null));
+      const wind = idx >= 0 && timeline.frames[idx].windup;
+      r.sink = wind ? windupSink(Math.min(1, t / timeline.frames[idx].duration)) : 0;
+      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {

@@ -62,7 +62,9 @@ to the crease and each knee points out over its own foot, pushing the faces apar
 When a hand ends up down by the hips (a rockover, a hand-foot match, a mantle onto a
 lip) on ground no steeper than ~15°, it presses instead of pulling: elbow up and back,
 palm flat with the fingers turned in, shoulder over the hand, hips in over the feet.
-Before the crux, if one hand is on a good hold with a foot on, the climber hangs
+Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
+hips sinking down and back over bent knees, eyes on the target, then launches from the
+low point. Before the crux, if one hand is on a good hold with a foot on, the climber hangs
 off it straight-armed, shakes out the other arm and chalks up. The head follows
 the eyes: it spots each hold before the move, watches a foot all the way onto its
 hold, and reads the crux while shaking out.
