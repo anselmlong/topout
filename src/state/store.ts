@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { dayNumber, generateDay, withVolumes } from '../gen/day';
 import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, verdictOf, type TestRun } from '../game/rules';
+import { findExample } from '../game/examples';
 import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
 import { defaultSpots, isSpotId, spotsFilled, spotsOf, withSpots, type SpotHold, type Spots } from '../game/spots';
@@ -210,6 +211,7 @@ export const useGame = create<GameState>((set, get) => {
       const shared = decodeRoute(location.hash);
       const params = new URLSearchParams(location.search);
       const practice = parsePractice(params.get('practice'));
+      const example = findExample(params.get('example'));
       const today = dayNumber(new Date());
       let day: Day;
       let mode: Mode;
@@ -218,6 +220,11 @@ export const useGame = create<GameState>((set, get) => {
         day = practiceDay(practice);
         mode = 'practice';
         saveKey = `p:${practiceParam(practice)}`;
+      } else if (example) {
+        // A gallery example is a practice wall of its own: watch it, then set your own.
+        day = example.day;
+        mode = 'practice';
+        saveKey = `x:${example.id}`;
       } else {
         // Future days stay hidden in production; the dev server can open any day.
         const asked = Math.max(1, shared?.day ?? (Number(params.get('day')) || today));
@@ -263,7 +270,11 @@ export const useGame = create<GameState>((set, get) => {
         undoStack: [],
         redoStack: [],
       });
-      // "Watch an example" from the help: play a past day's setter route straight away.
+      if (example && !shared) {
+        get().viewRoute(example.holds, `Example: ${example.title} (V${example.grade})`);
+        get().watch();
+      }
+      // Older "watch an example" links: play a past day's setter route straight away.
       if (params.has('example') && mode === 'archive' && day.reference && !sharedHere) {
         get().viewRoute(day.reference, `Example: a V${day.targetGrade} by the setter`, day.referenceVolumes);
         get().watch();

@@ -44,12 +44,18 @@ failures) so today's in-progress saves aren't disturbed.
   any that aren't shown (a route link has no tray), places its bubble beside or
   above/below the target to fit phones and landscape, and is skippable (Skip or Esc).
   Closing it marks the help as seen; the help has a "Show me around" button to replay it.
-- [ ] **3. Example gallery** ("some examples would be good for first players"). The
+- [x] **3. Example gallery** ("some examples would be good for first players"). The
   help's example plays yesterday's setter route, which spoils it and doesn't exist
   on day 1. Add 3–4 hand-built example routes on practice walls (e.g. V0 jug ladder
   on vertical, V3 crimps on vertical, V5 on a 30° overhang) that anyone can watch
   from the help and the grade guide, each with a one-line note on why it gets its
   grade. Add a test that each example solves within half a grade of its label.
+  *Done:* `src/game/examples.ts` builds four walls and routes by hand (V0 jug ladder and
+  V3 crimps on vertical, V3 crimps on a slab with no feet, V5 edges on a 30° overhang),
+  independent of the daily archive. `?example=<id>` opens one as a practice wall and plays
+  it straight away; the help and the grade guide list them with a note on each grade.
+  Yesterday's setter route stays in the help as a secondary link. `examples.test.ts`
+  checks each lands within half a grade (all within 0.15) and every hold places legally.
 - [ ] **4. See the whole wall and every hold at once** ("being able to see all the
   holds at once would be better"). Make the default camera fit the entire wall (top
   to pad, both edges, corners and prows) on every aspect ratio, with the HUD's

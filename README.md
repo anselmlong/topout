@@ -32,7 +32,8 @@ fingers to orbit/zoom.
 The taped Start and Finish spots are labelled on the wall and start with the day's
 jugs on them; click one to swap its hold. New players get a short spotlight tour on first visit
 (Start, Finish, tray, wall, Test; replayable from the help's "Show me around"), and the
-help (behind the ? button) has a worked example, a link that
+help (behind the ? button) has a worked example, a gallery of hand-built example climbs
+(`src/game/examples.ts`, `?example=<id>`, also listed in the grade guide), a link that
 plays yesterday's setter route, and a grade guide (also behind the ? on the brief's
 grade). Playback defaults to 2×.
 

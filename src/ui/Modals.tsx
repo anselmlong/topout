@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rules';
 import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
 import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
+import { EXAMPLES } from '../game/examples';
 import { encodeRoute, shareText } from '../game/share';
 import { spotsOf, withSpots } from '../game/spots';
 import { gapLabel, setterTip } from '../game/tips';
@@ -64,10 +65,12 @@ export function HelpModal() {
           Finish, with foot chips stepping up underneath them. Graded V3? Swap a couple of edges for jugs or
           close the gaps. Graded V1? Spread them out or use crimps.
         </p>
+        <div className="eyebrow">Watch one climbed</div>
+        <ExampleGallery />
         <div className="row">
           {yesterday >= 1 && (
             <a className="btn ghost" href={`?day=${yesterday}&example`} onClick={markHelpSeen}>
-              Watch an example climb
+              Yesterday’s setter route
             </a>
           )}
           <button className="btn ghost" onClick={() => setModal('grades')}>
@@ -117,6 +120,25 @@ export function HelpModal() {
   );
 }
 
+/** Hand-built example routes to watch, each with why it gets its grade. */
+function ExampleGallery() {
+  return (
+    <ul className="gallery">
+      {EXAMPLES.map((e) => (
+        <li key={e.id}>
+          <a href={`?example=${e.id}`} onClick={markHelpSeen}>
+            <b className="mono">V{e.grade}</b>
+            <span>
+              <b>{e.title}</b> {e.note}
+            </span>
+            <i aria-hidden="true">▶</i>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** What each V-grade looks like in Topout, from the solver's calibration problems. */
 const GRADE_GUIDE: { g: string; text: string }[] = [
   { g: 'V0', text: 'Jugs close together on a vertical wall or a slab, good feet all the way.' },
@@ -150,6 +172,8 @@ export function GradesModal() {
           );
         })}
       </ul>
+      <div className="eyebrow">Watch one climbed</div>
+      <ExampleGallery />
       <div className="levers">
         <div>
           <div className="eyebrow">Harder</div>

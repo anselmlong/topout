@@ -1050,6 +1050,47 @@ a.btn {
   margin-top: 10px;
   flex-wrap: wrap;
 }
+.example > .eyebrow + .gallery,
+.example p + .eyebrow {
+  margin-top: 10px;
+}
+.gallery {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.example .gallery {
+  margin-bottom: 0;
+}
+.gallery a {
+  display: grid;
+  grid-template-columns: 32px 1fr 16px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink-2);
+  text-decoration: none;
+  touch-action: manipulation;
+}
+.gallery a:hover {
+  border-color: var(--ink-2);
+}
+.gallery b {
+  font-weight: 500;
+  color: var(--ink);
+}
+.gallery i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-3);
+}
 details.more {
   border-top: 1px solid var(--line);
   padding: 8px 0;
