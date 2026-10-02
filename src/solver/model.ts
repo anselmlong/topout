@@ -58,9 +58,12 @@ export const GRIP: Record<HoldType, GripSpec> = {
   jug: { grip: 0.95, tolerance: 0.7, steepLoss: 0, hand: true, foot: 0.95, footFacing: 0.55 },
   edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.06, hand: true, foot: 0.85, footFacing: 0.8 },
   pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7, footFacing: 0.6 },
-  // Pinches squeeze: good pulled along their axis, poor across it.
-  pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.12, hand: true, foot: 0.6, footFacing: 0.3 },
-  sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.62, hand: true, foot: 0.6, footFacing: 0.25 },
+  // Pinches squeeze: good pulled along their axis, poor across it. The thumb opposes the
+  // fingers whichever way gravity pulls, so an overhang costs a pinch little (board
+  // climbers live on them); a sloper is pure friction under the palm and rolls off as
+  // soon as the pull swings out from the wall.
+  pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.05, hand: true, foot: 0.6, footFacing: 0.3 },
+  sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.7, hand: true, foot: 0.6, footFacing: 0.25 },
   crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.16, hand: true, foot: 0.75, footFacing: 0.8 },
   foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7, footFacing: 0.5 },
   jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5, footFacing: 0.3 },
@@ -353,7 +356,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.38 grades.
+ * … 40° board crimps V8); mean error ~0.36 grades.
  */
 export function toGrade(crux: number, hardStreak: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));
