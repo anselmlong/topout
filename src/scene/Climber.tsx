@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { bestPull, footTechnique, handGrip, handTechnique, highStep, type FootTechnique, type HandTechnique } from '../solver/model';
+import { bestPull, footTechnique, handGrip, handTechnique, highStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -70,8 +70,20 @@ function poseFrom(
   resting: 0 | 1 | null = null,
 ): Pose {
   const holding = resting === null ? hands : [hands[1 - resting], hands[1 - resting]];
-  // Facet nearest the hands (a dihedral has two faces at the same height).
-  const normal = nearestFrame(frames, holding[0].clone().add(holding[1]).multiplyScalar(0.5)).normal;
+  // Stemming: the feet bridged across an inside corner, one on each face, pressing them
+  // apart. Each foot is in front of the other's face (on an arête they'd be behind it).
+  const faces = feet.map((f) => (f ? nearestFrame(frames, f).normal : null));
+  const stem =
+    !!feet[0] &&
+    !!feet[1] &&
+    faces[0]!.dot(faces[1]!) < 0.98 &&
+    faces[0]!.x * faces[1]!.x < -0.01 &&
+    feet[1].clone().sub(feet[0]).dot(faces[0]!) > 0.03 &&
+    feet[0].clone().sub(feet[1]).dot(faces[1]!) > 0.03;
+  // Facet nearest the hands (a dihedral has two faces at the same height). A stemming
+  // climber squares up to the corner instead, facing into the crease, back to the room.
+  const handFace = nearestFrame(frames, holding[0].clone().add(holding[1]).multiplyScalar(0.5)).normal;
+  const normal = stem ? handFace.clone().multiplyScalar(0.5).add(faces[0]!).add(faces[1]!).normalize() : handFace;
   const handsMid = holding[0].clone().add(holding[1]).multiplyScalar(0.5);
   const planted = feet.filter((f, i) => f && !lifting[i]) as THREE.Vector3[];
   const on = planted.length ? planted : (feet.filter(Boolean) as THREE.Vector3[]);
@@ -163,7 +175,11 @@ function poseFrom(
           ? torsoDir.clone().multiplyScalar(0.9).addScaledVector(normal, 0.3).addScaledVector(lateral, side * 0.2)
           : legs[i] === 'drop-knee'
           ? torsoDir.clone().multiplyScalar(-1).addScaledVector(lateral, -side * 0.4).addScaledVector(normal, 0.2)
-          : normal.clone().addScaledVector(lateral, side * 0.7);
+          : stem
+            ? // Bridged: each knee points out along its own face, away from the crease,
+              // and a little down, so the leg pushes into that face like a strut.
+              lateral.clone().multiplyScalar(side * 0.85).addScaledVector(faces[i]!, 0.35).addScaledVector(torsoDir, -0.2)
+            : normal.clone().addScaledVector(lateral, side * 0.7);
     return ik(pelvis[i], target, LEG, pole);
   };
   const [aL, aR, lL, lR] = [arm(0), arm(1), leg(0), leg(1)];
@@ -532,6 +548,7 @@ export function Climber({ day }: { day: Day }) {
       const h = hold >= 0 ? r.holds[hold] : undefined;
       const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.id.startsWith('lip:') ? 'lip' : h.type) : hold === -1 ? 'smear' : 'off';
       const foot = m >= 2 ? f.to.feet[m - 2] : null;
+      const across = m >= 2 ? f.to.feet[3 - m] : null;
       const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];
       useClimb.setState({
         move: f.move,
@@ -545,6 +562,8 @@ export function Climber({ day }: { day: Day }) {
                 ? ' (drop knee)'
                 : tech
                   ? ` (${tech})`
+                  : foot && across && stemBonus(day.wall, [foot.u, across.u]) > 0
+                  ? ' (stem)'
                   : h && foot && highStep(f.to.hands, foot) > 0.8
                   ? ' (high step)'
                   : ''
