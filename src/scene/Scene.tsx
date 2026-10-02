@@ -462,7 +462,7 @@ function HoldMesh({
   const startDrag = useGame((s) => s.startDrag);
   const remove = useGame((s) => s.remove);
   const rightDown = useRef<{ x: number; y: number } | null>(null);
-  const { geometry, bolt, screw } = holdMesh(hold.type, hold.size, variantOf(hold.id));
+  const { geometry, bolt, boltTilt = 0, screw } = holdMesh(hold.type, hold.size, variantOf(hold.id));
   const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot, volumes);
   // Used holds get chalky.
@@ -532,7 +532,7 @@ function HoldMesh({
       </mesh>
       {bolt && (
         // A countersunk bolt hole: a shadowed recess with a hex-socket bolt head in it.
-        <group position={bolt} rotation={[Math.PI / 2, 0, 0]}>
+        <group position={bolt} rotation={[Math.PI / 2 - boltTilt, 0, 0]}>
           <mesh raycast={() => null}>
             <cylinderGeometry args={[0.0115, 0.009, 0.002, 10]} />
             <meshStandardMaterial color="#2c2b2a" roughness={0.95} flatShading />
