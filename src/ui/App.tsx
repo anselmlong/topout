@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { unlockAudio } from '../audio/sfx';
 import { Scene } from '../scene/Scene';
 import { warmSolver } from '../solver/client';
-import { markHelpSeen, seenHelp } from '../state/persist';
+import { markHelpSeen, tourHidden } from '../state/persist';
 import { useGame } from '../state/store';
 import { ActionBar, Brief, ClimbTicker, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
 import { GradesModal, HelpModal, PracticeModal, ResultModal, StatsModal } from './Modals';
@@ -19,8 +19,10 @@ export function App() {
   useEffect(() => {
     load().then(() => {
       warmSolver();
-      // First visit: point at the real Start/Finish, tray and Test button rather than a wall of text.
-      if (!seenHelp()) useGame.getState().setModal('tour');
+      // Every visit: point at the real Start/Finish, tray and Test button, until the player opts out.
+      // Not over a route someone is watching (a shared link or an example): it's about setting.
+      const s = useGame.getState();
+      if (!tourHidden() && !s.viewing) s.setModal('tour');
     });
     // A route link opened in an already-open tab only changes the hash.
     const onHash = () => location.hash.includes('r=') && load();

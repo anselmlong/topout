@@ -50,6 +50,9 @@ export const loadStats = () => ({ ...EMPTY_STATS, ...read<Stats>('topout:stats')
 export const saveStats = (s: Stats) => write('topout:stats', s);
 export const seenHelp = () => read<boolean>('topout:help') === true;
 export const markHelpSeen = () => write('topout:help', true);
+/** The tour opens on every visit until the player ticks "Don't show again". */
+export const tourHidden = () => read<boolean>('topout:tour-off') === true;
+export const setTourHidden = (off: boolean) => write('topout:tour-off', off);
 
 /** Record a finished day. Passing keeps the streak; failing or skipping a day resets it. */
 export function recordResult(day: number, verdict: 'exact' | 'pass' | 'fail', overPar: number | null): Stats {

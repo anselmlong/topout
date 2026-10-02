@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { MAX_TESTS } from '../game/rules';
-import { markHelpSeen } from '../state/persist';
+import { markHelpSeen, setTourHidden, tourHidden } from '../state/persist';
 import { useGame } from '../state/store';
 
 /**
- * First-visit coach marks: a spotlight walks over the real Start/Finish tape, the tray, the
+ * Coach marks shown on every visit until the player ticks "Don't show again": a spotlight walks over the real Start/Finish tape, the tray, the
  * wall and the Test button, one short line each. Every element it points at carries a
  * `data-tour` attribute; a step whose target isn't on screen (a route link hides the tray)
  * is skipped.
@@ -112,12 +112,15 @@ export function Tour() {
   const [box, setBox] = useState<Box | null>(null);
   // Which steps have a target right now: the spot labels mount a moment after the tour opens.
   const [on, setOn] = useState<boolean[]>(() => STEPS.map(() => false));
+  const [hide, setHide] = useState(tourHidden);
   const [bubble, setBubble] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const bubbleRef = useRef<HTMLDivElement>(null);
   const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
   useEffect(() => {
-    if (open) setStep(Math.max(0, findStep(onScreen(), 0, 1)));
+    if (!open) return;
+    setStep(Math.max(0, findStep(onScreen(), 0, 1)));
+    setHide(tourHidden());
   }, [open]);
 
   // The spot labels follow the camera, so track the target every frame while open.
@@ -188,6 +191,18 @@ export function Tour() {
         )}
         <h3>{s.title}</h3>
         <p>{s.body({ touch, grade, practice })}</p>
+        <label className="tour-optout">
+          <input
+            type="checkbox"
+            checked={hide}
+            onChange={(e) => {
+              // Saved straight away so Skip, Esc and finishing all respect it.
+              setHide(e.target.checked);
+              setTourHidden(e.target.checked);
+            }}
+          />
+          Don’t show again
+        </label>
         <div className="tour-actions">
           <button className="btn ghost" onClick={close}>
             {next < 0 ? 'Close' : 'Skip'}

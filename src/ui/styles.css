@@ -1556,6 +1556,19 @@ details.more[open] summary {
   margin: 0 0 12px;
   color: var(--ink-2);
 }
+.tour-optout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.tour-optout input {
+  margin: 0;
+  accent-color: var(--ink);
+}
 .tour-actions {
   display: flex;
   gap: 8px;
