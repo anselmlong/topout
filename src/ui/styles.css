@@ -597,6 +597,95 @@ button {
   color: #8e3f34;
 }
 
+/* Where each test landed against the brief: exact band inside the pass band. */
+.grade-scale {
+  margin: 12px 4px 6px;
+}
+.grade-scale .track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(60, 55, 45, 0.08);
+}
+.grade-scale .band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.grade-scale .band.pass {
+  background: rgba(179, 151, 75, 0.28);
+}
+.grade-scale .band.exact {
+  background: rgba(93, 138, 105, 0.5);
+}
+.grade-scale .mark {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-solid);
+  background: var(--ink-3);
+  color: var(--accent-ink);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.55;
+}
+.grade-scale .mark.exact {
+  background: var(--ok);
+}
+.grade-scale .mark.pass {
+  background: var(--near);
+}
+.grade-scale .mark.fail {
+  background: var(--bad);
+}
+.grade-scale .mark.current {
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  font-size: 11px;
+  opacity: 1;
+  box-shadow: 0 1px 4px rgba(40, 35, 25, 0.3);
+  animation: grade-slide 0.6s cubic-bezier(0.3, 0.9, 0.3, 1.15) 0.15s both;
+}
+/* Off the end of the scale: pinned to the edge with a flat side pointing out. */
+.grade-scale .mark.below {
+  margin-left: 0;
+  border-radius: 3px 50% 50% 3px;
+}
+.grade-scale .mark.above {
+  margin-left: -18px;
+  border-radius: 50% 3px 3px 50%;
+}
+.grade-scale .mark.current.above {
+  margin-left: -22px;
+}
+.grade-scale .ticks {
+  position: relative;
+  height: 16px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.grade-scale .ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+.grade-scale .ticks .target {
+  color: var(--ink);
+  font-weight: 500;
+}
+@keyframes grade-slide {
+  from {
+    left: var(--from);
+  }
+}
+
 .share {
   margin: 4px 0 0;
   padding: 12px 14px;
@@ -665,7 +754,8 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .modal,
-  .modal-backdrop {
+  .modal-backdrop,
+  .grade-scale .mark.current {
     animation: none;
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rules';
 import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
 import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
@@ -98,6 +98,57 @@ function cruxLine(day: Day, test: TestRun) {
 
 const VERDICT_TEXT = { exact: 'Dead on', pass: 'Within a grade', fail: 'Off target' } as const;
 
+/**
+ * Where each test landed on the V-scale, against the brief's bands: the exact
+ * band (rounds to the target) and the pass band (rounds to within one). The
+ * newest test slides in from the previous one, so you can see which way the
+ * last change moved the grade.
+ */
+function GradeScale({ tests, target }: { tests: TestRun[]; target: number }) {
+  const SPAN = 6;
+  const lo = Math.max(0, target - SPAN / 2);
+  const hi = lo + SPAN;
+  const pct = (g: number) => ((Math.min(hi, Math.max(lo, g)) - lo) / SPAN) * 100;
+  const sent = tests.map((t, i) => ({ t, n: i + 1 })).filter(({ t }) => t.result.ok);
+  const last = tests[tests.length - 1];
+  const prev = sent.filter(({ t }) => t !== last).pop();
+  const ticks = Array.from({ length: SPAN + 1 }, (_, i) => lo + i);
+  return (
+    <div className="grade-scale" aria-hidden="true">
+      <div className="track">
+        <span className="band pass" style={{ left: `${pct(target - 1.5)}%`, width: `${pct(target + 1.5) - pct(target - 1.5)}%` }} />
+        <span className="band exact" style={{ left: `${pct(target - 0.5)}%`, width: `${pct(target + 0.5) - pct(target - 0.5)}%` }} />
+        {sent.map(({ t, n }) => {
+          const g = (t.result as { grade: number }).grade;
+          const current = t === last;
+          const off = g < lo ? ' below' : g > hi ? ' above' : '';
+          return (
+            <span
+              key={n}
+              className={`mark ${t.verdict}${current ? ' current' : ''}${off}`}
+              style={
+                {
+                  left: `${pct(g)}%`,
+                  '--from': `${pct(prev ? (prev.t.result as { grade: number }).grade : target)}%`,
+                } as CSSProperties
+              }
+            >
+              <span className="mono">{n}</span>
+            </span>
+          );
+        })}
+      </div>
+      <div className="ticks mono">
+        {ticks.map((g) => (
+          <span key={g} className={g === target ? 'target' : undefined} style={{ left: `${pct(g)}%` }}>
+            V{g}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ResultModal() {
   const s = useGame();
   const test = s.lastTest;
@@ -121,6 +172,7 @@ export function ResultModal() {
           ? `Target V${day.targetGrade}${test.verdict === 'exact' ? '' : `, ${gapLabel(r.grade - day.targetGrade)}`}. ${nHolds(test.holdCount)}${day.par > 0 ? `, par ${day.par}` : ''}.`
           : r.message}
       </p>
+      {s.tests.some((t) => t.result.ok) && <GradeScale tests={practice ? s.tests.slice(-MAX_TESTS) : s.tests} target={day.targetGrade} />}
       {r.ok && <p className="fine">Crux: {cruxLine(day, test)}</p>}
       {tip && <p className="tip">{tip}</p>}
       <div className="row">
