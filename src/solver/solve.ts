@@ -43,6 +43,8 @@ import {
 } from './types';
 
 const MAX_STATES = 250_000;
+/** Moves cached for reuse by the second search pass; past this many, new stances aren't cached. */
+const MAX_CACHED_MOVES = 2_000_000;
 const MIN_GRIP = 0.05;
 /** A stance that hangs at under this share of the hard moves' hang is a rest (hardStreak). */
 const REST = 0.6;
@@ -143,6 +145,15 @@ class Context {
   footVals: number[];
   /** Wall v where the surface meets the top of the crash pad. */
   padV: number;
+  /** Each hold's point, shared by every stance that uses it. */
+  at: Point[];
+  /**
+   * Every legal move out of each stance the first pass expanded, in visit order, so the
+   * second pass reuses them instead of re-scoring: a move's cost depends only on the
+   * stance and the move. Entry i is limb `code[i] & 3` to hold `(code[i] >> 2) - 2`.
+   */
+  private moves = new Map<number, { code: Int32Array; d: Float64Array }>();
+  private cachedMoves = 0;
   /**
    * Reach distance (cm). Across a dihedral or over a ledge, the real 3D distance: the corner
    * brings things closer, and the shelf's depth is mostly reached across, not up.
@@ -154,13 +165,21 @@ class Context {
     readonly holds: Hold[],
     readonly opts: SolveOptions,
   ) {
+    // Hold points are shared objects (points()), so their 3D positions are worked out once.
+    const at = new WeakMap<Point, number[]>();
+    const xyz = (a: Point) => {
+      let p = at.get(a);
+      if (!p) at.set(a, (p = wallPoint(wall, a.u, a.v)));
+      return p;
+    };
     this.dist = wall.fold || hasShelf(wall)
       ? (a, b) => {
-          const p = wallPoint(wall, a.u, a.v);
-          const q = wallPoint(wall, b.u, b.v);
+          const p = xyz(a);
+          const q = xyz(b);
           return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
         }
       : flatDist;
+    this.at = holds.map((h) => ({ u: h.u, v: h.v }));
     this.handIdx = holds.map((h, i) => (GRIP[h.type].hand ? i : -1)).filter((i) => i >= 0);
     this.footVals = [...holds.map((_, i) => i), SMEAR, OFF];
     this.padV = vAtHeight(wall, PAD);
@@ -179,7 +198,7 @@ class Context {
     const midU = (lh.u + rh.u) / 2;
     const lowV = Math.min(lh.v, rh.v);
     const foot = (val: number, side: -1 | 1): Point => {
-      if (val >= 0) return { u: h[val].u, v: h[val].v };
+      if (val >= 0) return this.at[val];
       // Low on the wall, smear higher / tuck the legs rather than touch the mat.
       // If that bunches the body up too much, valid() calls it a dab (hip check).
       if (val === SMEAR) {
@@ -191,15 +210,15 @@ class Context {
       return { u: midU + side * 12, v: Math.max(lowV - 150, this.padV + 8) };
     };
     return [
-      { u: lh.u, v: lh.v },
-      { u: rh.u, v: rh.v },
+      this.at[l[0]],
+      this.at[l[1]],
       foot(l[2], -1),
       foot(l[3], 1),
     ];
   }
 
   stance(l: Limbs): Stance {
-    return { limbs: [...l] as Limbs, points: this.points(l) };
+    return { limbs: [...l] as Limbs, points: this.points(l).map((p) => ({ ...p })) as Stance['points'] };
   }
 
   /**
@@ -303,8 +322,7 @@ class Context {
   }
 
   /** Stance validity. `slack` > 1 allows the stretched landing of a dyno. */
-  valid(l: Limbs, slack = BODY.dynoLimit): boolean {
-    const p = this.points(l);
+  valid(l: Limbs, slack = BODY.dynoLimit, p = this.points(l)): boolean {
     if (this.handSpan(p[0], p[1]) > slack) return false;
     // The arête helps (a layback, a slap) but you can't climb it bare: one hand stays on a real hold.
     if (this.holds[l[0]].id.startsWith('arete:') && this.holds[l[1]].id.startsWith('arete:')) return false;
@@ -377,12 +395,11 @@ class Context {
   }
 
   /** Cost of moving `limb` to `to` from stance `l`, or null if impossible. */
-  moveCost(l: Limbs, limb: number, to: number): { d: number; dynamic: boolean } | null {
+  moveCost(l: Limbs, limb: number, to: number, p = this.points(l)): { d: number; dynamic: boolean } | null {
     const next = [...l] as Limbs;
     next[limb] = to;
-    if (!this.valid(next)) return null;
-    const p = this.points(l);
     const np = this.points(next);
+    if (!this.valid(next, BODY.dynoLimit, np)) return null;
     const handsAngle = angleAt(this.wall, (np[0].v + np[1].v) / 2);
 
     if (limb <= 1) {
@@ -480,7 +497,32 @@ class Context {
   }
 
   neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {
+    const k = this.key(l);
+    const hit = this.moves.get(k);
+    if (hit) {
+      for (let i = 0; i < hit.code.length; i++) {
+        const n = [...l] as Limbs;
+        n[hit.code[i] & 3] = (hit.code[i] >> 2) - 2;
+        visit(n, hit.d[i]);
+      }
+      return;
+    }
+    const code: number[] = [];
+    const ds: number[] = [];
+    this.scoreMoves(l, (n, d, limb) => {
+      code.push(((n[limb] + 2) << 2) | limb);
+      ds.push(d);
+      visit(n, d);
+    });
+    if (this.cachedMoves < MAX_CACHED_MOVES) {
+      this.cachedMoves += code.length;
+      this.moves.set(k, { code: Int32Array.from(code), d: Float64Array.from(ds) });
+    }
+  }
+
+  private scoreMoves(l: Limbs, visit: (n: Limbs, d: number, limb: number) => void) {
     const h = this.holds;
+    const p = this.points(l);
     for (let limb = 0; limb < 4; limb++) {
       const vals = limb <= 1 ? this.handIdx : this.footVals;
       for (const to of vals) {
@@ -496,11 +538,11 @@ class Context {
           if (t.v > hi + 10) continue;
           if (Math.hypot(t.u - h[l[0]].u, t.v - h[l[0]].v) > BODY.reach * BODY.dynoLimit * 1.05) continue;
         }
-        const m = this.moveCost(l, limb, to);
+        const m = this.moveCost(l, limb, to, p);
         if (!m) continue;
         const n = [...l] as Limbs;
         n[limb] = to;
-        visit(n, m.d);
+        visit(n, m.d, limb);
       }
     }
   }

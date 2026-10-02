@@ -284,7 +284,9 @@ interface Timeline {
 }
 
 /** How long a shake-out before the crux takes (s). */
-const REST = 2.1;
+const REST = 1.6;
+/** The shake-out's choreography (shakeOut) is written over this many seconds, then fitted into REST. */
+const SHAKE_SCRIPT = 2.1;
 
 /**
  * Before the crux, a climber who can hang off a good hold shakes out the hand that is
@@ -304,7 +306,7 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
   const frames: Keyframe[] = [];
   if (result.ok) {
     const crux = Math.max(result.crux, 0.3);
-    frames.push({ to: contactsOf(result.start), holds: [...result.start.limbs], limb: -1, duration: 0.9, strain: 0, move: -1 });
+    frames.push({ to: contactsOf(result.start), holds: [...result.start.limbs], limb: -1, duration: 0.6, strain: 0, move: -1 });
     let rested = false;
     result.moves.forEach((m, i) => {
       const strain = Math.min(1, m.difficulty / crux);
@@ -315,9 +317,9 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
         if (hand !== null)
           frames.push({ to: contactsOf(before), holds: [...before.limbs], limb: -1, duration: REST, strain: 0, move: -1, rest: hand });
       }
-      // Hard moves are slower and more deliberate; dynos are quick.
-      // A touch slower than real time reads smoother; hard moves take longer still.
-      const base = m.limb >= 2 ? 0.5 : 0.65 + strain * 0.4;
+      // Hard moves are slower and more deliberate; dynos are quick. Easy moves stay
+      // brisk so a daily test doesn't drag; the crux keeps its full weight.
+      const base = m.limb >= 2 ? 0.42 : 0.55 + strain * 0.45;
       frames.push({
         to: contactsOf(m.to),
         holds: [...m.to.limbs],
@@ -328,12 +330,12 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
         move: i,
       });
     });
-    const tail = 2.2;
+    const tail = 1.6;
     return { frames, ending: 'top', total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
   }
   if (!result.highPoint) return { frames: [], ending: 'shrug', total: 1.6, tail: 1.6 };
   const hp = contactsOf(result.highPoint);
-  frames.push({ to: hp, holds: [...result.highPoint.limbs], limb: -1, duration: 1.0, strain: 0.6, move: -1 });
+  frames.push({ to: hp, holds: [...result.highPoint.limbs], limb: -1, duration: 0.8, strain: 0.6, move: -1 });
   // Reach hopefully toward the finish... and peel off.
   const lunge: Contacts = {
     hands: [
@@ -346,7 +348,7 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
     feet: hp.feet,
   };
   frames.push({ to: lunge, holds: [], limb: 1, duration: 0.8, strain: 1, move: -1 });
-  const tail = 2.8;
+  const tail = 2.3;
   return { frames, ending: 'fall', total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
 }
 
@@ -608,7 +610,7 @@ export function Climber({ day }: { day: Day }) {
   const shakeOut = (r: Run) => {
     const rest = r.rest!;
     const { sim } = r;
-    const k = r.t - rest.t0;
+    const k = ((r.t - rest.t0) * SHAKE_SCRIPT) / REST;
     const side = rest.hand === 0 ? -1 : 1;
     const hip = sim.pos[J.pelvis];
     const up = sim.pos[J.chest].clone().sub(hip).normalize();
@@ -637,7 +639,7 @@ export function Climber({ day }: { day: Day }) {
       }
     } else {
       // Back up to the hold, the hand arcing out from the wall rather than dragging up it.
-      const x = ease(1.7, REST * 0.95);
+      const x = ease(1.7, SHAKE_SCRIPT * 0.95);
       to = bag.lerp(rest.at, x).addScaledVector(away, Math.sin(Math.PI * x) * 0.08);
       if (x >= 1 && r.grip[rest.hand] < 0) {
         r.grip[rest.hand] = rest.hold;
@@ -730,7 +732,7 @@ export function Climber({ day }: { day: Day }) {
     // Crux cam: the hardest move plays in slow motion.
     const cur = r.frame >= 0 ? timeline.frames[r.frame] : null;
     const slow = cur && cur.limb >= 0 && cur.strain >= 0.98 && timeline.ending === 'top' && !r.ended;
-    r.acc += Math.min(dt, 0.05) * (slow ? 0.45 : 1) * usePlaySpeed.getState().speed;
+    r.acc += Math.min(dt, 0.05) * (slow ? 0.55 : 1) * usePlaySpeed.getState().speed;
     while (r.acc >= STEP) {
       r.acc -= STEP;
       r.t += STEP;

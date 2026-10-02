@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { unlockAudio } from '../audio/sfx';
 import { Scene } from '../scene/Scene';
+import { warmSolver } from '../solver/client';
 import { markHelpSeen, seenHelp } from '../state/persist';
 import { useGame } from '../state/store';
 import { ActionBar, Brief, ClimbTicker, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
@@ -17,6 +18,7 @@ export function App() {
 
   useEffect(() => {
     load().then(() => {
+      warmSolver();
       // First visit: point at the real Start/Finish, tray and Test button rather than a wall of text.
       if (!seenHelp()) useGame.getState().setModal('tour');
     });

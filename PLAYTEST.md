@@ -72,11 +72,23 @@ failures) so today's in-progress saves aren't disturbed.
   from 1440×900 down to 800×600. *Left:* in a window as small as 800×600 the tray can't
   be cleared without shrinking the wall to a sliver, so it overlaps the wall's upper
   right there; the climb ticker still covers the top of the wall during a playback.
-- [ ] **5. Faster loop** ("faster gameplay if it's a daily game"). Measure time from
+- [x] **5. Faster loop** ("faster gameplay if it's a daily game"). Measure time from
   page load to first test result and from pressing Test to the result card, on a
   throttled phone profile. Cut what's slow: solver time on big routes, the climb's
   pre-roll and tail, the result card's appearance, the number of taps to retry. Keep
   the climb readable; don't drop the shake-out or crux slow-mo, shorten them.
+  *Done:* the solver's second pass reuses every move the first pass scored (same moves,
+  same costs, same order, so grades and curated days are unchanged) and hold points and
+  their 3D positions are shared instead of rebuilt per move: on 18-hold player-sized
+  routes over the 120 curated walls, solve time fell from median 202 ms / p90 619 ms /
+  max 3.6 s to 112 / 303 / 1.5 s on desktop (roughly ×4 on a throttled phone). The
+  worker starts as soon as the day loads, so the first Test doesn't wait for it. Playback
+  is ~17% shorter (median Test-to-result card on the curated routes at 2×: 8.6 s → 7.1 s):
+  a shorter pre-roll (0.9 → 0.6 s) and top-out tail (2.2 → 1.6 s), brisker easy moves
+  and foot moves while the crux keeps its length, a 1.6 s shake-out (was 2.1, same
+  choreography), and a crux slow-mo of 0.55× (was 0.45×). Retrying is one tap (Keep
+  setting) plus the edit. *Left:* a throttled-phone Playwright timing wasn't meaningful
+  here (software WebGL dominates); worth a real-device check.
 - [ ] **6. Bigger, more readable holds** ("more bigger holds"). The tray mix now
   favours L. Check how holds read on a phone at the default camera: L holds should
   look clearly big, S clearly small, and every hold should be easy to tap and drag

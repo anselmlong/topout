@@ -31,3 +31,8 @@ export function solveInWorker(day: Day, placed: Hold[], volumes: Volume[] = []):
     getWorker().postMessage(req);
   });
 }
+
+/** Start the worker ahead of the first test, so pressing Test doesn't wait on it loading. */
+export function warmSolver() {
+  getWorker();
+}
