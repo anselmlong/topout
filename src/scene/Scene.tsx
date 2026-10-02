@@ -85,18 +85,18 @@ function wallCorners(wall: Wall) {
   );
 }
 
-/** HUD pieces that sit over the wall when the camera is at rest. */
-const HUD_COVER = ['.topbar', '.hud-left', '.tray', '.actionbar', '.viewing'];
+/** HUD pieces that sit over the wall when the camera is at rest (the ticker only during a climb). */
+const HUD_COVER = ['.topbar', '.hud-left', '.tray', '.actionbar', '.viewing', '.ticker'];
 
 /**
  * The part of the canvas the HUD leaves uncovered, in canvas pixels. Each HUD card cuts the
  * free rectangle from whichever side leaves room for the biggest wall: the brief over a phone's
  * wall cuts the top, a desktop tray cuts the right, the action bar cuts the bottom.
  */
-function freeRect(canvas: HTMLElement) {
+function freeRect(canvas: HTMLElement, aspect: number) {
   const c = canvas.getBoundingClientRect();
-  // How big a wall (about 0.85 as wide as it is tall) a free rectangle can show.
-  const fit = (q: { l: number; t: number; r: number; b: number }) => Math.max(0, Math.min((q.r - q.l) / 0.85, q.b - q.t));
+  // How big a wall (`aspect` times as wide as it is tall) a free rectangle can show.
+  const fit = (q: { l: number; t: number; r: number; b: number }) => Math.max(0, Math.min((q.r - q.l) / aspect, q.b - q.t));
   const r = { l: 0, t: 0, r: c.width, b: c.height };
   const whole = fit(r);
   for (const sel of HUD_COVER)
@@ -108,11 +108,12 @@ function freeRect(canvas: HTMLElement) {
       const y0 = e.top - c.top;
       const y1 = e.bottom - c.top;
       if (x1 <= r.l || x0 >= r.r || y1 <= r.t || y0 >= r.b) continue;
+      // The ticker is a strip over the wall: it only ever cuts the top or bottom off.
+      const strip = sel === '.ticker';
       const best = [
         { ...r, t: y1 },
         { ...r, b: y0 },
-        { ...r, l: x1 },
-        { ...r, r: x0 },
+        ...(strip ? [] : [{ ...r, l: x1 }, { ...r, r: x0 }]),
       ].sort((p, q) => fit(q) - fit(p))[0];
       // A card that would leave only a sliver (a small desktop window) may overlap the wall instead.
       if (fit(best) >= whole * 0.5) Object.assign(r, best);
@@ -194,6 +195,11 @@ function CameraRig({ wall }: { wall: Wall }) {
   // Follow the climber up the wall during a playback, until the user takes the camera.
   const playRun = useGame((s) => s.playback?.run ?? 0);
   const userMoved = useRef(false);
+  // A framing the camera is easing into (the climb ticker came or went), as orbit target and eye offset.
+  const glide = useRef<{ target: THREE.Vector3; offset: THREE.Vector3 } | null>(null);
+  // During a climb the ticker covers part of the screen too: reframe around it, then back.
+  const climbing = useGame((s) => s.phase === 'climbing');
+  const wasClimbing = useRef(climbing);
   const shakeOffset = useRef(new THREE.Vector3());
   useEffect(() => {
     userMoved.current = false;
@@ -217,7 +223,22 @@ function CameraRig({ wall }: { wall: Wall }) {
       camera.position.add(shakeOffset.current);
       climberFocus.shake *= 0.86;
     }
-    if (userMoved.current) return;
+    if (userMoved.current) {
+      glide.current = null;
+      return;
+    }
+    // Ease into a new framing sideways and in depth; the follow below owns the height.
+    const g = glide.current;
+    if (g) {
+      const k = 0.08;
+      c.target.x += (g.target.x - c.target.x) * k;
+      c.target.z += (g.target.z - c.target.z) * k;
+      const off = camera.position.clone().sub(c.target);
+      off.lerp(g.offset, k);
+      camera.position.copy(c.target).add(off);
+      camera.lookAt(c.target);
+      if (Math.abs(g.target.x - c.target.x) + Math.abs(g.target.z - c.target.z) + off.distanceTo(g.offset) < 1e-3) glide.current = null;
+    }
     const b = wallBounds(wall);
     const homeY = home.current.y;
     // Track the climber; once they're off the wall, drift back to the home framing.
@@ -234,16 +255,36 @@ function CameraRig({ wall }: { wall: Wall }) {
   // and when the screen changes shape (a phone turned on its side); never mid-orbit otherwise.
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
+    // Only the ticker coming or going eases the camera over; everything else snaps to the new framing.
+    const ease = wasClimbing.current !== climbing;
+    wasClimbing.current = climbing;
+    const corners = wallCorners(wall);
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    for (const q of corners) {
+      x0 = Math.min(x0, q.x);
+      x1 = Math.max(x1, q.x);
+    }
+    const aspect = Math.min(1.6, Math.max(0.6, (x1 - x0) / Math.max(0.1, wallBounds(wall).height)));
     const frame = () => {
       cam.aspect = size.width / size.height;
       cam.updateProjectionMatrix();
-      const { target: t, d } = fitWall(cam, wallCorners(wall), freeRect(gl.domElement), target, low);
+      const was = ease ? { pos: cam.position.clone(), quat: cam.quaternion.clone() } : null;
+      const { target: t, d } = fitWall(cam, corners, freeRect(gl.domElement, aspect), target, low);
       home.current.copy(t);
       setFraming(d);
       // Wide walls on a portrait phone sit far back: start the haze behind the wall, not on it.
       if (scene.fog instanceof THREE.Fog) {
         scene.fog.near = Math.max(16, d + 3);
         scene.fog.far = scene.fog.near + 18;
+      }
+      if (was) {
+        // Leave the camera where it was; the frame loop eases it over (unless the user has it).
+        if (!userMoved.current) glide.current = { target: t.clone(), offset: cam.position.clone().sub(t) };
+        cam.position.copy(was.pos);
+        cam.quaternion.copy(was.quat);
+        cam.updateMatrixWorld();
+        return;
       }
       controls.current?.target.copy(t);
       controls.current?.update();
@@ -252,7 +293,7 @@ function CameraRig({ wall }: { wall: Wall }) {
     // The HUD settles a frame later (fonts, the tray wrapping): measure it again then.
     const raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [camera, scene, gl, wall, target, low, nonce, size.width, size.height]);
+  }, [camera, scene, gl, wall, target, low, nonce, size.width, size.height, climbing]);
 
   return (
     <OrbitControls
