@@ -258,7 +258,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
   );
 }
 
-/** A rollover's (or overlap's) rounded lip: a faceted plywood roll along the break into the top slab. */
+/** A rollover's (or overlap's, or ledge's) rounded lip: a faceted plywood roll along the break it rolls over at. */
 function Lip({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
   const { position, quaternion } = useMemo(() => {
     const v = lipV(wall);

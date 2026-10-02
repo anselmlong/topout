@@ -5,7 +5,7 @@
 // The solver sees a volume as one extra contact per face: an up-facing face is
 // a foothold and a sloper-ish handhold, side faces are sidepulls, a down face
 // is an undercling. Holds bolted onto a face take that face's angle.
-import { angleAt, lipV } from './model';
+import { angleAt, lipPanel, lipV } from './model';
 import type { Hold, Volume, VolumeShape, Wall } from './types';
 
 interface Dims {
@@ -192,16 +192,17 @@ export function areteContacts(wall: Wall): Hold[] {
 }
 
 /**
- * A rollover (or overlap) lip is itself a hold: a rounded edge every 40 cm along the break into
- * the top panel. Pulled down from below (a big sloping rail you can match and shuffle
+ * A rollover (or overlap, or ledge) lip is itself a hold: a rounded edge every 40 cm along the break
+ * it rolls over at. Pulled down from below (a big sloping rail you can match and shuffle
  * along), and a heel goes over it to rock up onto the slab: the classic mantle top-out.
  */
 export function lipContacts(wall: Wall): Hold[] {
   if (!wall.lip || wall.panels.length < 2) return [];
   const p = wall.panels;
   const v = lipV(wall);
+  const i = lipPanel(wall);
   // Sharper roll (steeper below, slabbier above) wraps the hand further over.
-  const roll = Math.min(1, Math.max(0, (p[p.length - 2].angle - p[p.length - 1].angle - 25) / 30));
+  const roll = Math.min(1, Math.max(0, (p[i - 1].angle - p[i].angle - 25) / 30));
   const out: Hold[] = [];
   for (let u = 40, i = 0; u <= wall.width - 40; u += 40, i++)
     out.push({

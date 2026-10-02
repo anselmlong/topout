@@ -150,9 +150,29 @@ export function wallHeight(wall: Wall): number {
   return wall.panels.reduce((h, p) => h + p.length, 0);
 }
 
-/** Wall v (cm) of a rollover or overlap lip (Wall.lip): the break into the top panel. */
+/**
+ * Index of the panel just above a lip (Wall.lip): the break where the wall rolls over
+ * hardest, steep below to slabby above. On a rollover or overlap that's the top panel;
+ * on a ledge it's the shelf.
+ */
+export function lipPanel(wall: Wall): number {
+  const p = wall.panels;
+  let best = p.length - 1;
+  for (let i = 1; i < p.length; i++) if (p[i - 1].angle - p[i].angle > p[best - 1].angle - p[best].angle) best = i;
+  return best;
+}
+
+/** Wall v (cm) of a rollover, overlap or ledge lip (Wall.lip): the break it rolls over at. */
 export function lipV(wall: Wall): number {
-  return wall.panels.slice(0, -1).reduce((h, p) => h + p.length, 0);
+  return wall.panels.slice(0, lipPanel(wall)).reduce((h, p) => h + p.length, 0);
+}
+
+/** A near-flat shelf (a ledge's top) is for standing on, not bolting holds to. */
+export const SHELF_ANGLE = -45;
+
+/** Whether any panel is a near-flat shelf, where the unfolded wall overstates real reach. */
+export function hasShelf(wall: Wall): boolean {
+  return wall.panels.some((p) => p.angle < SHELF_ANGLE);
 }
 
 const rad = (deg: number) => (deg * Math.PI) / 180;

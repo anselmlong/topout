@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { footTechnique, handGrip, handTechnique, toGrade } from './model';
+import { footTechnique, handGrip, handTechnique, lipV, toGrade } from './model';
+import { lipContacts } from './volumes';
 import type { Hold, HoldType, Volume, Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
@@ -161,6 +162,17 @@ describe('solver', () => {
     if (!r.ok) throw new Error(r.message);
     const firstLip = start.length + 1 + holds.length;
     expect(r.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= firstLip)).toBe(true);
+  });
+
+  it('a ledge lip is the hold at its front edge, not at the back of the shelf', () => {
+    const ledge: Wall = { width: 400, panels: [{ length: 200, angle: 5 }, { length: 28, angle: -75 }, { length: 200, angle: 8 }], seed: 1, lip: true };
+    expect(lipV(ledge)).toBe(200);
+    const lips = lipContacts(ledge);
+    expect(lips.length).toBeGreaterThan(0);
+    expect(lips.every((h) => h.v === 197)).toBe(true);
+    // An overlap still rolls over at the top of its roof band.
+    const overlap: Wall = { width: 400, panels: [{ length: 200, angle: -12 }, { length: 45, angle: 50 }, { length: 200, angle: -10 }], seed: 1, lip: true };
+    expect(lipV(overlap)).toBe(245);
   });
 
   it('an arête helps but is not climbable bare', () => {

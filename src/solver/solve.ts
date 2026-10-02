@@ -19,6 +19,7 @@ import {
   handGrip,
   handMatchable,
   handLoad,
+  hasShelf,
   heightAt,
   highStep,
   stemBonus,
@@ -142,7 +143,10 @@ class Context {
   footVals: number[];
   /** Wall v where the surface meets the top of the crash pad. */
   padV: number;
-  /** Reach distance (cm). Across a dihedral, the real 3D distance: the corner brings things closer. */
+  /**
+   * Reach distance (cm). Across a dihedral or over a ledge, the real 3D distance: the corner
+   * brings things closer, and the shelf's depth is mostly reached across, not up.
+   */
   dist: (a: Point, b: Point) => number;
 
   constructor(
@@ -150,7 +154,7 @@ class Context {
     readonly holds: Hold[],
     readonly opts: SolveOptions,
   ) {
-    this.dist = wall.fold
+    this.dist = wall.fold || hasShelf(wall)
       ? (a, b) => {
           const p = wallPoint(wall, a.u, a.v);
           const q = wallPoint(wall, b.u, b.v);
