@@ -36,9 +36,10 @@ export type Speed = (typeof SPEEDS)[number];
 function readSpeed(): Speed {
   try {
     const v = Number(localStorage.getItem('topout:speed'));
-    return (SPEEDS as readonly number[]).includes(v) ? (v as Speed) : 1;
+    // A daily puzzle shouldn't make you wait: double speed unless you've picked otherwise.
+    return (SPEEDS as readonly number[]).includes(v) ? (v as Speed) : 2;
   } catch {
-    return 1;
+    return 2;
   }
 }
 

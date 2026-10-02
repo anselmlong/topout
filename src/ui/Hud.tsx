@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
 import { isSpotId } from '../game/spots';
@@ -7,6 +7,7 @@ import type { HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
 import { cycleSpeed, useClimb, usePlaySpeed } from '../state/climb';
+import { seenHelp } from '../state/persist';
 import { remaining, testLimit, useGame } from '../state/store';
 
 const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L' };
@@ -43,6 +44,8 @@ export function TopBar() {
   const setModal = useGame((s) => s.setModal);
   const resetView = useGame((s) => s.resetView);
   const done = useGame((s) => s.done);
+  // Re-read after the help closes, so the nudge on its button goes away.
+  const nudge = useGame((s) => s.modal !== 'help' && !seenHelp());
   return (
     <header className="topbar">
       <div className="brand">
@@ -74,7 +77,7 @@ export function TopBar() {
           </svg>
           <span className="label">Reset view</span>
         </button>
-        <button className="icon-btn" onClick={() => setModal('help')} title="How to play">
+        <button className={`icon-btn ${nudge ? 'nudge' : ''}`} onClick={() => setModal('help')} title="How to play">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm2.1-7.8-.9.9c-.7.7-1.2 1.3-1.2 2.9h-2v-.5c0-1.1.5-2.1 1.2-2.8l1.2-1.3a2 2 0 1 0-3.4-1.4H8a4 4 0 1 1 7.1 2.2z" />
           </svg>
@@ -96,6 +99,7 @@ export function TopBar() {
 export function Brief() {
   const day = useGame((s) => s.day)!;
   const mode = useGame((s) => s.mode);
+  const setModal = useGame((s) => s.setModal);
   const style = wallStyleOf(day.wall);
   // A real minus sign, so negative (slab) angles don't read as a hyphenated list.
   const angles = day.wall.panels.map((p) => `${p.angle > 0 ? '+' : p.angle < 0 ? '−' : ''}${Math.abs(p.angle)}°`).join(' / ');
@@ -105,7 +109,13 @@ export function Brief() {
         {mode === 'practice' ? 'Practice wall' : mode === 'archive' ? `Replaying #${day.number}` : 'Today’s brief'}
       </div>
       <h1>
-        Set a <span className="grade">V{day.targetGrade}</span>
+        Set a{' '}
+        <button className="grade" onClick={() => setModal('grades')} title="What does a V-grade mean?">
+          V{day.targetGrade}
+          <span className="grade-info" aria-hidden="true">
+            ?
+          </span>
+        </button>
       </h1>
       <dl className="facts">
         <div className="wall-fact">
@@ -145,7 +155,7 @@ export function Controls() {
         ? 'Choose the hold for this spot · Q / E to rotate · it stays on the tape'
         : selected
           ? 'Drag to move · Q / E to rotate · Delete to remove · Ctrl+Z undoes'
-          : 'Click a taped spot to choose its start or finish hold · pick holds from the tray · drag to orbit · right-drag or Shift+drag to pan · scroll zooms';
+          : 'The taped Start and Finish spots are fixed (click one to swap its hold) · pick holds from the tray and click the wall to place them between · drag to orbit · right-drag or Shift+drag to pan · scroll zooms';
   return <p className="controls">{text}</p>;
 }
 
@@ -158,10 +168,20 @@ export function Tray() {
   const arm = useGame((s) => s.arm);
   const locked = useGame((s) => s.done || !!s.viewing || s.phase !== 'setting');
   const viewing = useGame((s) => !!s.viewing);
+  const ref = useRef<HTMLElement>(null);
+  // On phones the tray sits along the bottom; the hold controls float just above it.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const root = document.documentElement;
+    if (!el) return root.style.setProperty('--tray-h', '0px');
+    const ro = new ResizeObserver(() => root.style.setProperty('--tray-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [viewing]);
   // Someone else's route is on the wall: the tray has nothing to offer.
   if (viewing) return null;
   return (
-    <section className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray">
+    <section ref={ref} className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray">
       <div className="eyebrow">
         Hold set <span className="mono dim">{placed.length + volumes.length} placed</span>
       </div>
@@ -191,7 +211,7 @@ export function Tray() {
               >
                 <HoldIcon type={slot.type} size={slot.size} color={isVolume ? VOLUME_COLOR : routeColor(day).hex} />
                 <span className="slot-name">
-                  {isVolume ? (slot.shape === 'wedge' ? 'Wedge' : 'Pyramid') : HOLD_NAME[slot.type]}
+                  <span className="nm">{isVolume ? (slot.shape === 'wedge' ? 'Wedge' : 'Pyramid') : HOLD_NAME[slot.type]}</span>
                   {slot.type !== 'foot' && slot.type !== 'jib' && <span className="size">{SIZE_LABEL[slot.size]}</span>}
                 </span>
                 <span className="count mono">
@@ -203,7 +223,11 @@ export function Tray() {
           );
         })}
       </ul>
-      {armed && <p className="hint">{HOLD_HINT[armed.type]}</p>}
+      {armed && (
+        <p className="hint">
+          <b>{armed.type === 'volume' ? (armed.shape === 'wedge' ? 'Wedge' : 'Pyramid') : HOLD_NAME[armed.type]}</b> · {HOLD_HINT[armed.type]}
+        </p>
+      )}
     </section>
   );
 }
@@ -333,11 +357,11 @@ export function ActionBar() {
         </>
       ) : (
         <>
-          {s.undoStack.length > 0 && (
+          {(s.undoStack.length > 0 || s.redoStack.length > 0) && (
             <button
               className="btn ghost icon"
               onClick={() => s.undo()}
-              disabled={busy}
+              disabled={busy || s.undoStack.length === 0}
               title="Undo (Ctrl+Z · Shift+Ctrl+Z redoes)"
               aria-label="Undo"
             >
@@ -346,7 +370,20 @@ export function ActionBar() {
               </svg>
             </button>
           )}
-          {s.placed.length > 0 && (
+          {(s.undoStack.length > 0 || s.redoStack.length > 0) && (
+            <button
+              className="btn ghost icon"
+              onClick={() => s.redo()}
+              disabled={busy || s.redoStack.length === 0}
+              title="Redo (Shift+Ctrl+Z)"
+              aria-label="Redo"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11.5 8c2.6 0 5 1 6.9 2.6L22 7v9h-9l3.6-3.6A8 8 0 0 0 3.9 16l-2.4-.8A10.5 10.5 0 0 1 11.5 8z" />
+              </svg>
+            </button>
+          )}
+          {s.placed.length + s.volumes.length > 0 && (
             <button className="btn ghost" onClick={() => s.clear()} disabled={busy}>
               Clear
             </button>
@@ -380,9 +417,16 @@ export function ViewingBanner() {
       <button className="btn primary" onClick={() => watch()} disabled={busy}>
         Watch it climbed
       </button>
-      <button className="btn ghost" onClick={exit}>
-        Back to mine
-      </button>
+      {/* An example from the help is a past day: send them back to today's wall. */}
+      {new URLSearchParams(location.search).has('example') ? (
+        <a className="btn ghost" href={location.pathname}>
+          Back to today
+        </a>
+      ) : (
+        <button className="btn ghost" onClick={exit}>
+          Back to mine
+        </button>
+      )}
     </div>
   );
 }

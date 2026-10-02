@@ -245,9 +245,9 @@ export function withVolumes(day: Day): Day {
 function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
   // Easier days and steeper walls get kinder holds.
   const steep = style === 'steep' || style === 'kicker' || style === 'headwall' || style === 'bulge' || style === 'cave' || style === 'prow' || style === 'dihedral' || style === 'scoop' || style === 'rollover' || style === 'belly';
-  // Jugs are a treat, not the default: a couple on easy or steep days, few otherwise.
+  // Jugs are a treat, not the default: a few on easy or steep days, a couple otherwise.
   const weights: Record<Exclude<HoldType, 'foot' | 'jib' | 'volume'>, number> = {
-    jug: Math.max(0.15, 1.6 - grade * 0.4) + (steep ? 0.4 : 0),
+    jug: Math.max(0.4, 2 - grade * 0.4) + (steep ? 0.4 : 0),
     edge: 2 + (steep ? 0.6 : 0),
     crimp: 1 + grade * 0.5 + (style === 'vertical' || style === 'slab' ? 1 : 0),
     sloper: style === 'slab' || style === 'overlap' ? 2.5 : steep ? 0.6 : 1.2,
@@ -270,7 +270,8 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
         break;
       }
     }
-    const size: HoldSize = r.pick(['s', 'm', 'm', 'l']);
+    // Big holds read well on a phone and are what new setters reach for: L as often as M.
+    const size: HoldSize = r.pick(['s', 'm', 'l', 'l']);
     const key = `${type}:${size}`;
     const slot = counts.get(key) ?? { type, size, count: 0 };
     slot.count++;

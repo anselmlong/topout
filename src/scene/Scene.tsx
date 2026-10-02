@@ -1,4 +1,4 @@
-import { OrbitControls } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -233,6 +233,7 @@ function WallView({ day }: { day: Day }) {
         <Tape key={`t-${h.id}`} hold={h} wall={day.wall} frames={frames} kind="start" />
       ))}
       <Tape hold={day.finish} wall={day.wall} frames={frames} kind="finish" />
+      <SpotLabels day={day} frames={frames} />
       {holds.map((h) => (
         <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed={!!viewing} tint={tint} />
       ))}
@@ -604,6 +605,53 @@ function EmptySpot({ hold, wall, frames }: { hold: Hold; wall: Wall; frames: Pan
         <meshBasicMaterial color={selected ? PALETTE.ghostOk : PALETTE.tape} transparent opacity={selected ? 1 : 0.7} />
       </mesh>
     </group>
+  );
+}
+
+/**
+ * "Start" and "Finish" flags on the tape while setting: the spots never move, so say
+ * so on the wall itself rather than only in the help.
+ */
+function SpotLabels({ day, frames }: { day: Day; frames: PanelFrame[] }) {
+  // Mounted with the canvas, drei's Html re-targets once the canvas's events connect and
+  // comes back empty. Pin it to the canvas's own container from the start instead.
+  const gl = useThree((s) => s.gl);
+  const portal = useMemo(() => ({ current: (gl.domElement.parentElement?.parentElement ?? document.body) as HTMLElement }), [gl]);
+  const startU = day.start.reduce((a, h) => a + h.u, 0) / day.start.length;
+  const startV = Math.min(...day.start.map((h) => h.v));
+  return (
+    <>
+      <SpotLabel day={day} frames={frames} u={startU} v={startV - 22} text="Start" portal={portal} />
+      <SpotLabel day={day} frames={frames} u={day.finish.u} v={day.finish.v + 24} text="Finish" portal={portal} />
+    </>
+  );
+}
+
+function SpotLabel({
+  day,
+  frames,
+  u,
+  v,
+  text,
+  portal,
+}: {
+  day: Day;
+  frames: PanelFrame[];
+  u: number;
+  v: number;
+  text: string;
+  portal: { current: HTMLElement };
+}) {
+  // Faded out rather than unmounted while climbing, so it doesn't flicker in and out.
+  const show = useGame((s) => s.phase === 'setting' && !s.viewing);
+  const position = useMemo(() => {
+    const f = frameAt(frames, u, v);
+    return uvToWorld(day.wall, frames, u, v).addScaledVector(f.normal, 0.02);
+  }, [day.wall, frames, u, v]);
+  return (
+    <Html position={position} center portal={portal} zIndexRange={[3, 0]} style={{ pointerEvents: 'none' }}>
+      <div className={`spot-label ${show ? '' : 'hidden'}`}>{text}</div>
+    </Html>
   );
 }
 

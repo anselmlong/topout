@@ -24,10 +24,16 @@ dragged, an arc on the wall shows the climber's reach from the nearest handhold
 below (solid: static, dashed: dyno only; `src/game/reach.ts` mirrors the solver's
 hand-to-hand limit). Ctrl/Cmd+Z undoes any
 placement, move, rotation, removal or clear (Shift+Ctrl+Z or Ctrl+Y redoes); the
-action bar has an undo button for touch. While the climber is on the wall, the
+action bar has undo and redo buttons for touch. While the climber is on the wall, the
 ticker's speed button cycles 1×/2×/4× (remembered) and Skip (or Esc) jumps
 straight to the result. On touch: tap to place, two
 fingers to orbit/zoom.
+
+The taped Start and Finish spots are labelled on the wall and start with the day's
+jugs on them; click one to swap its hold. New players get the help on first visit
+(the ? button pulses until it's been opened), with a worked example, a link that
+plays yesterday's setter route, and a grade guide (also behind the ? on the brief's
+grade). Playback defaults to 2×.
 
 **Practice** (top bar) builds any wall style, angle, grade and twist with a full
 tray and unlimited tests. The wall is encoded in the URL

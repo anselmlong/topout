@@ -73,6 +73,8 @@ button {
   position: absolute;
   inset: 0;
   touch-action: none;
+  /* Labels drawn over the 3D scene (beta tags, Start/Finish) stay under the HUD. */
+  isolation: isolate;
 }
 
 /* ---------------------------------------------------------------- top bar */
@@ -190,8 +192,33 @@ button {
   letter-spacing: -0.01em;
 }
 .brief .grade {
+  font: inherit;
   font-family: var(--mono);
   font-weight: 500;
+  color: inherit;
+  padding: 0 2px;
+  margin: 0 -2px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.brief .grade:hover {
+  background: rgba(60, 55, 45, 0.07);
+}
+/* A small "?" on the grade: tap it for the grade guide. */
+.grade-info {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  vertical-align: 0.35em;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  color: var(--ink-3);
 }
 .facts {
   margin: 0;
@@ -950,6 +977,131 @@ a.icon-btn {
   text-decoration: none;
 }
 
+/* Start/Finish flags on the tape: the spots are fixed, the holds on them are not. */
+.spot-label {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(42, 41, 38, 0.82);
+  color: #f4f1ea;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+.spot-label.hidden {
+  opacity: 0;
+}
+
+/* The help button pulses until it has been opened once. */
+.icon-btn.nudge {
+  position: relative;
+}
+.icon-btn.nudge::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--near);
+  animation: nudge 1.6s ease-in-out infinite;
+}
+@keyframes nudge {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+}
+
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  text-decoration: none;
+}
+.tray .hint b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.example {
+  margin: 0 0 12px;
+  padding: 10px 12px 4px;
+  border-radius: 8px;
+  background: rgba(60, 55, 45, 0.05);
+}
+.example p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.example b {
+  font-weight: 500;
+  color: var(--ink);
+}
+.example .row {
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+details.more {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+details.more summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+details.more[open] summary {
+  margin-bottom: 10px;
+}
+
+.grade-guide {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.grade-guide li {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.grade-guide li.here {
+  background: rgba(93, 138, 105, 0.14);
+}
+.grade-guide b {
+  font-weight: 500;
+  color: var(--ink);
+}
+.grade-guide em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--ok);
+}
+.levers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.levers ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
 /* ---------------------------------------------------------------- mobile */
 
 @media (max-width: 720px) {
@@ -1041,17 +1193,31 @@ a.icon-btn {
   .tray .hint {
     display: none;
   }
+  .tray .hint {
+    display: block;
+    margin: 4px 4px 0;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  /* Every slot visible at once: compact chips (icon, size, count) that wrap. */
   .tray ul {
-    display: flex;
-    overflow-x: auto;
-    gap: 4px;
-    scrollbar-width: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+    gap: 0 2px;
   }
   .slot {
-    grid-template-columns: 22px auto auto;
-    gap: 5px;
-    padding: 6px 8px;
+    grid-template-columns: 20px auto auto;
+    justify-content: center;
+    gap: 3px;
+    padding: 3px 2px;
     white-space: nowrap;
+    font-size: 12.5px;
+  }
+  .slot-name .nm {
+    display: none;
+  }
+  .slot .count .dim {
+    display: none;
   }
   .hold-icon {
     width: 22px;
@@ -1074,9 +1240,20 @@ a.icon-btn {
   .holdcount {
     display: none;
   }
+  /* Just above the tray, across the screen, so it never covers the wall's top or the finish. */
   .selection-bar {
-    bottom: auto;
-    top: 120px;
+    left: 12px;
+    right: 12px;
+    bottom: calc(76px + var(--tray-h, 0px) + 8px);
+    transform: none;
+    justify-content: center;
+  }
+  .selection-bar.spot-picker {
+    max-width: none;
+  }
+  .spot-picker .spot-types,
+  .spot-picker .spot-row {
+    justify-content: center;
   }
   .ticker {
     left: 12px;

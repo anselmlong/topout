@@ -72,7 +72,7 @@ interface GameState {
   /** Last solved route, shown as a beta overlay until the route is edited. */
   beta: { result: SolveResult; holds: Hold[]; volumes: Volume[]; spots?: Spots } | null;
   lastTest: TestRun | null;
-  modal: 'help' | 'result' | 'stats' | 'practice' | null;
+  modal: 'help' | 'grades' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
   /** Earlier route states for undo, oldest first; `redoStack` holds undone ones. */
   undoStack: RouteSnapshot[];
@@ -248,8 +248,9 @@ export const useGame = create<GameState>((set, get) => {
         phase: 'setting',
         placed: save?.placed ?? [],
         volumes: save?.volumes ?? [],
-        // A fresh wall starts with empty spots; saves from before they were settable had jugs.
-        spots: save ? (save.spots ?? defaultSpots(day)) : {},
+        // A fresh wall starts with the day's own jugs on its spots, so it can be tested
+        // straight away; the setter can swap any of them.
+        spots: save?.spots ?? defaultSpots(day),
         tests: save?.tests ?? [],
         done: save?.done ?? false,
         viewing: sharedHere ? shared.holds : null,
@@ -262,6 +263,11 @@ export const useGame = create<GameState>((set, get) => {
         undoStack: [],
         redoStack: [],
       });
+      // "Watch an example" from the help: play a past day's setter route straight away.
+      if (params.has('example') && mode === 'archive' && day.reference && !sharedHere) {
+        get().viewRoute(day.reference, `Example: a V${day.targetGrade} by the setter`, day.referenceVolumes);
+        get().watch();
+      }
     },
 
     arm(slot) {

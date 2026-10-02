@@ -4,7 +4,7 @@ import { Scene } from '../scene/Scene';
 import { seenHelp } from '../state/persist';
 import { useGame } from '../state/store';
 import { ActionBar, Brief, ClimbTicker, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
-import { HelpModal, PracticeModal, ResultModal, StatsModal } from './Modals';
+import { GradesModal, HelpModal, PracticeModal, ResultModal, StatsModal } from './Modals';
 
 const ROTATE_STEP = Math.PI / 12;
 
@@ -108,6 +108,7 @@ export function App() {
       <ActionBar />
       <ViewingBanner />
       <HelpModal />
+      <GradesModal />
       <ResultModal />
       <StatsModal />
       <PracticeModal />

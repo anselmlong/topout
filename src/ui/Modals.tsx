@@ -35,48 +35,147 @@ export function HelpModal() {
     markHelpSeen();
     setModal(null);
   };
+  // A past day's setter route, climbed: the quickest way to see what the game is.
+  const yesterday = dayNumber(new Date()) - 1;
   return (
     <Modal open={open} onClose={close} title="How to play">
       <div className="eyebrow">How to play</div>
-      <h2>Set today’s problem on grade, with as few holds as you can.</h2>
+      <h2>You’re the route setter. Set today’s problem at the target grade, using as few holds as you can.</h2>
       <ol className="steps">
         <li>
-          The <b>start</b> (two tape strips) and <b>finish</b> (tape crown) spots are fixed. Click one to choose the hold
-          that goes there; everything between is yours too.
+          <b>Start</b> and <b>Finish</b> are taped on the wall and can’t move. They come with jugs; tap one if you want to swap
+          its hold.
         </li>
         <li>
-          Place holds from the tray. Rotation matters: the arrow shows which way a hold wants to be pulled. While you place a
-          handhold, an arc shows how far the climber reaches from the nearest handhold below: inside the solid line is a static
-          move, out to the dashed line only a dyno.
+          <b>Fill the gap.</b> Pick a hold from the tray, then tap the wall to place it. Turn it so its lip faces where the
+          climber pulls from (the little arrow).
         </li>
         <li>
-          <b>Test climb</b> sends our climber up. They find the easiest beta and grade it. You get {MAX_TESTS} tests.
+          <b>Test climb.</b> Our climber finds the easiest way up and grades it. You get {MAX_TESTS} tests a day.
         </li>
         <li>
-          Within one grade of the target passes 🟨, dead on is 🟩. Fewer holds than par is bragging rights.
+          Within one grade of the target passes 🟨, dead on is 🟩. Beat par (the setter’s hold count) for bragging rights.
         </li>
       </ol>
-      <div className="eyebrow">The holds</div>
-      <ul className="legend">
-        {TYPES.map((t) => (
-          <li key={t}>
-            <HoldIcon type={t} />
-            <div>
-              <b>{HOLD_NAME[t]}</b>
-              <span>{HOLD_HINT[t]}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="fine">
-        Every day brings a new wall: slabs, overhangs, headwalls, caves with a lip to pull, ledges to mantle onto, corners you can stem (some of them overhanging), and arêtes and overhanging prows whose edge is itself a hold.
-        After a test, numbered tags show the climber’s beta, coloured by how hard each move was. On steep walls they’ll heel hook big holds out to the side, and toe hook a hold far out whose lip faces away from them. Hands follow the hold too: a lip facing sideways is a sidepull, one facing away from the body a gaston, and one facing down an undercling. The climber is 175 cm, every day.
-      </p>
+      <div className="example">
+        <div className="eyebrow">Example</div>
+        <p>
+          <b>“Set a V2” on a vertical wall.</b> Medium edges about half a metre apart, zig-zagging up between Start and
+          Finish, with foot chips stepping up underneath them. Graded V3? Swap a couple of edges for jugs or
+          close the gaps. Graded V1? Spread them out or use crimps.
+        </p>
+        <div className="row">
+          {yesterday >= 1 && (
+            <a className="btn ghost" href={`?day=${yesterday}&example`} onClick={markHelpSeen}>
+              Watch an example climb
+            </a>
+          )}
+          <button className="btn ghost" onClick={() => setModal('grades')}>
+            Grade guide
+          </button>
+        </div>
+      </div>
+      <details className="more">
+        <summary>The holds</summary>
+        <ul className="legend">
+          {TYPES.map((t) => (
+            <li key={t}>
+              <HoldIcon type={t} />
+              <div>
+                <b>{HOLD_NAME[t]}</b>
+                <span>{HOLD_HINT[t]}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details className="more">
+        <summary>Controls and details</summary>
+        <p className="fine">
+          Drag to orbit, two fingers (or right-drag) to pan and zoom. While you place a handhold, an arc shows how far the
+          climber reaches from the nearest handhold below: inside the solid line is a static move, out to the dashed line only
+          a dyno. Undo and redo sit in the bar at the bottom.
+        </p>
+        <p className="fine">
+          Every day brings a new wall: slabs, overhangs, headwalls, caves with a lip to pull, ledges to mantle onto, corners you
+          can stem (some of them overhanging), and arêtes and overhanging prows whose edge is itself a hold. After a test,
+          numbered tags show the climber’s beta, coloured by how hard each move was. On steep walls they’ll heel hook big holds
+          out to the side, and toe hook a hold far out whose lip faces away from them. Hands follow the hold too: a lip facing
+          sideways is a sidepull, one facing away from the body a gaston, and one facing down an undercling. The climber is 175
+          cm, every day.
+        </p>
+      </details>
       <div className="sticky-cta">
         <button className="btn primary wide" onClick={close}>
           Start setting
         </button>
       </div>
+    </Modal>
+  );
+}
+
+/** What each V-grade looks like in Topout, from the solver's calibration problems. */
+const GRADE_GUIDE: { g: string; text: string }[] = [
+  { g: 'V0', text: 'Jugs close together on a vertical wall or a slab, good feet all the way.' },
+  { g: 'V1–2', text: 'Edges on a vertical wall, or jugs on a gentle (20°) overhang.' },
+  { g: 'V3', text: 'Crimps on a vertical wall, or small holds and smears on a slab.' },
+  { g: 'V4', text: 'Edges on a 20° overhang, jugs on a steep 40° wall, or a jump between jugs.' },
+  { g: 'V5–6', text: 'Pinches and gastons, or edges on a 40° wall.' },
+  { g: 'V7–8', text: 'Crimps and slopers on a 40° board, far apart, poor feet.' },
+];
+
+export function GradesModal() {
+  const open = useGame((s) => s.modal === 'grades');
+  const setModal = useGame((s) => s.setModal);
+  const target = useGame((s) => s.day?.targetGrade);
+  return (
+    <Modal open={open} onClose={() => setModal(null)} title="Grade guide">
+      <div className="eyebrow">Grade guide</div>
+      <h2>V-grades run from V0 (anyone can climb it) up through V8 and beyond.</h2>
+      <ul className="grade-guide">
+        {GRADE_GUIDE.map((r) => {
+          const [lo, hi] = r.g.slice(1).split('–').map(Number);
+          const here = target !== undefined && target >= lo && target <= (hi ?? lo);
+          return (
+            <li key={r.g} className={here ? 'here' : undefined}>
+              <b className="mono">{r.g}</b>
+              <span>
+                {r.text}
+                {here && <em> Today’s target.</em>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="levers">
+        <div>
+          <div className="eyebrow">Harder</div>
+          <ul>
+            <li>Smaller holds (crimps, S sizes)</li>
+            <li>Holds further apart</li>
+            <li>Steeper sections</li>
+            <li>Fewer or worse footholds</li>
+            <li>Holds turned off-axis</li>
+          </ul>
+        </div>
+        <div>
+          <div className="eyebrow">Easier</div>
+          <ul>
+            <li>Jugs and L sizes</li>
+            <li>Holds closer together</li>
+            <li>A foothold under each move</li>
+            <li>A big rest hold before the crux</li>
+            <li>Lips facing the pull</li>
+          </ul>
+        </div>
+      </div>
+      <p className="fine">
+        The grade comes mostly from the hardest move (the crux), plus a little for long runs of hard moves without a rest. A
+        test passes within one grade of the target.
+      </p>
+      <button className="btn primary wide" onClick={() => setModal(null)}>
+        Got it
+      </button>
     </Modal>
   );
 }
