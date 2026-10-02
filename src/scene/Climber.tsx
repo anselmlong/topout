@@ -10,7 +10,7 @@ import { bestPull, footTechnique, handGrip, handTechnique, highStep, stemBonus, 
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
-import { chalkHold, climberFocus, useClimb, usePlaySpeed } from '../state/climb';
+import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
 import { J, JOINTS, Ragdoll } from './ragdoll';
@@ -763,7 +763,10 @@ export function Climber({ day }: { day: Day }) {
             chalkHold(hold.id);
             puff(p, frameAt(frames, hold.u, hold.v).normal, 6 + Math.round(a.strain * 8), 0.35);
           }
-        } else sfx.foot();
+        } else {
+          sfx.foot();
+          if (hold) rubberHold(hold.id);
+        }
       }
       if (r.rest) shakeOut(r);
       sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null));

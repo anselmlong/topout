@@ -13,6 +13,8 @@ export interface ClimbFeed {
   status: 'idle' | 'climbing' | 'topped' | 'fell';
   /** Chalk build-up per hold id. Persists for the session. */
   chalk: Record<string, number>;
+  /** Shoe rubber smeared on per hold id, from feet landing on it. Persists for the session. */
+  rubber: Record<string, number>;
 }
 
 export const useClimb = create<ClimbFeed>(() => ({
@@ -22,11 +24,17 @@ export const useClimb = create<ClimbFeed>(() => ({
   label: '',
   status: 'idle',
   chalk: {},
+  rubber: {},
 }));
 
 export function chalkHold(id: string) {
   const c = useClimb.getState().chalk;
   useClimb.setState({ chalk: { ...c, [id]: Math.min(6, (c[id] ?? 0) + 1) } });
+}
+
+export function rubberHold(id: string) {
+  const c = useClimb.getState().rubber;
+  useClimb.setState({ rubber: { ...c, [id]: Math.min(6, (c[id] ?? 0) + 1) } });
 }
 
 /** Playback speeds the ticker cycles through. */

@@ -371,7 +371,13 @@ function HoldMesh({
   );
   const chalkUniform = useMemo(() => ({ value: 0 }), []);
   chalkUniform.value = chalk > 0 ? Math.min(0.85, 0.3 + chalk * 0.12) : 0;
-  const addChalk = useMemo(() => chalkShader(chalkUniform), [chalkUniform]);
+  // Shoe rubber: footholds come pre-scuffed from the gym's regulars, and every
+  // foot the climber puts on a hold leaves a little more.
+  const rubber = useClimb((s) => s.rubber[hold.id] ?? 0);
+  const worn = hold.type === 'foot' || hold.type === 'jib' ? 0.55 : 0;
+  const rubberUniform = useMemo(() => ({ value: 0 }), []);
+  rubberUniform.value = Math.min(1, worn + rubber * 0.12);
+  const addChalk = useMemo(() => chalkShader(chalkUniform, rubberUniform), [chalkUniform, rubberUniform]);
 
   return (
     <group position={t.position} quaternion={t.quaternion}>
@@ -464,13 +470,16 @@ function HoldMesh({
  * Hold surface: a fine sandy grit, like the textured polyurethane real holds are
  * cast in, then chalk white mixed in where the geometry's `grip` attribute says
  * hands and feet go (the incut of an edge, a pinch's flanks, a sloper's dome),
- * scaled by how much the hold has been used. The grit is a few-millimetre speckle
+ * scaled by how much the hold has been used. Shoe rubber goes on first, on the
+ * same faces: dark scuffs, streaked down the hold the way a toe drags as it
+ * weights, patchy rather than painted on. The grit is a few-millimetre speckle
  * in the hold's own frame, so it sticks to the hold, and it fades out once its
  * grains get smaller than a pixel instead of shimmering at a distance.
  */
-function chalkShader(amount: { value: number }) {
+function chalkShader(amount: { value: number }, rubber: { value: number }) {
   return (shader: { uniforms: Record<string, { value: unknown }>; vertexShader: string; fragmentShader: string }) => {
     shader.uniforms.uChalk = amount;
+    shader.uniforms.uRubber = rubber;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -482,6 +491,7 @@ function chalkShader(amount: { value: number }) {
         '#include <common>',
         `#include <common>
 uniform float uChalk;
+uniform float uRubber;
 varying float vGrip;
 varying vec3 vHoldPos;
 float gritHash(vec3 p) {
@@ -509,6 +519,13 @@ float gritNoise(vec3 p) {
   float grain = (gritHash(floor(gp)) - 0.5) * (1.0 - smoothstep(0.35, 1.1, perPixel));
   float mottle = gritNoise(vHoldPos * 55.0) - 0.5;
   diffuseColor.rgb *= 1.0 + 0.24 * grain + 0.16 * mottle;
+}
+if (uRubber > 0.0) {
+  // Scuffs ~1 cm across, stretched up and down the hold, with a faint wider smudge between them.
+  float scuff = smoothstep(0.42, 0.68, gritNoise(vHoldPos * vec3(110.0, 38.0, 70.0)));
+  float smudge = 0.35 * gritNoise(vHoldPos * 30.0 + 7.0);
+  float r = clamp(vGrip * uRubber * (scuff + smudge) * 2.2, 0.0, 0.7);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.11, 0.105, 0.1), r);
 }
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * uChalk, 0.0, 0.85));`,
       );
