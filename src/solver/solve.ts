@@ -43,6 +43,8 @@ import {
 
 const MAX_STATES = 250_000;
 const MIN_GRIP = 0.05;
+/** A stance that hangs at under this share of the hard moves' hang is a rest (hardStreak). */
+const REST = 0.6;
 
 type Limbs = [number, number, number, number];
 
@@ -99,14 +101,34 @@ export function solve(
       dynamic: m.dynamic,
     });
   }
-  const hard = moves.filter((m) => m.difficulty >= crux * 0.85).length;
   return {
     ok: true,
     crux,
-    grade: toGrade(crux, hard),
+    grade: toGrade(crux, hardStreak(moves, crux, path.slice(0, -1).map((l) => ctx.hangCost(l)))),
     moves,
     start: ctx.stance(path[0]),
   };
+}
+
+/**
+ * Pump: the longest run of hard moves (within 15% of the crux) without a rest.
+ * `hang[i]` is the cost of hanging one-handed in the stance before move i
+ * (Context.hangCost). A stance that hangs far easier than the ones the hard moves
+ * leave from is a rest: the climber shakes out, chalks up, and the pump clears. So
+ * three crux moves back to back climb harder than the same three split by a jug.
+ * A hard foot move counts too: the arms hold on while the foot finds its hold.
+ */
+export function hardStreak(moves: Move[], crux: number, hang: number[]): number {
+  const hard = (m: Move) => m.difficulty >= crux * 0.85;
+  const strain = Math.max(0, ...moves.map((m, i) => (hard(m) && Number.isFinite(hang[i]) ? hang[i] : 0)));
+  let run = 0;
+  let longest = 0;
+  moves.forEach((m, i) => {
+    if (hang[i] < strain * REST) run = 0;
+    if (hard(m)) run++;
+    longest = Math.max(longest, run);
+  });
+  return longest;
 }
 
 function orderHands(start: Hold[]): [number, number] {
@@ -259,6 +281,21 @@ class Context {
     if (val >= 0) return footQuality(this.holds[val]);
     if (val === SMEAR) return angleAt(this.wall, p.v) < -2 ? SMEAR_QUALITY.slab : SMEAR_QUALITY.vertical;
     return 0;
+  }
+
+  /**
+   * How hard it is to hang off the better hand in this stance, feet on, so the other
+   * hand can let go and shake out: the load on one arm over that hold's grip, on the
+   * same scale as a move's hanging term. Infinity with both feet off.
+   */
+  hangCost(l: Limbs): number {
+    const p = this.points(l);
+    const on = [2, 3].filter((f) => l[f] !== OFF);
+    if (!on.length) return Infinity;
+    const feet = { u: on.reduce((s, f) => s + p[f].u, 0) / on.length, v: on.reduce((s, f) => s + p[f].v, 0) / on.length };
+    const load = handLoad(angleAt(this.wall, (p[0].v + p[1].v) / 2), this.feetQ(l, p));
+    const g = Math.max(handGrip(this.holds[l[0]], feet, this.wall), handGrip(this.holds[l[1]], feet, this.wall));
+    return g < MIN_GRIP ? Infinity : (0.72 * load) / g;
   }
 
   /** Stance validity. `slack` > 1 allows the stretched landing of a dyno. */

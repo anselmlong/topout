@@ -321,13 +321,14 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.39 grades.
+ * … 40° board crimps V8); mean error ~0.38 grades.
  */
-export function toGrade(crux: number, hardMoves: number): number {
+export function toGrade(crux: number, hardStreak: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));
   // Sustained hard moves add up (pump), but only once the moves are hard in absolute
-  // terms: seven near-crux moves on a V0 jug ladder don't pump anyone out.
+  // terms: seven near-crux moves on a V0 jug ladder don't pump anyone out. `hardStreak`
+  // is the longest run of hard moves without a rest (solve.ts hardStreak).
   const pump = Math.max(0, Math.min(1, (crux - 0.6) / 0.8));
-  const density = Math.min(0.6, Math.max(0, hardMoves - 1) * 0.06) * pump;
+  const density = Math.min(0.6, Math.max(0, hardStreak - 1) * 0.06) * pump;
   return Math.max(0, Math.min(14, base + density));
 }
