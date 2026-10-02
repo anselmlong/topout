@@ -1435,3 +1435,68 @@ details.more[open] summary {
     padding: 4px max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
   }
 }
+
+/* ---------------------------------------------------------------- first-run tour */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  animation: fade 0.18s ease-out;
+}
+/* The spotlight: everything outside the target is dimmed by its own shadow. */
+.tour-spot,
+.tour-dim {
+  position: absolute;
+  pointer-events: none;
+}
+.tour-spot {
+  border-radius: 12px;
+  outline: 2px solid rgba(244, 241, 234, 0.9);
+  box-shadow: 0 0 0 9999px rgba(42, 40, 36, 0.5);
+  transition:
+    left 0.25s ease,
+    top 0.25s ease,
+    width 0.25s ease,
+    height 0.25s ease;
+}
+.tour-dim {
+  inset: 0;
+  background: rgba(42, 40, 36, 0.5);
+}
+.tour-bubble {
+  position: absolute;
+  width: min(300px, calc(100vw - 24px));
+  padding: 14px 16px 12px;
+  background: var(--surface-solid);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(30, 28, 22, 0.3);
+  transition:
+    left 0.25s ease,
+    top 0.25s ease;
+}
+.tour-bubble h3 {
+  margin: 2px 0 4px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.tour-bubble p {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+}
+.tour-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.tour-actions .btn:first-child {
+  margin-right: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour,
+  .tour-spot,
+  .tour-bubble {
+    animation: none;
+    transition: none;
+  }
+}

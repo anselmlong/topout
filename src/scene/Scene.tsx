@@ -670,7 +670,9 @@ function SpotLabel({
   }, [day.wall, frames, u, v]);
   return (
     <Html position={position} center portal={portal} zIndexRange={[3, 0]} style={{ pointerEvents: 'none' }}>
-      <div className={`spot-label ${show ? '' : 'hidden'}`}>{text}</div>
+      <div className={`spot-label ${show ? '' : 'hidden'}`} data-tour={text.toLowerCase()}>
+        {text}
+      </div>
     </Html>
   );
 }

@@ -73,6 +73,9 @@ export function HelpModal() {
           <button className="btn ghost" onClick={() => setModal('grades')}>
             Grade guide
           </button>
+          <button className="btn ghost" onClick={() => setModal('tour')}>
+            Show me around
+          </button>
         </div>
       </div>
       <details className="more">

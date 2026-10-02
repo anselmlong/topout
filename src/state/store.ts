@@ -72,7 +72,7 @@ interface GameState {
   /** Last solved route, shown as a beta overlay until the route is edited. */
   beta: { result: SolveResult; holds: Hold[]; volumes: Volume[]; spots?: Spots } | null;
   lastTest: TestRun | null;
-  modal: 'help' | 'grades' | 'result' | 'stats' | 'practice' | null;
+  modal: 'help' | 'tour' | 'grades' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
   /** Earlier route states for undo, oldest first; `redoStack` holds undone ones. */
   undoStack: RouteSnapshot[];

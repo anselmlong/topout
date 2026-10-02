@@ -32,12 +32,18 @@ failures) so today's in-progress saves aren't disturbed.
   touch-worded hints on tablets. *Left:* on a 320 px phone the brief wraps to three rows
   and can cover the Finish label (item 4); two-finger orbit/pan/zoom wasn't automatable
   in Playwright and still needs a real-device check.
-- [ ] **2. First-run walkthrough** ("start and end being fixed should be clearer",
+- [x] **2. First-run walkthrough** ("start and end being fixed should be clearer",
   "the ? info should pop up for first timers"). Replace the wall of text with a
   short interactive coach-mark tour on first visit: point at the Start and Finish
   spots ("fixed, tap to swap the hold"), the tray, the wall ("tap to place"), and the
   Test button. Skippable, shown once, re-openable from the ? help. Keep the full
   help modal for reference.
+  *Done:* first visit opens a spotlight tour (`src/ui/Tour.tsx`) instead of the help:
+  brief, Start, Finish, tray, the gap between Start and Finish, Test, and the ? button.
+  It tracks the real on-screen elements (`data-tour` attributes) every frame, skips
+  any that aren't shown (a route link has no tray), places its bubble beside or
+  above/below the target to fit phones and landscape, and is skippable (Skip or Esc).
+  Closing it marks the help as seen; the help has a "Show me around" button to replay it.
 - [ ] **3. Example gallery** ("some examples would be good for first players"). The
   help's example plays yesterday's setter route, which spoils it and doesn't exist
   on day 1. Add 3–4 hand-built example routes on practice walls (e.g. V0 jug ladder

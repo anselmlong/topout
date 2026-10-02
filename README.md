@@ -30,8 +30,9 @@ straight to the result. On touch: tap to place, two
 fingers to orbit/zoom.
 
 The taped Start and Finish spots are labelled on the wall and start with the day's
-jugs on them; click one to swap its hold. New players get the help on first visit
-(the ? button pulses until it's been opened), with a worked example, a link that
+jugs on them; click one to swap its hold. New players get a short spotlight tour on first visit
+(Start, Finish, tray, wall, Test; replayable from the help's "Show me around"), and the
+help (behind the ? button) has a worked example, a link that
 plays yesterday's setter route, and a grade guide (also behind the ? on the brief's
 grade). Playback defaults to 2×.
 

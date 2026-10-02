@@ -45,7 +45,7 @@ export function TopBar() {
   const resetView = useGame((s) => s.resetView);
   const done = useGame((s) => s.done);
   // Re-read after the help closes, so the nudge on its button goes away.
-  const nudge = useGame((s) => s.modal !== 'help' && !seenHelp());
+  const nudge = useGame((s) => s.modal !== 'help' && s.modal !== 'tour' && !seenHelp());
   return (
     <header className="topbar">
       <div className="brand">
@@ -77,7 +77,7 @@ export function TopBar() {
           </svg>
           <span className="label">Reset view</span>
         </button>
-        <button className={`icon-btn ${nudge ? 'nudge' : ''}`} onClick={() => setModal('help')} title="How to play">
+        <button className={`icon-btn ${nudge ? 'nudge' : ''}`} onClick={() => setModal('help')} title="How to play" data-tour="help">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm2.1-7.8-.9.9c-.7.7-1.2 1.3-1.2 2.9h-2v-.5c0-1.1.5-2.1 1.2-2.8l1.2-1.3a2 2 0 1 0-3.4-1.4H8a4 4 0 1 1 7.1 2.2z" />
           </svg>
@@ -104,7 +104,7 @@ export function Brief() {
   // A real minus sign, so negative (slab) angles don't read as a hyphenated list.
   const angles = day.wall.panels.map((p) => `${p.angle > 0 ? '+' : p.angle < 0 ? '−' : ''}${Math.abs(p.angle)}°`).join(' / ');
   return (
-    <section className="card brief" aria-label="Today's brief">
+    <section className="card brief" aria-label="Today's brief" data-tour="brief">
       <div className="eyebrow">
         {mode === 'practice' ? 'Practice wall' : mode === 'archive' ? `Replaying #${day.number}` : 'Today’s brief'}
       </div>
@@ -191,7 +191,7 @@ export function Tray() {
   // Someone else's route is on the wall: the tray has nothing to offer.
   if (viewing) return null;
   return (
-    <section ref={ref} className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray">
+    <section ref={ref} className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray" data-tour="tray">
       <div className="eyebrow">
         Hold set <span className="mono dim">{placed.length + volumes.length} placed</span>
       </div>
@@ -403,7 +403,7 @@ export function ActionBar() {
               Lock in
             </button>
           )}
-          <button className="btn primary" onClick={() => s.testClimb()} disabled={busy || left <= 0}>
+          <button className="btn primary" onClick={() => s.testClimb()} disabled={busy || left <= 0} data-tour="test">
             {/* The pips already count tests left; phones drop the long words so the bar fits. */}
             {s.phase === 'solving' ? (
               <>

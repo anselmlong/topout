@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { unlockAudio } from '../audio/sfx';
 import { Scene } from '../scene/Scene';
-import { seenHelp } from '../state/persist';
+import { markHelpSeen, seenHelp } from '../state/persist';
 import { useGame } from '../state/store';
 import { ActionBar, Brief, ClimbTicker, Controls, SelectionBar, TopBar, Tray, ViewingBanner } from './Hud';
 import { GradesModal, HelpModal, PracticeModal, ResultModal, StatsModal } from './Modals';
+import { Tour } from './Tour';
 
 const ROTATE_STEP = Math.PI / 12;
 
@@ -16,7 +17,8 @@ export function App() {
 
   useEffect(() => {
     load().then(() => {
-      if (!seenHelp()) useGame.getState().setModal('help');
+      // First visit: point at the real Start/Finish, tray and Test button rather than a wall of text.
+      if (!seenHelp()) useGame.getState().setModal('tour');
     });
     // A route link opened in an already-open tab only changes the hash.
     const onHash = () => location.hash.includes('r=') && load();
@@ -38,7 +40,10 @@ export function App() {
       }
       if (e.metaKey || e.ctrlKey) return;
       if (s.modal) {
-        if (e.key === 'Escape') s.setModal(null);
+        if (e.key === 'Escape') {
+          if (s.modal === 'tour') markHelpSeen();
+          s.setModal(null);
+        }
         return;
       }
       if (e.key === 'q' || e.key === 'Q') s.rotate(ROTATE_STEP);
@@ -143,6 +148,7 @@ export function App() {
       <ActionBar />
       <ViewingBanner />
       <HelpModal />
+      <Tour />
       <GradesModal />
       <ResultModal />
       <StatsModal />
