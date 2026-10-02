@@ -17,7 +17,7 @@ under 0.8 before pushing to main. If the solver or generator changes, re-curate 
 the next 5 days from tomorrow (`npx tsx scripts/curate.ts --from N --days 5`, 0
 failures) so today's in-progress saves aren't disturbed.
 
-- [ ] **1. Phone QA pass** ("quite buggy on phone"). Drive every flow by touch on a
+- [x] **1. Phone QA pass** ("quite buggy on phone"). Drive every flow by touch on a
   small and a large phone, portrait and landscape: place, drag-move, rotate, remove,
   spot picker, undo/redo, orbit vs tap, two-finger pan/zoom, test climb, result,
   results/share, practice modal, past days, example climb. Look for taps that do the
@@ -25,6 +25,13 @@ failures) so today's in-progress saves aren't disturbed.
   notch/home bar (safe-area insets), text overflow, modals taller than the screen,
   double-tap zoom, and console errors. Fix what you find; list anything left in the
   commit message.
+  *Done:* landscape phones get their own layout (brief and tray in side columns, ticker
+  under the brief, notch-safe insets, wall framed below the top bar); a tap that selects a
+  Start/Finish spot or hold no longer clicks the picker that opens under the finger; the
+  action bar fits after a test on 320-400 px phones; no double-tap zoom on buttons;
+  touch-worded hints on tablets. *Left:* on a 320 px phone the brief wraps to three rows
+  and can cover the Finish label (item 4); two-finger orbit/pan/zoom wasn't automatable
+  in Playwright and still needs a real-device check.
 - [ ] **2. First-run walkthrough** ("start and end being fixed should be clearer",
   "the ? info should pop up for first timers"). Replace the wall of text with a
   short interactive coach-mark tour on first visit: point at the Start and Finish

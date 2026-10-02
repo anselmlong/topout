@@ -40,6 +40,8 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  /* Quick taps (undo twice, rotate a few steps) must not double-tap zoom the page. */
+  touch-action: manipulation;
 }
 
 .mono {
@@ -1104,7 +1106,8 @@ details.more[open] summary {
 
 /* ---------------------------------------------------------------- mobile */
 
-@media (max-width: 720px) {
+/* Phones in portrait, and phones on their side (short landscape, overridden below). */
+@media (max-width: 720px), (orientation: landscape) and (max-height: 500px) {
   .topbar {
     padding: 10px 12px;
   }
@@ -1240,6 +1243,9 @@ details.more[open] summary {
   .holdcount {
     display: none;
   }
+  .wide-only {
+    display: none;
+  }
   /* Just above the tray, across the screen, so it never covers the wall's top or the finish. */
   .selection-bar {
     left: 12px;
@@ -1284,6 +1290,31 @@ details.more[open] summary {
   }
 }
 
+/* Narrow phones (320-400 px): squeeze the action bar so Test climb stays on screen
+   after the first test adds Undo, Redo, Clear and Lock in. */
+@media (max-width: 400px) {
+  .actionbar {
+    gap: 3px;
+    padding-left: 8px;
+  }
+  .actionbar .btn {
+    padding: 0 6px;
+    font-size: 12.5px;
+  }
+  .actionbar .btn.icon {
+    width: 28px;
+  }
+  .pips {
+    gap: 2px;
+  }
+  .pip {
+    width: 14px;
+    height: 14px;
+    font-size: 10px;
+    line-height: 12px;
+  }
+}
+
 /* Start/finish spot: choose the hold, never its position. */
 .selection-bar.spot-picker {
   flex-direction: column;
@@ -1323,4 +1354,84 @@ details.more[open] summary {
 }
 .spot-picker .mono {
   font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- phone landscape */
+
+/* A phone on its side is ~340-430 px tall: the compact phone cards from above, but the brief
+   and a scrolling tray sit in side columns so the wall keeps the middle of the screen.
+   Clear of the notch and home bar on whichever side they are. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .topbar {
+    padding: 6px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+  }
+  .brand {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .icon-btn {
+    height: 30px;
+  }
+  .hud {
+    top: 44px;
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 54px);
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .hud-left {
+    width: 200px;
+    max-width: 200px;
+  }
+  .tray {
+    width: 196px;
+    max-height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .tray ul {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .actionbar,
+  .viewing {
+    left: 50%;
+    right: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    padding: 4px 4px 4px 10px;
+  }
+  .selection-bar {
+    left: 50%;
+    right: auto;
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 54px);
+    transform: translateX(-50%);
+    max-width: calc(100vw - 2 * 224px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .selection-bar.spot-picker {
+    max-width: calc(100vw - 2 * 224px);
+  }
+  /* Down the brief's column, above the action bar, so the climber in the middle stays clear. */
+  .ticker {
+    left: max(12px, env(safe-area-inset-left));
+    right: auto;
+    top: auto;
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
+    transform: none;
+    width: 200px;
+    padding: 6px 10px 8px;
+  }
+  .ticker .label {
+    font-size: 13px;
+    margin: 2px 0 4px;
+  }
+  .modal {
+    max-height: calc(100% - 8px);
+  }
+  .modal-backdrop {
+    padding: 4px max(16px, env(safe-area-inset-right)) 4px max(16px, env(safe-area-inset-left));
+  }
 }

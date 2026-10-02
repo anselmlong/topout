@@ -134,7 +134,10 @@ function CameraRig({ wall }: { wall: Wall }) {
     const vfov = (cam.fov * Math.PI) / 180;
     const aspect = sizeRef.current.width / sizeRef.current.height;
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
-    const fitH = (b.height * 0.5 + 0.35 + b.depth * 0.15) / Math.tan(vfov / 2);
+    // A phone on its side loses a third of its short height to the top bar and action bar:
+    // step back so the finish clears the top bar.
+    const shortLandscape = aspect > 1 && sizeRef.current.height < 500;
+    const fitH = ((b.height * 0.5 + 0.35 + b.depth * 0.15) * (shortLandscape ? 1.15 : 1)) / Math.tan(vfov / 2);
     // Portrait screens are width-bound: keep the side margin small there.
     const fitW = (wall.width / 200 + (aspect < 1 ? 0.12 : 0.3)) / Math.tan(hfov / 2);
     const d = Math.max(fitH, fitW);

@@ -82,6 +82,41 @@ export function App() {
     return () => el.removeEventListener('wheel', onWheel);
   }, [status]);
 
+  // A tap on the wall selects on press, so the hold or spot picker can appear right under the
+  // finger; the browser's click after the lift then lands on it (swapping a start jug for
+  // whatever button is there). Swallow that one click if it lands outside the wall.
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    let pending = false;
+    let timer = 0;
+    const onStageDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+      pending = true;
+      clearTimeout(timer);
+      timer = window.setTimeout(() => (pending = false), 1000);
+    };
+    const onAnyDown = (e: PointerEvent) => {
+      if (!el.contains(e.target as Node)) pending = false;
+    };
+    const onClick = (e: MouseEvent) => {
+      if (!pending) return;
+      pending = false;
+      if (el.contains(e.target as Node)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener('pointerdown', onStageDown, true);
+    window.addEventListener('pointerdown', onAnyDown, true);
+    window.addEventListener('click', onClick, true);
+    return () => {
+      clearTimeout(timer);
+      el.removeEventListener('pointerdown', onStageDown, true);
+      window.removeEventListener('pointerdown', onAnyDown, true);
+      window.removeEventListener('click', onClick, true);
+    };
+  }, [status]);
+
   if (status === 'loading') {
     return (
       <div className="splash">

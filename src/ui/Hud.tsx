@@ -149,7 +149,17 @@ export function Controls() {
   const armed = useGame((s) => s.armed);
   const selected = useGame((s) => s.selectedId);
   const onSpot = useGame((s) => !!s.selectedId && isSpotId(s.day!, s.selectedId));
-  const text = armed
+  // Tablets are wide enough for this hint but have no mouse or keyboard.
+  const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+  const text = touch
+    ? armed
+      ? 'Tap the wall to place · tap the tray slot again to put it back'
+      : onSpot
+        ? 'Choose the hold for this spot · ↺ ↻ to rotate · it stays on the tape'
+        : selected
+          ? 'Drag to move · ↺ ↻ to rotate · Remove takes it off'
+          : 'The taped Start and Finish spots are fixed (tap one to swap its hold) · pick holds from the tray and tap the wall to place them between · two fingers orbit and zoom'
+    : armed
       ? `Click the wall to place · Q / E or scroll to rotate · Esc to cancel`
       : onSpot
         ? 'Choose the hold for this spot · Q / E to rotate · it stays on the tape'
@@ -394,7 +404,20 @@ export function ActionBar() {
             </button>
           )}
           <button className="btn primary" onClick={() => s.testClimb()} disabled={busy || left <= 0}>
-            {s.phase === 'solving' ? 'Reading the route…' : s.phase === 'climbing' ? 'Climbing…' : practice ? 'Test climb' : `Test climb (${left} left)`}
+            {/* The pips already count tests left; phones drop the long words so the bar fits. */}
+            {s.phase === 'solving' ? (
+              <>
+                Reading<span className="wide-only"> the route</span>…
+              </>
+            ) : s.phase === 'climbing' ? (
+              'Climbing…'
+            ) : practice ? (
+              'Test climb'
+            ) : (
+              <>
+                Test climb<span className="wide-only"> ({left} left)</span>
+              </>
+            )}
           </button>
         </>
       )}
