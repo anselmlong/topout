@@ -1,7 +1,7 @@
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { defaultSpots, spotsOf } from '../game/spots';
 import { bestPull, lipV, wallHeight } from '../solver/model';
@@ -73,7 +73,7 @@ function wallBounds(wall: Wall) {
 }
 
 function CameraRig({ wall }: { wall: Wall }) {
-  const { camera, size } = useThree();
+  const { camera, size, scene } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
   const nonce = useGame((s) => s.viewNonce);
   // The wheel rotates the armed/selected hold; otherwise it zooms.
@@ -81,6 +81,7 @@ function CameraRig({ wall }: { wall: Wall }) {
   // Decided before the press: over a placed hold (or already dragging one), the mouse edits.
   const editingHold = useGame((s) => !!s.hoverHoldId || !!s.draggingId);
   if (import.meta.env.DEV) (window as unknown as { __cam: THREE.Camera }).__cam = camera;
+  const [framing, setFraming] = useState(0);
   const sizeRef = useRef(size);
   sizeRef.current = size;
   const target = useMemo(() => {
@@ -137,12 +138,18 @@ function CameraRig({ wall }: { wall: Wall }) {
     // Portrait screens are width-bound: keep the side margin small there.
     const fitW = (wall.width / 200 + (aspect < 1 ? 0.12 : 0.3)) / Math.tan(hfov / 2);
     const d = Math.max(fitH, fitW);
+    setFraming(d);
+    // Wide walls on a portrait phone sit far back: start the haze behind the wall, not on it.
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.near = Math.max(16, d + 3);
+      scene.fog.far = scene.fog.near + 18;
+    }
     cam.position.set(0.0, target.y + 0.25, target.z + d);
     cam.lookAt(target);
     cam.updateProjectionMatrix();
     controls.current?.target.copy(target);
     controls.current?.update();
-  }, [camera, wall, target, nonce]);
+  }, [camera, scene, wall, target, nonce]);
 
   return (
     <OrbitControls
@@ -156,7 +163,8 @@ function CameraRig({ wall }: { wall: Wall }) {
       minAzimuthAngle={-1.25}
       maxAzimuthAngle={1.25}
       minDistance={2.5}
-      maxDistance={18}
+      // Always room to zoom back out past the home framing.
+      maxDistance={Math.max(18, framing * 1.3)}
       // Over a hold, the left button edits it instead.
       enabled={!editingHold}
       // Left-drag orbits (Shift+left pans); right- or middle-drag pans (two-finger click-drag on a
@@ -173,8 +181,10 @@ function Floor({ wall }: { wall: Wall }) {
   const w = pad.width;
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.001, 3]} receiveShadow>
-        <planeGeometry args={[40, 30]} />
+      {/* Reaches well behind the furthest camera (portrait framing of a wide wall sits ~18 m back,
+          zoomed out ~24 m): with its edge near the camera the plane drew over the pad. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.001, 12]} receiveShadow>
+        <planeGeometry args={[60, 50]} />
         <meshStandardMaterial color={PALETTE.floor} roughness={1} />
       </mesh>
       <mesh position={[0, 0.15, padDepth / 2 - 0.05]} receiveShadow castShadow>
