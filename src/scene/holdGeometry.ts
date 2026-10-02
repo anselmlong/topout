@@ -1,8 +1,9 @@
 // Procedural low-poly hold meshes. Local frame: base on z = 0 (the wall),
 // +z out of the wall, +y is the incut side (hold "up" at rot = 0). Metres.
 //
-// Each hold is a deformed icosphere: squared off with a superellipsoid for
-// edges and crimps, carved for pockets and jug lips, jittered per variant so
+// Jugs, edges, crimps and pinches are side profiles extruded across their
+// width; slopers, pockets and foot chips are built in rings around their
+// outline; jibs are knapped icospheres. Each is jittered per variant so
 // no two look quite alike. Per-face colour grain is baked in as vertex colours
 // (multiplied with the material colour). A per-vertex `grip` attribute marks
 // the surfaces hands and shoes actually use, so chalk builds up there and
@@ -346,6 +347,89 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
 }
 
 /**
+ * A sloper: a broad bolt-on dome built in rings from its outline in to a crest
+ * that sits low, below centre. From the crest the top rolls back to the wall
+ * in a long, flat ramp where the palm goes (some variants dish it slightly, a
+ * friction spot), while the bottom drops off in a steep, short shoulder. The
+ * rim flares out thin where it meets the wall, like a cast shell, and the
+ * outline is a hand-shaped lozenge, sometimes narrower at the top like a pear.
+ * Local frame and units as the other holds; `S` is the size scale.
+ */
+function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+  const N = 32;
+  const W = 0.1 * (0.9 + 0.2 * k);
+  const H = 0.078;
+  const Z = 0.05 * (1.04 - 0.08 * k);
+  // Crest: low, and a little off to one side.
+  const cx = W * r.range(-0.12, 0.12);
+  const cy = -H * (0.25 + 0.15 * k);
+  const e = 0.72 + 0.18 * k;
+  const pear = r.range(0, 0.2);
+  const dish = r.range(0, 0.1);
+  const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
+  const wobble = Array.from({ length: N }, (_, j) => {
+    const th = (j / N) * Math.PI * 2;
+    return 1 + 0.04 * Math.sin(2 * th + p1) + 0.025 * Math.sin(3 * th + p2);
+  });
+  const outline = (c: number, s: number, j: number): [number, number] => [
+    W * sgnpow(c, e) * (1 - pear * Math.max(0, s)) * wobble[j],
+    H * sgnpow(s, e) * wobble[j],
+  ];
+  // Rings: [t (outline → crest), lift (fraction of Z)]. A thin flared skirt,
+  // a shoulder, then a broad, nearly flat top.
+  const rings: [number, number][] = [
+    [0, 0],
+    [0.05, 0.14],
+    [0.13, 0.38],
+    [0.25, 0.63],
+    [0.4, 0.83],
+    [0.57, 0.94],
+    [0.75, 0.985],
+    [0.9, 1],
+  ];
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  rings.forEach(([t, lift], i) => {
+    for (let j = 0; j < N; j++) {
+      const th = (j / N) * Math.PI * 2;
+      const c = Math.cos(th), s = Math.sin(th);
+      const [ox, oy] = outline(c, s, j);
+      // The bottom shoulder rises fast; the top rolls over slowly.
+      const l = lift ** (s < 0 ? 1 - 0.4 * -s : 1 + 0.35 * s);
+      // A faint dish across the upper ramp, where the palm sits.
+      const palm = dish * Math.max(0, s) * Math.sin(Math.PI * t) ** 2;
+      const jz = t > 0 && t < 0.9 ? r.range(0.985, 1.015) : 1;
+      pos.push(ox + (cx - ox) * t, oy + (cy - oy) * t, Z * (l - palm) * jz);
+      // The skirt sits in the shadow of the dome.
+      shade.push(t === 0 ? 0.86 : 1);
+    }
+    if (i === 0) return;
+    for (let j = 0; j < N; j++) {
+      const A = (i - 1) * N + j;
+      const B = (i - 1) * N + ((j + 1) % N);
+      const C = i * N + ((j + 1) % N);
+      const D = i * N + j;
+      index.push(A, B, C, A, C, D);
+    }
+  });
+  const last = (rings.length - 1) * N;
+  const crest = pos.length / 3;
+  pos.push(cx, cy, Z);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(last + j, last + ((j + 1) % N), crest);
+  const base = pos.length / 3;
+  pos.push(0, 0, 0);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(base, (j + 1) % N, j);
+  return {
+    ...indexedToFlat(pos, shade, index, S),
+    // Palmed, so the whole upper dome gets chalky, the steep underside barely.
+    grip: ((n, c) => smooth(-0.35, 0.5, n.y + 0.5 * n.z) * (c.y / S > cy - 0.01 ? 1 : 0.4)) as GripFn,
+  };
+}
+
+/**
  * A screw-on foot chip: a D-shaped nub, flat across the top and rounded below,
  * built in rings from the outline in to a countersunk screw hole. The top edge
  * stands proud and is slightly incut (a little shelf the toe of a shoe sits on)
@@ -529,28 +613,8 @@ const SHAPES: Record<HoldType, Shape> = {
       p.x += 0.15 * Math.sin(p.y * 3 + k * 4) * 0.2;
     },
   },
-  // A broad, low dome: the crest sits low, so the top is a long rounded ramp
-  // back to the wall (where the palm goes) and the underside drops off steeply.
-  // The base flares into a skirt, like a real bolt-on shell.
-  sloper: {
-    scale: [0.1, 0.078, 0.05],
-    detail: 2,
-    jitter: 0.03,
-    bolt: true,
-    shape: (p, k) => {
-      const crest = -0.25 - 0.15 * k;
-      // Squash the dome so its highest point sits below centre.
-      p.z *= p.y > crest ? 1 - 0.38 * ((p.y - crest) / (1 - crest)) ** 1.4 : 1 - 0.1 * (crest - p.y);
-      // Flat-ish palm across the top, not a ball.
-      if (p.y > 0.2 && p.z > 0.25) p.z = 0.25 + (p.z - 0.25) * 0.75;
-      // Skirt: widen the rim where it meets the wall.
-      const flare = 1 + 0.14 * (1 - Math.min(1, Math.max(0, p.z) / 0.35)) ** 2;
-      p.x *= (0.9 + 0.2 * k) * flare;
-      p.y *= flare;
-    },
-    // Palmed, so the whole upper dome and its face get chalky.
-    grip: (n, c) => smooth(-0.35, 0.5, n.y + 0.5 * n.z) * (c.y > -0.15 ? 1 : 0.4),
-  },
+  // Built by sloperGeometry; only `bolt` is read here.
+  sloper: { scale: [0.1, 0.078, 0.05], detail: 0, jitter: 0, bolt: true },
   pinch: {
     scale: [0.03, 0.08, 0.046],
     detail: 2,
@@ -613,8 +677,8 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   const spec = SHAPES[type];
   const r = rng(hash(type.length, type.charCodeAt(0), type.charCodeAt(1), size.charCodeAt(0), v));
   const k = v / (VARIANTS - 1);
-  if (type === 'pocket') {
-    const p = pocketGeometry(SIZE[size], k, r);
+  if (type === 'pocket' || type === 'sloper') {
+    const p = (type === 'pocket' ? pocketGeometry : sloperGeometry)(SIZE[size], k, r);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;
