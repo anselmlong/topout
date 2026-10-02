@@ -131,7 +131,7 @@ function freeRect(canvas: HTMLElement) {
  * fits the free rectangle, and slide the view so it sits in the middle of it. Leaves the camera
  * there and returns the orbit target and distance.
  */
-function fitWall(cam: THREE.PerspectiveCamera, points: THREE.Vector3[], free: ReturnType<typeof freeRect>, centre: THREE.Vector3) {
+function fitWall(cam: THREE.PerspectiveCamera, points: THREE.Vector3[], free: ReturnType<typeof freeRect>, centre: THREE.Vector3, low = false) {
   const nx0 = (free.l / free.w) * 2 - 1;
   const nx1 = (free.r / free.w) * 2 - 1;
   const ny0 = 1 - (free.b / free.h) * 2;
@@ -142,7 +142,8 @@ function fitWall(cam: THREE.PerspectiveCamera, points: THREE.Vector3[], free: Re
   let d = 10;
   const p = new THREE.Vector3();
   for (let i = 0; i < 60; i++) {
-    cam.position.set(t.x, t.y + 0.25, t.z + d);
+    // Under a roof, crouch and look up at it: front-on, its underside is a sliver.
+    cam.position.set(t.x, low ? LOW_EYE : t.y + 0.25, t.z + d);
     cam.lookAt(t);
     cam.updateMatrixWorld();
     let a0 = Infinity;
@@ -167,6 +168,11 @@ function fitWall(cam: THREE.PerspectiveCamera, points: THREE.Vector3[], free: Re
   return { target: t, d };
 }
 
+/** Eye height (m) of the home view under a roof. */
+const LOW_EYE = 0.5;
+/** A panel this steep (degrees) is a roof you climb along the underside of. */
+const ROOF = 60;
+
 function CameraRig({ wall }: { wall: Wall }) {
   const { camera, size, scene, gl } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
@@ -177,6 +183,7 @@ function CameraRig({ wall }: { wall: Wall }) {
   const editingHold = useGame((s) => !!s.hoverHoldId || !!s.draggingId);
   if (import.meta.env.DEV) (window as unknown as { __cam: THREE.Camera }).__cam = camera;
   const [framing, setFraming] = useState(0);
+  const low = wall.panels.some((p) => p.angle > ROOF);
   const target = useMemo(() => {
     const b = wallBounds(wall);
     return new THREE.Vector3(0, b.height / 2 + 0.05, b.depth / 2);
@@ -230,7 +237,7 @@ function CameraRig({ wall }: { wall: Wall }) {
     const frame = () => {
       cam.aspect = size.width / size.height;
       cam.updateProjectionMatrix();
-      const { target: t, d } = fitWall(cam, wallCorners(wall), freeRect(gl.domElement), target);
+      const { target: t, d } = fitWall(cam, wallCorners(wall), freeRect(gl.domElement), target, low);
       home.current.copy(t);
       setFraming(d);
       // Wide walls on a portrait phone sit far back: start the haze behind the wall, not on it.
@@ -245,7 +252,7 @@ function CameraRig({ wall }: { wall: Wall }) {
     // The HUD settles a frame later (fonts, the tray wrapping): measure it again then.
     const raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [camera, scene, gl, wall, target, nonce, size.width, size.height]);
+  }, [camera, scene, gl, wall, target, low, nonce, size.width, size.height]);
 
   return (
     <OrbitControls
@@ -254,7 +261,7 @@ function CameraRig({ wall }: { wall: Wall }) {
       enableDamping
       dampingFactor={0.12}
       enableZoom={!holdActive}
-      maxPolarAngle={Math.PI * 0.55}
+      maxPolarAngle={Math.PI * (low ? 0.62 : 0.55)}
       // Stay in front of the wall: there's nothing to see behind it.
       minAzimuthAngle={-1.25}
       maxAzimuthAngle={1.25}

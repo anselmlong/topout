@@ -164,6 +164,24 @@ describe('solver', () => {
     expect(r.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] >= firstLip)).toBe(true);
   });
 
+  it('a roof climbs out along its underside and hooks the lip onto the headwall', () => {
+    const roof: Wall = { width: 400, panels: [{ length: 140, angle: 2 }, { length: 115, angle: 75 }, { length: 200, angle: 5 }], seed: 1, lip: true };
+    // The lip is the roof's front edge, not the corner at its back.
+    expect(lipV(roof)).toBe(255);
+    const holds: Hold[] = [
+      { id: 'a', type: 'jug', size: 'm', u: 175, v: 180, rot: 0 },
+      { id: 'b', type: 'jug', size: 'm', u: 225, v: 220, rot: 0 },
+      { id: 'c', type: 'edge', size: 'l', u: 190, v: 310, rot: 0 },
+      { id: 'f0', type: 'foot', size: 'm', u: 190, v: 45, rot: 0 },
+      { id: 'f1', type: 'foot', size: 'm', u: 215, v: 80, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 200, v: 150, rot: 0 },
+    ];
+    const r = solve(roof, start, finishAt(400), holds);
+    if (!r.ok) throw new Error(r.message);
+    const firstLip = start.length + 1 + holds.length;
+    expect([r.start, ...r.moves.map((m) => m.to)].some((s) => s.limbs.some((x) => x >= firstLip))).toBe(true);
+  });
+
   it('a ledge lip is the hold at its front edge, not at the back of the shelf', () => {
     const ledge: Wall = { width: 400, panels: [{ length: 200, angle: 5 }, { length: 28, angle: -75 }, { length: 200, angle: 8 }], seed: 1, lip: true };
     expect(lipV(ledge)).toBe(200);
