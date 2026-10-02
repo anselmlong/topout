@@ -18,7 +18,7 @@ export function dateOf(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop' | 'rollover' | 'belly';
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop' | 'rollover' | 'belly' | 'overlap';
 
 export const STYLE_LABEL: Record<WallStyle, string> = {
   slab: 'Slab',
@@ -36,6 +36,7 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   scoop: 'Scoop',
   rollover: 'Rollover',
   belly: 'Belly',
+  overlap: 'Overlap',
 };
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
@@ -140,6 +141,19 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
       ];
       break;
     }
+    case 'overlap': {
+      // A slab with a roof band across it: a short, steep step (an overlap) you reach
+      // over, grab by its rounded lip and mantle past, back onto smears on the slab above.
+      // Balance below, one burly pull through the roof, then balance again.
+      const toe = r.int(170, 225);
+      const roof = r.int(38, 55);
+      panels = [
+        { length: toe, angle: -r.int(8, 16) },
+        { length: roof, angle: r.int(45, 60) },
+        { length: tall - toe - roof, angle: -r.int(6, 14) },
+      ];
+      return { width, panels, seed, lip: true };
+    }
     case 'arete': {
       // An outside corner: faces turned away, the edge itself a hold. Sharper is juggier.
       panels = [{ length: tall, angle: r.int(-5, 15) }];
@@ -163,7 +177,7 @@ export function wallStyleOf(wall: Wall): WallStyle {
     if (wall.fold.angle > 0) return a > 20 ? 'dihedral' : 'corner';
     return a >= 18 ? 'prow' : 'arete';
   }
-  if (wall.lip) return 'rollover';
+  if (wall.lip) return wall.panels.length === 3 ? 'overlap' : 'rollover';
   const p = wall.panels;
   if (p.length === 4) return 'scoop';
   if (p.length === 3) return p[0].angle < 0 ? 'belly' : 'cave';
@@ -184,11 +198,11 @@ const WEEKDAY_GRADE = [3, 1, 2, 3, 4, 5, 4]; // Sun..Sat
 const STYLE_BY_WEEKDAY: WallStyle[][] = [
   ['overhang', 'headwall', 'kicker', 'corner', 'arete'], // Sun
   ['vertical', 'slab', 'overhang', 'corner'], // Mon
-  ['vertical', 'overhang', 'slab', 'corner', 'arete'], // Tue
+  ['vertical', 'overhang', 'slab', 'corner', 'arete', 'overlap'], // Tue
   ['overhang', 'kicker', 'vertical', 'corner', 'bulge', 'scoop', 'rollover', 'belly'], // Wed
-  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop', 'belly'], // Thu
+  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop', 'belly', 'overlap'], // Thu
   ['steep', 'kicker', 'headwall', 'bulge', 'cave', 'prow', 'dihedral'], // Fri
-  ['overhang', 'steep', 'headwall', 'corner', 'bulge', 'cave', 'prow', 'dihedral', 'scoop', 'rollover', 'belly'], // Sat
+  ['overhang', 'steep', 'headwall', 'corner', 'bulge', 'cave', 'prow', 'dihedral', 'scoop', 'rollover', 'belly', 'overlap'], // Sat
 ];
 
 /** One or two volumes for a day's tray; they change the wall under the route. */
@@ -222,7 +236,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
     jug: Math.max(0.15, 1.6 - grade * 0.4) + (steep ? 0.4 : 0),
     edge: 2 + (steep ? 0.6 : 0),
     crimp: 1 + grade * 0.5 + (style === 'vertical' || style === 'slab' ? 1 : 0),
-    sloper: style === 'slab' ? 2.5 : steep ? 0.6 : 1.2,
+    sloper: style === 'slab' || style === 'overlap' ? 2.5 : steep ? 0.6 : 1.2,
     pinch: 1.2 + grade * 0.3,
     pocket: 1.2,
   };
@@ -258,7 +272,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   return [...volumeSlots(r), ...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
 }
 
-/** Angle range per style for practice (multi-panel walls: the top panel; caves and bellies: the steep middle; rollovers: the overhang). */
+/** Angle range per style for practice (multi-panel walls: the top panel; caves, bellies and overlaps: the steep middle; rollovers: the overhang). */
 export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   slab: [-25, -5],
   vertical: [0, 8],
@@ -275,6 +289,7 @@ export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   scoop: [25, 45],
   rollover: [15, 35],
   belly: [20, 40],
+  overlap: [40, 60],
 };
 
 export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];
@@ -321,13 +336,13 @@ export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<
 
   const style = o.style ?? r.pick(STYLE_BY_WEEKDAY[weekday]);
   const wall = makeWall(r, style, hash(n, variant));
-  if (o.angle !== undefined) wall.panels[style === 'cave' || style === 'belly' ? 1 : style === 'rollover' ? 0 : wall.panels.length - 1].angle = o.angle;
+  if (o.angle !== undefined) wall.panels[style === 'cave' || style === 'belly' || style === 'overlap' ? 1 : style === 'rollover' ? 0 : wall.panels.length - 1].angle = o.angle;
   const height = wall.panels.reduce((h, p) => h + p.length, 0);
   let targetGrade = WEEKDAY_GRADE[weekday] + (style === 'slab' ? -1 : style === 'steep' || style === 'cave' ? 1 : 0);
   targetGrade = Math.max(0, Math.min(8, targetGrade + r.pick([-1, 0, 0, 1])));
   // Nobody sets a V1 through a 50° cave, or up a steep prow.
   if (style === 'cave' || style === 'prow') targetGrade = Math.max(3, targetGrade);
-  if (style === 'rollover' || style === 'belly') targetGrade = Math.max(2, targetGrade);
+  if (style === 'rollover' || style === 'belly' || style === 'overlap') targetGrade = Math.max(2, targetGrade);
   if (o.grade !== undefined) targetGrade = o.grade;
 
   const margin = 50;

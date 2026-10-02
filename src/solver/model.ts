@@ -150,7 +150,7 @@ export function wallHeight(wall: Wall): number {
   return wall.panels.reduce((h, p) => h + p.length, 0);
 }
 
-/** Wall v (cm) of a rollover lip (Wall.lip): the break into the top panel. */
+/** Wall v (cm) of a rollover or overlap lip (Wall.lip): the break into the top panel. */
 export function lipV(wall: Wall): number {
   return wall.panels.slice(0, -1).reduce((h, p) => h + p.length, 0);
 }

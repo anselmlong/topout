@@ -192,7 +192,7 @@ export function areteContacts(wall: Wall): Hold[] {
 }
 
 /**
- * A rollover lip is itself a hold: a rounded edge every 40 cm along the break into
+ * A rollover (or overlap) lip is itself a hold: a rounded edge every 40 cm along the break into
  * the top panel. Pulled down from below (a big sloping rail you can match and shuffle
  * along), and a heel goes over it to rock up onto the slab: the classic mantle top-out.
  */
