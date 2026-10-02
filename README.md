@@ -18,7 +18,8 @@ Pushing to `main` deploys to https://topout.anselmlong.com (Vercel Git integrati
 
 Left-drag on the wall or background orbits; Shift+drag or middle-drag pans; the
 wheel zooms (or rotates the armed/selected hold). A click without dragging places
-or selects, and a drag that starts on a placed hold moves it.
+or selects, and a drag that starts on a placed hold moves it. Reset view (and every load or
+resize) fits the whole wall into the screen space the HUD leaves free.
 Q/E rotate, right-click (without dragging) removes. While a handhold is armed or
 dragged, an arc on the wall shows the climber's reach from the nearest handhold
 below (solid: static, dashed: dyno only; `src/game/reach.ts` mirrors the solver's

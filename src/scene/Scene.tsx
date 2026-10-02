@@ -72,8 +72,103 @@ function wallBounds(wall: Wall) {
   return { height: top.y, depth: top.z };
 }
 
+/** Every corner of every facet: a prow's nose and a cave's lip stick out toward the camera. */
+function wallCorners(wall: Wall) {
+  const frames = panelFrames(wall);
+  return frames.flatMap((f) =>
+    [
+      [f.u0, f.v0],
+      [f.u1, f.v0],
+      [f.u0, f.v1],
+      [f.u1, f.v1],
+    ].map(([u, v]) => uvToWorld(wall, frames, u, v)),
+  );
+}
+
+/** HUD pieces that sit over the wall when the camera is at rest. */
+const HUD_COVER = ['.topbar', '.hud-left', '.tray', '.actionbar', '.viewing'];
+
+/**
+ * The part of the canvas the HUD leaves uncovered, in canvas pixels. Each HUD card cuts the
+ * free rectangle from whichever side leaves room for the biggest wall: the brief over a phone's
+ * wall cuts the top, a desktop tray cuts the right, the action bar cuts the bottom.
+ */
+function freeRect(canvas: HTMLElement) {
+  const c = canvas.getBoundingClientRect();
+  // How big a wall (about 0.85 as wide as it is tall) a free rectangle can show.
+  const fit = (q: { l: number; t: number; r: number; b: number }) => Math.max(0, Math.min((q.r - q.l) / 0.85, q.b - q.t));
+  const r = { l: 0, t: 0, r: c.width, b: c.height };
+  const whole = fit(r);
+  for (const sel of HUD_COVER)
+    for (const el of document.querySelectorAll(sel)) {
+      const e = el.getBoundingClientRect();
+      if (e.width === 0 || e.height === 0) continue;
+      const x0 = e.left - c.left;
+      const x1 = e.right - c.left;
+      const y0 = e.top - c.top;
+      const y1 = e.bottom - c.top;
+      if (x1 <= r.l || x0 >= r.r || y1 <= r.t || y0 >= r.b) continue;
+      const best = [
+        { ...r, t: y1 },
+        { ...r, b: y0 },
+        { ...r, l: x1 },
+        { ...r, r: x0 },
+      ].sort((p, q) => fit(q) - fit(p))[0];
+      // A card that would leave only a sliver (a small desktop window) may overlap the wall instead.
+      if (fit(best) >= whole * 0.5) Object.assign(r, best);
+    }
+  // Breathing room for the Finish label and holds standing proud of the wall.
+  const pad = Math.min(16, c.width * 0.03);
+  r.l += pad;
+  r.r -= pad;
+  r.t += pad + 8;
+  r.b -= pad;
+  return { ...r, w: c.width, h: c.height };
+}
+
+/**
+ * Fit the whole wall into the free part of the screen: step back until its projected outline
+ * fits the free rectangle, and slide the view so it sits in the middle of it. Leaves the camera
+ * there and returns the orbit target and distance.
+ */
+function fitWall(cam: THREE.PerspectiveCamera, points: THREE.Vector3[], free: ReturnType<typeof freeRect>, centre: THREE.Vector3) {
+  const nx0 = (free.l / free.w) * 2 - 1;
+  const nx1 = (free.r / free.w) * 2 - 1;
+  const ny0 = 1 - (free.b / free.h) * 2;
+  const ny1 = 1 - (free.t / free.h) * 2;
+  const tanV = Math.tan((cam.fov * Math.PI) / 360);
+  const tanH = tanV * cam.aspect;
+  const t = centre.clone();
+  let d = 10;
+  const p = new THREE.Vector3();
+  for (let i = 0; i < 60; i++) {
+    cam.position.set(t.x, t.y + 0.25, t.z + d);
+    cam.lookAt(t);
+    cam.updateMatrixWorld();
+    let a0 = Infinity;
+    let a1 = -Infinity;
+    let b0 = Infinity;
+    let b1 = -Infinity;
+    for (const q of points) {
+      p.copy(q).project(cam);
+      a0 = Math.min(a0, p.x);
+      a1 = Math.max(a1, p.x);
+      b0 = Math.min(b0, p.y);
+      b1 = Math.max(b1, p.y);
+    }
+    const s = Math.max((a1 - a0) / (nx1 - nx0), (b1 - b0) / (ny1 - ny0));
+    const ex = (a0 + a1 - nx0 - nx1) / 2;
+    const ey = (b0 + b1 - ny0 - ny1) / 2;
+    if (Math.abs(s - 1) < 1e-4 && Math.abs(ex) < 1e-4 && Math.abs(ey) < 1e-4) break;
+    t.x += ex * tanH * d;
+    t.y += ey * tanV * d;
+    d = Math.max(2.5, d * s);
+  }
+  return { target: t, d };
+}
+
 function CameraRig({ wall }: { wall: Wall }) {
-  const { camera, size, scene } = useThree();
+  const { camera, size, scene, gl } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
   const nonce = useGame((s) => s.viewNonce);
   // The wheel rotates the armed/selected hold; otherwise it zooms.
@@ -82,12 +177,12 @@ function CameraRig({ wall }: { wall: Wall }) {
   const editingHold = useGame((s) => !!s.hoverHoldId || !!s.draggingId);
   if (import.meta.env.DEV) (window as unknown as { __cam: THREE.Camera }).__cam = camera;
   const [framing, setFraming] = useState(0);
-  const sizeRef = useRef(size);
-  sizeRef.current = size;
   const target = useMemo(() => {
     const b = wallBounds(wall);
     return new THREE.Vector3(0, b.height / 2 + 0.05, b.depth / 2);
   }, [wall]);
+  // Where the home framing looks: the wall's middle, slid to the middle of the screen the HUD leaves free.
+  const home = useRef(target.clone());
 
   // Follow the climber up the wall during a playback, until the user takes the camera.
   const playRun = useGame((s) => s.playback?.run ?? 0);
@@ -117,42 +212,40 @@ function CameraRig({ wall }: { wall: Wall }) {
     }
     if (userMoved.current) return;
     const b = wallBounds(wall);
+    const homeY = home.current.y;
     // Track the climber; once they're off the wall, drift back to the home framing.
     const want = climberFocus.active
-      ? Math.max(target.y - 0.4, Math.min(b.height - 0.9, climberFocus.pos.y - 0.2))
-      : target.y;
+      ? Math.max(homeY - 0.4, Math.min(Math.max(homeY, b.height - 0.9), climberFocus.pos.y - 0.2))
+      : homeY;
     if (Math.abs(want - c.target.y) < 1e-4) return;
     const dy = (want - c.target.y) * 0.03;
     c.target.y += dy;
     camera.position.y += dy;
   });
 
-  // Front-on framing. Only on load / new wall / "Reset view", never mid-orbit.
+  // Front-on framing of the whole wall, clear of the HUD. On load, new wall, "Reset view"
+  // and when the screen changes shape (a phone turned on its side); never mid-orbit otherwise.
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
-    const b = wallBounds(wall);
-    const vfov = (cam.fov * Math.PI) / 180;
-    const aspect = sizeRef.current.width / sizeRef.current.height;
-    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
-    // A phone on its side loses a third of its short height to the top bar and action bar:
-    // step back so the finish clears the top bar.
-    const shortLandscape = aspect > 1 && sizeRef.current.height < 500;
-    const fitH = ((b.height * 0.5 + 0.35 + b.depth * 0.15) * (shortLandscape ? 1.15 : 1)) / Math.tan(vfov / 2);
-    // Portrait screens are width-bound: keep the side margin small there.
-    const fitW = (wall.width / 200 + (aspect < 1 ? 0.12 : 0.3)) / Math.tan(hfov / 2);
-    const d = Math.max(fitH, fitW);
-    setFraming(d);
-    // Wide walls on a portrait phone sit far back: start the haze behind the wall, not on it.
-    if (scene.fog instanceof THREE.Fog) {
-      scene.fog.near = Math.max(16, d + 3);
-      scene.fog.far = scene.fog.near + 18;
-    }
-    cam.position.set(0.0, target.y + 0.25, target.z + d);
-    cam.lookAt(target);
-    cam.updateProjectionMatrix();
-    controls.current?.target.copy(target);
-    controls.current?.update();
-  }, [camera, scene, wall, target, nonce]);
+    const frame = () => {
+      cam.aspect = size.width / size.height;
+      cam.updateProjectionMatrix();
+      const { target: t, d } = fitWall(cam, wallCorners(wall), freeRect(gl.domElement), target);
+      home.current.copy(t);
+      setFraming(d);
+      // Wide walls on a portrait phone sit far back: start the haze behind the wall, not on it.
+      if (scene.fog instanceof THREE.Fog) {
+        scene.fog.near = Math.max(16, d + 3);
+        scene.fog.far = scene.fog.near + 18;
+      }
+      controls.current?.target.copy(t);
+      controls.current?.update();
+    };
+    frame();
+    // The HUD settles a frame later (fonts, the tray wrapping): measure it again then.
+    const raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [camera, scene, gl, wall, target, nonce, size.width, size.height]);
 
   return (
     <OrbitControls

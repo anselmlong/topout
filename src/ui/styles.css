@@ -341,6 +341,37 @@ button {
   color: var(--ink-2);
 }
 
+/* Shorter desktop screens: tighter rows, so the whole tray shows without scrolling. */
+@media (min-width: 721px) and (min-height: 501px) and (max-height: 900px) {
+  .tray {
+    padding: 10px;
+  }
+  .tray ul {
+    gap: 1px;
+  }
+  .slot {
+    grid-template-columns: 22px 1fr auto;
+    padding: 3px 8px;
+  }
+  .slot .hold-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+/* Shorter still: two columns of slots. */
+@media (min-width: 721px) and (min-height: 501px) and (max-height: 660px) {
+  .tray {
+    width: 304px;
+  }
+  .tray ul {
+    grid-template-columns: 1fr 1fr;
+  }
+  .slot {
+    gap: 4px;
+    padding: 3px 5px;
+  }
+}
+
 /* ---------------------------------------------------------------- bottom bars */
 
 .actionbar {

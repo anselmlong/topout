@@ -56,12 +56,22 @@ failures) so today's in-progress saves aren't disturbed.
   it straight away; the help and the grade guide list them with a note on each grade.
   Yesterday's setter route stays in the help as a secondary link. `examples.test.ts`
   checks each lands within half a grade (all within 0.15) and every hold places legally.
-- [ ] **4. See the whole wall and every hold at once** ("being able to see all the
+- [x] **4. See the whole wall and every hold at once** ("being able to see all the
   holds at once would be better"). Make the default camera fit the entire wall (top
   to pad, both edges, corners and prows) on every aspect ratio, with the HUD's
   actual size taken into account, so no placed hold or spot hides behind the brief,
   tray or action bar. Add a fit-to-wall view if Reset view doesn't already do this.
   On desktop, tighten the tray so it never needs to scroll.
+  *Done:* the home framing (load, Reset view, and any resize or phone rotation) measures
+  the top bar, brief, tray, action bar and replay banner, works out the screen space they
+  leave free, and fits every corner of every wall facet into it (prow noses and cave lips
+  included), sliding the view so the wall sits in the middle of that space. On a 320 px
+  phone the Finish no longer hides under the brief nor the wall's base under the tray.
+  Reset view is the fit-to-wall view. Desktop trays use tighter rows below 900 px of
+  height and two columns below 660 px, so a full practice tray fits without scrolling
+  from 1440×900 down to 800×600. *Left:* in a window as small as 800×600 the tray can't
+  be cleared without shrinking the wall to a sliver, so it overlaps the wall's upper
+  right there; the climb ticker still covers the top of the wall during a playback.
 - [ ] **5. Faster loop** ("faster gameplay if it's a daily game"). Measure time from
   page load to first test result and from pressing Test to the result card, on a
   throttled phone profile. Cut what's slow: solver time on big routes, the climb's
