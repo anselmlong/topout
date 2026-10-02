@@ -68,6 +68,12 @@ hold, and reads the crux while shaking out.
 | `src/scene/` | React Three Fiber scene: wall, procedural holds, IK climber. |
 | `src/ui/`, `src/state/` | HUD, modals, Zustand store, localStorage. |
 
+## Playtest backlog
+
+[PLAYTEST.md](PLAYTEST.md) lists follow-ups from user testing, one full run each.
+Scheduled improvement runs take the first unchecked item there before rotating
+through the usual areas, and tick it off in the same commit.
+
 ## Known limits
 
 - **Grades are uncalibrated.** The constants in `src/solver/model.ts` were
