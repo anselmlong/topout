@@ -2,8 +2,8 @@
 // +z out of the wall, +y is the incut side (hold "up" at rot = 0). Metres.
 //
 // Edges and crimps are side profiles lofted across their width; jugs,
-// slopers, pinches, pockets and foot chips are built in rings around their
-// outline; jibs are knapped icospheres. Each is jittered per variant so
+// slopers, pinches, pockets, foot chips and jibs are built in rings around
+// their outline. Each is jittered per variant so
 // no two look quite alike. Per-face colour grain is baked in as vertex colours
 // (multiplied with the material colour). A per-vertex `grip` attribute marks
 // the surfaces hands and shoes actually use, so chalk builds up there and
@@ -730,42 +730,92 @@ function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
 }
 
 /**
- * A jib: a small chipped stone screwed to the wall. An icosphere squashed into
- * a low pebble, then knocked flat by a handful of random cuts so it has the
- * broad, sharp-edged facets of knapped rock rather than an even tessellation.
- * A screw goes through the middle of its top facet.
+ * A jib: a small knapped stone screwed to the wall. Three staggered rings of
+ * six or seven points (the footprint, a girdle half a step round, and a small
+ * crown back in line with the footprint) are joined by single triangles, so
+ * the sides break into the broad, sharp-ridged facets of chipped rock rather
+ * than an even tessellation. The top side stands taller and its girdle leans
+ * out over the footprint: a little positive edge for the toe of a shoe, the
+ * way setters turn a jib so its sharp side faces up. The crown is a flat-ish
+ * facet with a countersunk screw through it. Returns the screw head's spot.
  */
 function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
-  const g = new THREE.IcosahedronGeometry(1, 1);
-  const pos = g.attributes.position as THREE.BufferAttribute;
-  const scale: [number, number, number] = [0.019 * (0.85 + 0.3 * k), 0.015 * (1.1 - 0.2 * k), 0.013];
-  // Cutting planes, mostly facing out of the wall and around the sides.
-  const cuts = Array.from({ length: 6 }, (_, i) => {
-    const a = (i / 6) * Math.PI * 2 + r.range(-0.4, 0.4);
-    const tilt = i === 0 ? 0.1 : r.range(0.45, 1.1);
-    const n = new THREE.Vector3(Math.sin(tilt) * Math.cos(a), Math.sin(tilt) * Math.sin(a), Math.cos(tilt)).normalize();
-    return { n, d: r.range(0.62, 0.82) };
-  });
-  // Shared vertices move together, so faces stay closed.
-  const moved = new Map<string, THREE.Vector3>();
-  const p = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    p.fromBufferAttribute(pos, i);
-    const id = `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`;
-    let q = moved.get(id);
-    if (!q) {
-      q = p.clone().multiplyScalar(r.range(0.94, 1.06));
-      for (const { n, d } of cuts) {
-        const over = q.dot(n) - d;
-        if (over > 0) q.addScaledVector(n, -over);
-      }
-      q.z = Math.max(0, q.z + 0.15);
-      moved.set(id, q);
+  const N = r.chance(0.5) ? 6 : 7;
+  const W = 0.019 * (0.85 + 0.3 * k);
+  const H = 0.015 * (1.1 - 0.2 * k);
+  const Z = 0.013;
+  const rh = 0.0026;
+  const spin = r.range(0, 6.3);
+  // The top side stands taller, so the crown tips down toward the bottom.
+  const tall = (s: number) => Z * (0.72 + 0.28 * s);
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  const ring = (half: boolean, at: (c: number, s: number) => [number, number, number], sh: number) => {
+    const first = pos.length / 3;
+    for (let j = 0; j < N; j++) {
+      const th = ((j + (half ? 0.5 : 0) + r.range(-0.18, 0.18)) / N) * Math.PI * 2 + spin;
+      pos.push(...at(Math.cos(th), Math.sin(th)));
+      shade.push(sh);
     }
-    pos.setXYZ(i, q.x * scale[0] * S, q.y * scale[1] * S, q.z * scale[2] * S);
+    return first;
+  };
+  // Footprint: an uneven polygon flat on the wall.
+  const base = ring(false, (c, s) => {
+    const m = r.range(0.86, 1.08);
+    return [W * c * m, H * s * m, 0];
+  }, 1);
+  // Girdle: most of the width and height; on the top side it leans out over the footprint.
+  const girdle = ring(true, (c, s) => {
+    const m = r.range(0.8, 0.96);
+    return [W * c * m, H * s * m + 0.0028 * Math.max(0, s) ** 2, tall(s) * r.range(0.58, 0.7)];
+  }, 1);
+  // Crown: a small top facet, slightly domed, nudged up toward the sharp side.
+  const crown = ring(false, (c, s) => {
+    const m = r.range(0.55, 0.64);
+    return [W * c * m, H * s * m + 0.0015, tall(s * m) * r.range(0.96, 1)];
+  }, 0.97);
+  // Lower ring i to upper ring i+half: footprint→girdle and crown↔girdle alternate.
+  const band = (lo: number, hi: number, hiAhead: boolean) => {
+    for (let j = 0; j < N; j++) {
+      const a = lo + j, b = lo + ((j + 1) % N);
+      const m = hiAhead ? hi + j : hi + ((j + N - 1) % N);
+      const n = hiAhead ? hi + ((j + 1) % N) : hi + j;
+      // hiAhead: upper point j sits between lower points j and j+1.
+      if (hiAhead) index.push(a, b, m, m, b, n);
+      else index.push(a, b, n, a, n, m);
+    }
+  };
+  band(base, girdle, true);
+  // Crown point j sits between girdle points j-1 and j.
+  for (let j = 0; j < N; j++) {
+    const g0 = girdle + ((j + N - 1) % N), g1 = girdle + j;
+    const c0 = crown + j, c1 = crown + ((j + 1) % N);
+    index.push(g0, g1, c0, c0, g1, c1);
   }
-  const top = cuts[0];
-  return { geometry: g, screw: new THREE.Vector3(0, 0, (top.d / top.n.z + 0.15) * scale[2] * S * 0.995), screwSize: S * 0.8 };
+  // Countersink: a shadowed cone in the middle of the crown, down to a nearly flush screw head.
+  const crownZ = tall(0.05) * 0.99;
+  const sinkRing = ring(false, (c, s) => [rh * c, 0.0015 + rh * s, crownZ - 0.0006], 0.62);
+  for (let j = 0; j < N; j++) {
+    const c0 = crown + j, c1 = crown + ((j + 1) % N);
+    const s0 = sinkRing + j, s1 = sinkRing + ((j + 1) % N);
+    index.push(c0, c1, s1, c0, s1, s0);
+  }
+  const centre = pos.length / 3;
+  const screwZ = crownZ - 0.0012;
+  pos.push(0, 0.0015, screwZ);
+  shade.push(0.32);
+  for (let j = 0; j < N; j++) index.push(sinkRing + j, sinkRing + ((j + 1) % N), centre);
+  // Back face, flush on the wall.
+  const back = pos.length / 3;
+  pos.push(0, 0, 0);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(back, base + ((j + 1) % N), base + j);
+  return {
+    ...indexedToFlat(pos, shade, index, S),
+    screw: new THREE.Vector3(0, 0.0015 * S, screwZ * S),
+    screwSize: S * 0.8,
+  };
 }
 
 function indexedToFlat(pos: number[], shade: number[], index: number[], S: number) {
@@ -875,8 +925,7 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   }
   if (type === 'foot' || type === 'jib') {
     const p = type === 'foot' ? footChipGeometry(SIZE[size], k, r) : jibGeometry(SIZE[size], k, r);
-    const shade = 'shade' in p ? p.shade : () => 1;
-    const data = finish(p.geometry, r, false, (_x, _y, _z, i) => shade(i), spec.grip!);
+    const data = finish(p.geometry, r, false, (_x, _y, _z, i) => p.shade(i), spec.grip!);
     data.screw = { at: p.screw, size: p.screwSize };
     cache.set(key, data);
     return data;
