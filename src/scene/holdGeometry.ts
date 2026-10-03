@@ -1,7 +1,7 @@
 // Procedural low-poly hold meshes. Local frame: base on z = 0 (the wall),
 // +z out of the wall, +y is the incut side (hold "up" at rot = 0). Metres.
 //
-// Edges and crimps are side profiles extruded across their width; jugs,
+// Edges and crimps are side profiles lofted across their width; jugs,
 // slopers, pinches, pockets and foot chips are built in rings around their
 // outline; jibs are knapped icospheres. Each is jittered per variant so
 // no two look quite alike. Per-face colour grain is baked in as vertex colours
@@ -40,23 +40,19 @@ const TOP_GRIP: GripFn = (n) => smooth(0.05, 0.75, n.y + 0.25 * Math.max(0, n.z)
 const sgnpow = (v: number, e: number) => Math.sign(v) * Math.abs(v) ** e;
 
 interface Profile {
-  /** Side view: [out of wall, up] pairs in metres, from the wall at the bottom, round to the wall at the top. */
+  /**
+   * Side view: [out of wall, up] pairs in metres, from where the belly leaves
+   * the wall at the bottom, out to the lip, back along the shelf and up into
+   * the wall at the top. Smoothed through a spline, so a handful of points do.
+   */
   pts: [number, number][];
   width: number;
-  /** How much the ends round off (0 = boxy rail, 1 = pointed). */
-  taper: number;
-  /** Narrow toward the top (for blades like pinches). */
-  topNarrow?: number;
-  /**
-   * Width multiplier from height (0 at the bottom, 1 at the top) and reach
-   * out of the wall (0 at the wall, 1 at the outermost point). Rounds a fin's
-   * ends and gives it a wedge cross-section instead of a slab.
-   */
-  widthAt?: (hy: number, ho: number) => number;
+  /** How blunt the ends are: higher keeps the full profile further out before it rounds off into the wall. */
+  blunt: number;
+  /** How much of the profile's height the very tip keeps (0 = it closes to a point). */
+  tipHeight: number;
   /** Ends droop down by this much (m), giving the crescent of a real jug or rail. */
   bend?: number;
-  /** How much the ends shrink in height too (0 = full height to the tip). */
-  heightTaper?: number;
   /**
    * Hand-sculpted lip: how far (as a fraction) the reach out of the wall and
    * the top edge wander along the width, in two or three soft lumps. Real
@@ -65,76 +61,82 @@ interface Profile {
   lumps?: number;
   /** Per-variant range for `bend`: below 0 the ends curl up into a smile instead of drooping. */
   bendRange?: [number, number];
-  /** Cross-sections along the width (default 6); more lets the lumps show. */
-  steps?: number;
-  shade?: (x: number, y: number, z: number) => number;
+  /** Where on the profile (0..1) the bolt goes through the face. */
+  boltAt: number;
   grip?: GripFn;
 }
 
-/** Real-hold shapes, drawn as a side profile and extruded across the width. */
+/** Real-hold shapes, drawn as a side profile and lofted across the width. */
 const PROFILES: Partial<Record<HoldType, Profile>> = {
-  // Flat-topped ledge with a slight incut.
+  // A flat ledge: a wedge-shaped body that slopes up out of the wall to a
+  // rounded nose, a lip with a slight incut, and a shelf a couple of finger
+  // pads deep that dips before it climbs back into the wall.
   edge: {
     pts: [
-      [0, -0.03],
-      [0.03, -0.026],
-      [0.038, 0.004],
-      [0.036, 0.016],
-      [0.024, 0.014],
-      [0.012, 0.017],
-      [0, 0.02],
+      [0, -0.034],
+      [0.013, -0.027],
+      [0.026, -0.016],
+      [0.035, -0.004],
+      [0.039, 0.006],
+      [0.036, 0.013],
+      [0.029, 0.015],
+      [0.02, 0.012],
+      [0.011, 0.012],
+      [0.004, 0.016],
+      [0, 0.021],
     ],
     width: 0.15,
-    taper: 0.4,
+    blunt: 2.6,
+    tipHeight: 0.3,
     bend: 0.012,
-    heightTaper: 0.35,
     lumps: 0.13,
     bendRange: [-0.6, 1.6],
-    steps: 10,
+    boltAt: 0.3,
   },
-  // A thin rail: barely a finger pad deep.
+  // A thin rail: barely a finger pad deep, a sharper nose, a shallow incut.
   crimp: {
     pts: [
-      [0, -0.016],
-      [0.016, -0.013],
-      [0.022, 0.004],
-      [0.019, 0.011],
-      [0.012, 0.008],
-      [0, 0.012],
+      [0, -0.021],
+      [0.009, -0.016],
+      [0.016, -0.008],
+      [0.021, 0.0],
+      [0.022, 0.006],
+      [0.019, 0.01],
+      [0.014, 0.0105],
+      [0.008, 0.009],
+      [0.003, 0.011],
+      [0, 0.014],
     ],
     width: 0.12,
-    taper: 0.35,
+    blunt: 2.2,
+    tipHeight: 0.35,
     bend: 0.008,
-    heightTaper: 0.4,
     lumps: 0.16,
     bendRange: [-0.8, 1.8],
-    steps: 10,
+    boltAt: 0.28,
   },
 };
 
+/**
+ * An edge or crimp: the side profile swept across the hold's width as one
+ * closed shell. Toward each end the profile shrinks out of the wall and down
+ * in height along a superellipse, so the hold finishes in a rounded nose that
+ * melts into the wall instead of a cut-off end. Columns bunch up toward the
+ * ends where the shape turns fastest. Returns the bolt square to the face.
+ */
 function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>) {
-  const shape = new THREE.Shape();
-  const pts = pr.pts.map(([a, b]) => [a * scale * (0.92 + 0.16 * k), b * scale] as const);
-  shape.moveTo(pts[0][0], pts[0][1]);
-  for (const [a, b] of pts.slice(1)) shape.lineTo(a, b);
-  shape.lineTo(0, pts[0][1]);
+  const M = 14;
+  const NU = 18;
+  const spline = new THREE.SplineCurve(pr.pts.map(([a, b]) => new THREE.Vector2(a * scale * (0.92 + 0.16 * k), b * scale)));
+  const prof = spline.getSpacedPoints(M - 1);
+  // Pin the ends to the wall exactly.
+  prof[0].x = 0;
+  prof[M - 1].x = 0;
   const width = pr.width * scale * (0.9 + 0.2 * k);
-  const bevel = 0.004 * scale;
-  const ext = new THREE.ExtrudeGeometry(shape, {
-    depth: width,
-    steps: pr.steps ?? 6,
-    bevelEnabled: true,
-    bevelThickness: bevel,
-    bevelSize: bevel,
-    bevelSegments: 1,
-    curveSegments: 2,
-  });
-  const g = ext.index ? ext.toNonIndexed() : ext;
-  const pos = g.attributes.position as THREE.BufferAttribute;
-  const yMin = pts[0][1];
-  const yMax = Math.max(...pts.map((p) => p[1]));
-  const outMax = Math.max(...pts.map((p) => p[0]));
-  const jitter = new Map<string, number>();
+  const yMin = Math.min(...prof.map((p) => p.y));
+  const yMax = Math.max(...prof.map((p) => p.y));
+  const outMax = Math.max(...prof.map((p) => p.x));
+  const mid = (yMin + yMax) / 2;
   // Lumps along the lip: two soft waves with this variant's phases, plus a
   // lean so one end is a little fuller than the other.
   const ph = [r.range(0, 6.3), r.range(0, 6.3), r.range(0, 6.3)];
@@ -143,38 +145,56 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   const crest = (u: number) => Math.sin(Math.PI * (1.8 + 0.4 * k) * u + ph[2]);
   const lumps = pr.lumps ?? 0;
   const bend = (pr.bend ?? 0) * (pr.bendRange ? r.range(...pr.bendRange) : 1);
-  for (let i = 0; i < pos.count; i++) {
-    // Shape x = out of wall, shape y = up, extrude z = across → hold (x across, y up, z out).
-    const out = pos.getX(i);
-    const up = pos.getY(i);
-    const across = pos.getZ(i) - width / 2;
-    const t = Math.min(1, Math.abs(across) / (width / 2 + bevel));
-    const round = 1 - pr.taper * t * t;
-    const hy = (up - yMin) / (yMax - yMin || 1);
-    const ho = Math.max(0, out) / (outMax || 1);
-    const narrow = (1 - (pr.topNarrow ?? 0) * Math.max(0, hy)) * (pr.widthAt?.(hy, ho) ?? 1);
-    const id = `${out.toFixed(4)},${up.toFixed(4)},${across.toFixed(4)}`;
-    if (!jitter.has(id)) jitter.set(id, r.range(0.94, 1.06));
-    const j = jitter.get(id)!;
-    const droop = bend * scale * t * t;
+
+  const at = (u: number, p: THREE.Vector2, j = 1): [number, number, number] => {
+    const t = Math.abs(u);
+    // Superellipse end: full profile through the middle, rounding off to nothing at the tip.
+    const cap = Math.max(0, 1 - t ** pr.blunt) ** 0.5;
+    const ho = p.x / (outMax || 1);
+    const hy = (p.y - yMin) / (yMax - yMin || 1);
     // Lumps push the lip out and in along its length, and the top edge
     // (not the base on the wall) rises and dips with them.
-    const u = Math.max(-1, Math.min(1, across / (width / 2)));
     const lump = 1 + lumps * wave(u) * ho;
     const rise = lumps * 0.3 * (yMax - yMin) * crest(u) * smooth(0.35, 1, hy) * ho;
-    // Shrink toward the profile's middle height at the tips: a crescent, not a brick.
-    const mid = (yMin + yMax) / 2;
-    const h = 1 - (pr.heightTaper ?? 0) * t * t;
-    pos.setXYZ(i, across * narrow, mid + (up - mid) * h - droop + rise, Math.max(0, out * round * j * lump));
+    const h = pr.tipHeight + (1 - pr.tipHeight) * cap;
+    return [(u * width) / 2, mid + (p.y - mid) * h - bend * scale * t * t + rise * cap, Math.max(0, p.x * cap * lump * j)];
+  };
+
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  for (let i = 0; i < NU; i++) {
+    const u = Math.sin((Math.PI / 2) * (-1 + (2 * i) / (NU - 1)));
+    for (let m = 0; m < M; m++) {
+      const p = prof[m];
+      const inner = m > 0 && m < M - 1 && Math.abs(u) < 0.999;
+      pos.push(...at(u, p, inner ? r.range(0.95, 1.05) : 1));
+      // The incut shelf behind the lip sits in its own shadow.
+      const shelf = p.y > mid && p.x < outMax * 0.75 ? 0.9 : 1;
+      shade.push(shelf);
+    }
+    if (i === 0) continue;
+    for (let m = 0; m + 1 < M; m++) {
+      const A = (i - 1) * M + m;
+      const B = A + 1;
+      const C = i * M + m + 1;
+      const D = i * M + m;
+      index.push(A, D, C, A, C, B);
+    }
   }
-  // Swapping the extrusion's x and z axes mirrors it, which turns every face
-  // inside out; swap two corners of each triangle so the outside faces out.
-  for (let f = 0; f + 2 < pos.count; f += 3) {
-    const x = pos.getX(f + 1), y = pos.getY(f + 1), z = pos.getZ(f + 1);
-    pos.setXYZ(f + 1, pos.getX(f + 2), pos.getY(f + 2), pos.getZ(f + 2));
-    pos.setXYZ(f + 2, x, y, z);
-  }
-  return g;
+  const flat = indexedToFlat(pos, shade, index, 1);
+
+  // Bolt: through the belly at mid-width, square to it.
+  const f = pr.boltAt * (M - 1);
+  const p = prof[Math.floor(f)].clone().lerp(prof[Math.ceil(f)], f % 1);
+  const tan = spline.getTangent(pr.boltAt);
+  const [, by, bz] = at(0, p);
+  // Profile runs bottom → top, so the outward normal is the tangent turned clockwise (out = +x in profile space).
+  const n = new THREE.Vector2(tan.y, -tan.x).normalize();
+  return {
+    ...flat,
+    bolt: { at: new THREE.Vector3(0, by + n.y * 0.0006, bz + n.x * 0.0006), tilt: Math.atan2(n.y, n.x) },
+  };
 }
 
 /**
@@ -863,15 +883,10 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   }
   const profile = PROFILES[type];
   if (profile) {
-    const S = SIZE[size];
-    // Shade tests are written in profile units, so undo the size scale.
-    const data = finish(
-      profileGeometry(profile, S, k, r),
-      r,
-      spec.bolt,
-      (x, y, z) => profile.shade?.(x / S, y / S, z / S) ?? 1,
-      profile.grip ?? spec.grip ?? TOP_GRIP,
-    );
+    const p = profileGeometry(profile, SIZE[size], k, r);
+    const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), profile.grip ?? spec.grip ?? TOP_GRIP);
+    data.bolt = p.bolt.at;
+    data.boltTilt = p.bolt.tilt;
     cache.set(key, data);
     return data;
   }
