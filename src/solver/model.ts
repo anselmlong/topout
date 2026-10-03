@@ -112,6 +112,9 @@ export function wallPoint(wall: Wall, u: number, v: number): [number, number, nu
   const half = rad((wall.fold?.angle ?? 0) / 2);
   const du = u - foldU;
   const t = du < 0 ? half : -half;
+  // A crease that kinks between panels: each face's across-direction stays level (x turned
+  // about the vertical), so the faces meet at every break (see panelFrames).
+  if (wall.panels.length > 1) return [foldU - wall.width / 2 + du * Math.cos(t), y, z - du * Math.sin(t)];
   // The face's across-direction: x turned about the panel's up axis by t.
   return [
     foldU - wall.width / 2 + du * Math.cos(t),

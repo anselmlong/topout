@@ -53,7 +53,8 @@ export interface Wall {
    * A fold along the vertical line u (cm), each face turned angle/2 degrees.
    * Positive: an inside corner (dihedral, like an open book).
    * Negative: an outside corner (arête) — the edge itself is climbable.
-   * Only on single-panel walls.
+   * On a wall with several panels the crease kinks at each break and each face's
+   * horizontal lines stay level (a corner or arête that leans out higher up).
    */
   fold?: { u: number; angle: number };
   /**

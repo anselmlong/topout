@@ -105,7 +105,7 @@ export function HelpModal() {
         </p>
         <p className="fine">
           Every day brings a new wall: slabs, overhangs, headwalls, tall highballs, caves and roofs with a lip to pull, ledges to mantle onto, corners you
-          can stem (some of them overhanging), and arêtes and overhanging prows whose edge is itself a hold. After a test,
+          can stem (some of them overhanging, some leaning out higher up), and arêtes and overhanging prows whose edge is itself a hold. After a test,
           numbered tags show the climber’s beta, coloured by how hard each move was. On steep walls they’ll heel hook big holds
           out to the side, and toe hook a hold far out whose lip faces away from them. Hands follow the hold too: a lip facing
           sideways is a sidepull, one facing away from the body a gaston, and one facing down an undercling. The climber is 175

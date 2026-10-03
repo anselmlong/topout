@@ -18,7 +18,7 @@ export function dateOf(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop' | 'rollover' | 'belly' | 'overlap' | 'ledge' | 'roof' | 'highball';
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop' | 'rollover' | 'belly' | 'overlap' | 'ledge' | 'roof' | 'highball' | 'leaningcorner' | 'leaningarete';
 
 export const STYLE_LABEL: Record<WallStyle, string> = {
   slab: 'Slab',
@@ -40,6 +40,8 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   ledge: 'Ledge',
   roof: 'Roof',
   highball: 'Highball',
+  leaningcorner: 'Leaning corner',
+  leaningarete: 'Leaning arête',
 };
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
@@ -189,6 +191,29 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
       panels = [{ length: r.int(560, 620), angle: r.int(-2, 12) }];
       break;
     }
+    case 'leaningcorner': {
+      // A corner that kicks out: a vertical dihedral to stem up, breaking into an overhanging
+      // one above. The crease leans out at the break while each face keeps its level lines,
+      // so the stems still work up high, but the arms take over as the corner tips past you.
+      const low = r.int(170, 230);
+      panels = [
+        { length: low, angle: r.int(-3, 5) },
+        { length: tall - 20 - low, angle: r.int(18, 30) },
+      ];
+      const fold = { u: Math.round(width * r.range(0.42, 0.58)), angle: r.pick([75, 90, 105]) };
+      return { width, panels, seed, fold };
+    }
+    case 'leaningarete': {
+      // An arête that leans out higher up: balance up a vertical edge, then the nose tips over
+      // the mat and becomes a steep prow to slap, squeeze and heel-hook to the top.
+      const low = r.int(170, 230);
+      panels = [
+        { length: low, angle: r.int(-4, 4) },
+        { length: tall - 20 - low, angle: r.int(16, 28) },
+      ];
+      const fold = { u: Math.round(width * r.range(0.42, 0.58)), angle: -r.pick([55, 70, 85]) };
+      return { width, panels, seed, fold };
+    }
     case 'arete': {
       // An outside corner: faces turned away, the edge itself a hold. Sharper is juggier.
       panels = [{ length: tall, angle: r.int(-5, 15) }];
@@ -211,6 +236,7 @@ const HIGHBALL = 530;
 
 export function wallStyleOf(wall: Wall): WallStyle {
   if (wall.fold) {
+    if (wall.panels.length > 1) return wall.fold.angle > 0 ? 'leaningcorner' : 'leaningarete';
     const a = wall.panels[0].angle;
     if (wall.fold.angle > 0) return a > 20 ? 'dihedral' : 'corner';
     return a >= 18 ? 'prow' : 'arete';
@@ -235,12 +261,12 @@ export function wallStyleOf(wall: Wall): WallStyle {
 const WEEKDAY_GRADE = [3, 1, 2, 3, 4, 5, 4]; // Sun..Sat
 
 const STYLE_BY_WEEKDAY: WallStyle[][] = [
-  ['overhang', 'headwall', 'kicker', 'corner', 'arete'], // Sun
+  ['overhang', 'headwall', 'kicker', 'corner', 'arete', 'leaningcorner'], // Sun
   ['vertical', 'slab', 'overhang', 'corner'], // Mon
   ['vertical', 'overhang', 'slab', 'corner', 'arete', 'overlap', 'ledge', 'highball'], // Tue
   ['overhang', 'kicker', 'vertical', 'corner', 'bulge', 'scoop', 'rollover', 'belly', 'ledge', 'highball'], // Wed
-  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop', 'belly', 'overlap', 'roof', 'highball'], // Thu
-  ['steep', 'kicker', 'headwall', 'bulge', 'cave', 'prow', 'dihedral'], // Fri
+  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop', 'belly', 'overlap', 'roof', 'highball', 'leaningcorner', 'leaningarete'], // Thu
+  ['steep', 'kicker', 'headwall', 'bulge', 'cave', 'prow', 'dihedral', 'leaningarete'], // Fri
   ['overhang', 'steep', 'headwall', 'corner', 'bulge', 'cave', 'prow', 'dihedral', 'scoop', 'rollover', 'belly', 'overlap', 'ledge', 'roof'], // Sat
 ];
 
@@ -269,7 +295,7 @@ export function withVolumes(day: Day): Day {
 
 function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
   // Easier days and steeper walls get kinder holds.
-  const steep = style === 'steep' || style === 'kicker' || style === 'headwall' || style === 'bulge' || style === 'cave' || style === 'prow' || style === 'dihedral' || style === 'scoop' || style === 'rollover' || style === 'belly' || style === 'roof';
+  const steep = style === 'steep' || style === 'kicker' || style === 'headwall' || style === 'bulge' || style === 'cave' || style === 'prow' || style === 'dihedral' || style === 'scoop' || style === 'rollover' || style === 'belly' || style === 'roof' || style === 'leaningcorner' || style === 'leaningarete';
   // Jugs are a treat, not the default: a few on easy or steep days, a couple otherwise.
   const weights: Record<Exclude<HoldType, 'foot' | 'jib' | 'volume'>, number> = {
     jug: Math.max(0.4, 2 - grade * 0.4) + (steep ? 0.4 : 0),
@@ -324,7 +350,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   return [...volumeSlots(r), ...slots, { type: 'foot', size: 'm', count: feet }, { type: 'jib', size: 'm', count: jibs }];
 }
 
-/** Angle range per style for practice (multi-panel walls: the top panel; caves, bellies, overlaps and roofs: the steep middle; rollovers: the overhang; ledges: the headwall). */
+/** Angle range per style for practice (multi-panel walls and leaning corners and arêtes: the top panel; caves, bellies, overlaps and roofs: the steep middle; rollovers: the overhang; ledges: the headwall). */
 export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   slab: [-25, -5],
   vertical: [0, 8],
@@ -345,6 +371,8 @@ export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   ledge: [-5, 20],
   roof: [60, 85],
   highball: [-8, 20],
+  leaningcorner: [12, 35],
+  leaningarete: [12, 35],
 };
 
 export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];
@@ -398,7 +426,8 @@ export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<
   // Nobody sets a V1 through a 50° cave, or up a steep prow; climbing out a roof is V4 at the least.
   if (style === 'cave' || style === 'prow') targetGrade = Math.max(3, targetGrade);
   if (style === 'roof') targetGrade = Math.max(4, targetGrade);
-  if (style === 'rollover' || style === 'belly' || style === 'overlap' || style === 'ledge') targetGrade = Math.max(2, targetGrade);
+  if (style === 'rollover' || style === 'belly' || style === 'overlap' || style === 'ledge' || style === 'leaningcorner') targetGrade = Math.max(2, targetGrade);
+  if (style === 'leaningarete') targetGrade = Math.max(3, targetGrade);
   if (o.grade !== undefined) targetGrade = o.grade;
 
   const margin = 50;

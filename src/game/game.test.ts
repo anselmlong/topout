@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_STYLES, generateDay, wallStyleOf } from '../gen/day';
+import { wallHeight, wallPoint } from '../solver/model';
 import type { Hold, SolveResult } from '../solver/types';
+import { frameAt, panelFrames, uvToWorld, worldToUv } from '../scene/wallGeometry';
 import { bestTest, canPlace, holdNear, verdictOf, type TestRun } from './rules';
 import { decodeRoute, encodeRoute, shareText } from './share';
 import { defaultSpots, spotsFilled, withSpots } from './spots';
@@ -117,5 +119,28 @@ describe('wall styles', () => {
   it('every generated wall reads back as the style it was built as', () => {
     for (const style of ALL_STYLES)
       for (let n = 1; n <= 30; n++) expect(wallStyleOf(generateDay(n, 0, { style }).wall)).toBe(style);
+  });
+
+  it('the solver and the scene agree on where every wall point is, and folded faces meet at each break', () => {
+    for (const style of ALL_STYLES)
+      for (let n = 1; n <= 6; n++) {
+        const wall = generateDay(n, 0, { style }).wall;
+        const frames = panelFrames(wall);
+        const top = wallHeight(wall);
+        for (let u = 0; u <= wall.width; u += 37)
+          for (let v = 0; v <= top; v += 41) {
+            const [x, y, z] = wallPoint(wall, u, v);
+            const p = uvToWorld(wall, frames, u, v);
+            expect(Math.hypot(x - p.x * 100, y - p.y * 100, z - p.z * 100)).toBeLessThan(1e-6);
+            const back = worldToUv(wall, frameAt(frames, u, v), p);
+            expect(Math.hypot(back.u - u, back.v - v)).toBeLessThan(1e-6);
+          }
+        let v = 0;
+        for (const panel of wall.panels.slice(0, -1)) {
+          v += panel.length;
+          for (let u = 0; u <= wall.width; u += 20)
+            expect(uvToWorld(wall, frames, u, v - 1e-4).distanceTo(uvToWorld(wall, frames, u, v + 1e-4))).toBeLessThan(1e-4);
+        }
+      }
   });
 });

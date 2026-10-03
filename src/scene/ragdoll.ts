@@ -6,7 +6,7 @@
 // fixed-length bones, soft "muscle" springs toward a posed skeleton, collisions
 // with the wall panels and the pad. So bodies hang, sway, swing, and fall.
 import * as THREE from 'three';
-import type { PanelFrame } from './wallGeometry';
+import { frameLocal, type PanelFrame } from './wallGeometry';
 
 export const J = {
   head: 0,
@@ -237,13 +237,13 @@ export class Ragdoll {
       const r = i === J.head ? 0.11 : i === J.chest || i === J.pelvis ? 0.12 : RADIUS * 0.6;
       // Each wall facet (panels, and both faces of a dihedral) is a slab to push out of.
       for (const f of this.frames) {
-        const rel = p.clone().sub(f.origin);
-        const along = rel.dot(f.up);
-        const across = rel.dot(f.right);
+        const local = frameLocal(f, p);
+        const along = local.v / 100;
+        const across = local.u / 100;
         if (along < -0.05 || along > (f.v1 - f.v0) / 100 + 0.05) continue;
         if (across < -0.05 || across > (f.u1 - f.u0) / 100 + 0.05) continue;
         {
-          const depth = rel.dot(f.normal);
+          const depth = local.out;
           // Volumes stand proud of the wall: collide with their surface instead.
           const u = f.u0 + across * 100;
           const surface = this.relief(u, f.v0 + along * 100);

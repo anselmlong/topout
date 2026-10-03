@@ -9,6 +9,9 @@ import type { Wall } from '../solver/types';
  * (metres) from `origin` (the (u0, v0) corner) along `right` and `up`.
  * A plain wall has one facet per panel; a dihedral (see Wall.fold) splits each
  * panel into two facets turned toward each other about the fold line.
+ * On a folded wall with several panels, `right` stays level on each face so the facets
+ * meet at every panel break, and `up` runs along the crease: the frame is skewed, not
+ * orthonormal (see frameLocal).
  */
 export interface PanelFrame {
   index: number;
@@ -35,11 +38,13 @@ export function panelFrames(wall: Wall): PanelFrame[] {
     const x = new THREE.Vector3(1, 0, 0);
     const spineHere = spine.clone().add(x.clone().multiplyScalar((foldU - wall.width / 2) / 100));
     // Turn the x axis about `up` by ±half: the left face comes toward you from the fold, and the right too.
+    // A kinked crease turns it about the vertical instead, the same on every panel, so the faces stay joined.
+    const axis = wall.panels.length > 1 ? new THREE.Vector3(0, 1, 0) : up;
     const turned = (theta: number) =>
       x
         .clone()
         .multiplyScalar(Math.cos(theta))
-        .add(up.clone().cross(x).multiplyScalar(Math.sin(theta)))
+        .add(axis.clone().cross(x).multiplyScalar(Math.sin(theta)))
         .normalize();
     const sides = wall.fold
       ? [
@@ -75,17 +80,28 @@ export function padBox(wall: Wall) {
   return { width: wall.width / 100 + 0.6, top: 0.3, minZ: -0.05, maxZ: length - 0.05, length };
 }
 
+/**
+ * A world point in a facet's own coordinates: cm across from u0, cm along from v0, and
+ * metres out from the surface. Solves the skewed (kinked-fold) frames exactly too.
+ */
+export function frameLocal(f: PanelFrame, p: THREE.Vector3) {
+  const rel = p.clone().sub(f.origin);
+  const r = rel.dot(f.right);
+  const w = rel.dot(f.up);
+  const k = f.right.dot(f.up);
+  const det = 1 - k * k;
+  return { u: ((r - k * w) / det) * 100, v: ((w - k * r) / det) * 100, out: rel.dot(f.normal) };
+}
+
 /** The facet a world point is closest to (for the climber's body, which isn't on the wall). */
 export function nearestFrame(frames: PanelFrame[], p: THREE.Vector3): PanelFrame {
   let best = frames[0];
   let bestScore = Infinity;
   for (const f of frames) {
-    const rel = p.clone().sub(f.origin);
-    const u = rel.dot(f.right) * 100;
-    const v = rel.dot(f.up) * 100;
+    const { u, v, out } = frameLocal(f, p);
     const outside =
       Math.max(0, -u, u - (f.u1 - f.u0)) + Math.max(0, -v, v - (f.v1 - f.v0));
-    const score = outside * 10 + Math.abs(rel.dot(f.normal)) * 100;
+    const score = outside * 10 + Math.abs(out) * 100;
     if (score < bestScore) {
       bestScore = score;
       best = f;
@@ -97,7 +113,7 @@ export function nearestFrame(frames: PanelFrame[], p: THREE.Vector3): PanelFrame
 /** Approximate wall v (cm) for a world point. */
 export function worldV(frames: PanelFrame[], p: THREE.Vector3): number {
   const f = nearestFrame(frames, p);
-  return f.v0 + Math.max(0, p.clone().sub(f.origin).dot(f.up) * 100);
+  return f.v0 + Math.max(0, frameLocal(f, p).v);
 }
 
 export function frameAt(frames: PanelFrame[], u: number, v: number): PanelFrame {
@@ -115,13 +131,15 @@ export function uvToWorld(_wall: Wall, frames: PanelFrame[], u: number, v: numbe
 }
 
 export function worldToUv(_wall: Wall, frame: PanelFrame, p: THREE.Vector3) {
-  const local = p.clone().sub(frame.origin);
-  return { u: frame.u0 + local.dot(frame.right) * 100, v: frame.v0 + local.dot(frame.up) * 100 };
+  const local = frameLocal(frame, p);
+  return { u: frame.u0 + local.u, v: frame.v0 + local.v };
 }
 
 /** Orientation for an object sitting on the wall, rotated `rot` about the normal. */
 export function holdQuaternion(frame: PanelFrame, rot: number) {
-  const basis = new THREE.Matrix4().makeBasis(frame.right, frame.up, frame.normal);
+  // Square the basis up on a skewed facet: the face's own up, not the crease's.
+  const up = frame.normal.clone().cross(frame.right);
+  const basis = new THREE.Matrix4().makeBasis(frame.right, up, frame.normal);
   const q = new THREE.Quaternion().setFromRotationMatrix(basis);
   return q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rot));
 }
@@ -171,6 +189,27 @@ export function panelGeometry(_wall: Wall, frame: PanelFrame, seed: number) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * The plywood slab behind a facet (panel thickness plus side rails): a box sheared to
+ * the facet's own shape, so a skewed facet on a kinked fold gets a parallelogram slab.
+ */
+export function backingGeometry(frame: PanelFrame, rail: number) {
+  const width = (frame.u1 - frame.u0) / 100 + rail;
+  const length = (frame.v1 - frame.v0) / 100;
+  const g = new THREE.BoxGeometry(1, 1, 1);
+  const pos = g.attributes.position;
+  const p = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    p.copy(frame.origin)
+      .addScaledVector(frame.right, (pos.getX(i) + 0.5) * width - rail / 2)
+      .addScaledVector(frame.up, (pos.getY(i) + 0.5) * length)
+      .addScaledVector(frame.normal, -0.056 + pos.getZ(i) * 0.1);
+    pos.setXYZ(i, p.x, p.y, p.z);
+  }
   g.computeVertexNormals();
   return g;
 }

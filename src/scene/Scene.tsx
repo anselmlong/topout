@@ -17,7 +17,7 @@ import { ChalkDust } from './Chalk';
 import { Gym } from './Gym';
 import { ReachGuide } from './ReachGuide';
 import { GhostVolume, VolumeMesh } from './Volumes';
-import { frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
+import { backingGeometry, frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
 import { useWallPointer } from './wallPointer';
 
 export function Scene() {
@@ -390,14 +390,7 @@ function WallView({ day }: { day: Day }) {
 function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
   const geometry = useMemo(() => panelGeometry(wall, frame, wall.seed), [wall, frame]);
   const handlers = useWallPointer((e: ThreeEvent<PointerEvent>) => worldToUv(wall, frame, e.point));
-  const length = (frame.v1 - frame.v0) / 100;
-  const width = (frame.u1 - frame.u0) / 100;
-  const mid = frame.origin
-    .clone()
-    .addScaledVector(frame.up, length / 2)
-    .addScaledVector(frame.right, width / 2)
-    .addScaledVector(frame.normal, -0.056);
-  const q = holdQuaternion(frame, 0);
+  const backing = useMemo(() => backingGeometry(frame, wall.fold ? 0.02 : 0.08), [wall, frame]);
 
   return (
     <group>
@@ -405,8 +398,7 @@ function PanelMesh({ wall, frame }: { wall: Wall; frame: PanelFrame }) {
         <meshStandardMaterial vertexColors flatShading roughness={0.9} />
       </mesh>
       {/* Panel thickness + side rails so the wall reads as a solid object. */}
-      <mesh position={mid} quaternion={q} castShadow receiveShadow>
-        <boxGeometry args={[width + (wall.fold ? 0.02 : 0.08), length, 0.1]} />
+      <mesh geometry={backing} castShadow receiveShadow>
         <meshStandardMaterial color={PALETTE.plyDark} roughness={0.95} flatShading />
       </mesh>
     </group>
