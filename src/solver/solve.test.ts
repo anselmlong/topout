@@ -77,6 +77,18 @@ describe('solver', () => {
     expect(g).toBeLessThan(8);
   });
 
+  it('sidepulls: leaning off an edge that faces in is harder than pulling down, easier than a gaston', () => {
+    const turn = (dir: 1 | -1) =>
+      ladder('edge', 45).map((h) => (h.type === 'edge' ? { ...h, rot: (h.u < 200 ? dir : -dir) * (Math.PI / 2) } : h));
+    const side = grade(wall(0), turn(1));
+    expect(side).toBeGreaterThan(grade(wall(0), ladder('edge', 45)));
+    expect(side).toBeLessThan(grade(wall(0), turn(-1)) - 1);
+    // Leaning off a sidepull tilts the pull side-on, toward the hold's lip.
+    const sp: Hold = { id: 'e', type: 'edge', size: 'm', u: 175, v: 250, rot: Math.PI / 2 };
+    const g = handGrip(sp, { u: 195, v: 170 }, wall(0));
+    expect(g).toBeGreaterThan(0.5 * handGrip({ ...sp, rot: 0 }, { u: 195, v: 170 }, wall(0)));
+  });
+
   it('names how a hand holds a hold: sidepull, gaston, undercling', () => {
     const edge = (rot: number): Hold => ({ id: 'e', type: 'edge', size: 'm', u: 150, v: 200, rot });
     const body = { u: 200, v: 150 };
