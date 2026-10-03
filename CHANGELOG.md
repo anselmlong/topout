@@ -7,6 +7,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-04
 
 **Climber**
+- Climbs play at normal speed by default, and every move reads: a beat to wind up, the move,
+  then a moment to settle onto the hold. 2× and 4× and Skip are still on the ticker.
 - Tops out properly: matches the finish, holds it a beat, looks down and drops onto the pad,
   then turns round and throws both arms up with a couple of claps. Topping out off the brief
   gets a quieter landing and a shrug back up at the route.

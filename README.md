@@ -41,7 +41,8 @@ replayable from the help's "Show me around" and skipped over a shared or example
 help (behind the ? button) has a worked example, a gallery of hand-built example climbs
 (`src/game/examples.ts`, `?example=<id>`, also listed in the grade guide), a link that
 plays yesterday's setter route, and a grade guide (also behind the ? on the brief's
-grade). Playback defaults to 2×.
+grade). Playback defaults to 1×: each move plays as a wind-up, the move and a settle
+(`src/scene/timeline.ts`; `npx tsx scripts/pacing.ts` measures how long climbs take to watch).
 
 While the climber is on the wall, the ticker grades each move on its own ("This move
 V4.5") on a bar that runs from V0 to a few grades past the brief, with the brief's pass

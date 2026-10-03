@@ -6,16 +6,14 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { verdictOf } from '../game/rules';
-import { moveGrade } from '../game/tips';
-import { bestPull, flagFor, footTechnique, handGrip, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
-import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
-import { OFF } from '../solver/types';
+import { bestPull, flagFor, footTechnique, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
+import type { Day, Hold, Point, Wall } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
 import { J, JOINTS, Ragdoll } from './ragdoll';
+import { buildTimeline, CRUX_SLOWMO, SEND, SHAKE_SCRIPT, REST, windupSink, type Keyframe, type Timeline } from './timeline';
 import { frameAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -289,64 +287,6 @@ function idlePose(wall: Wall, t: number): Pose {
   return p;
 }
 
-type Contacts = { hands: [Point, Point]; feet: [Point | null, Point | null] };
-
-const contactsOf = (s: Stance): Contacts => ({
-  hands: [s.points[0], s.points[1]],
-  feet: [s.limbs[2] === OFF ? null : s.points[2], s.limbs[3] === OFF ? null : s.points[3]],
-});
-
-interface Keyframe {
-  to: Contacts;
-  /** Hold index each limb lands on (for chalk), -1/-2 for smear/off. */
-  holds: number[];
-  limb: number;
-  duration: number;
-  dynamic?: boolean;
-  /** Difficulty relative to the route's crux, 0..1. */
-  strain: number;
-  /** The move's own grade, for the ticker. */
-  grade?: number;
-  move: number;
-  /** A shake-out: this hand lets go, shakes, chalks up and grabs the same hold again. */
-  rest?: 0 | 1;
-  /** Winding up the dyno that follows: pump the hips down twice, launch from the low point. */
-  windup?: boolean;
-}
-
-interface Timeline {
-  frames: Keyframe[];
-  ending: 'top' | 'fall' | 'shrug';
-  /** Topped out on the brief (a send) rather than off it (a near miss). */
-  send?: boolean;
-  total: number;
-  /** Extra time after the last frame for the ending to play out. */
-  tail: number;
-}
-
-/** How long a shake-out before the crux takes (s). */
-const REST = 1.6;
-/** The shake-out's choreography (shakeOut) is written over this many seconds, then fitted into REST. */
-const SHAKE_SCRIPT = 2.1;
-/** How long the pumps before a dyno take (s). */
-const WINDUP = 0.5;
-
-/**
- * Hip sink through a dyno's wind-up (k 0..1): a shallow pump to find the rhythm, then
- * a deep one, bottoming out at the end so the launch fires from the lowest point.
- */
-function windupSink(k: number): number {
-  if (k < 0.4) return 0.45 * Math.sin((Math.PI * k) / 0.4);
-  return 0.5 - 0.5 * Math.cos((Math.PI * (k - 0.4)) / 0.6);
-}
-
-/**
- * The top-out, in seconds after the match on the finish: hold it, look down at the pad,
- * let go. After landing: absorb in a squat and stand, turn round to face the room, then
- * celebrate (arms up and two claps) or, topped out off the brief, shrug at the route.
- */
-const SEND = { hold: 0.35, release: 0.75, absorb: 0.5, turn: 0.3, turnFor: 0.45, cheer: 0.55, claps: [0.95, 1.2], end: 1.75, shrugEnd: 1.5 };
-
 type Celebrate = 'drop' | 'cheer' | 'clap' | 'shrug';
 
 /**
@@ -387,78 +327,6 @@ function dropPose(hip: THREE.Vector3, face: THREE.Vector3, squat: number, arms: 
     knees: [legs[0].joint, legs[1].joint],
     feet: [legs[0].end, legs[1].end],
   };
-}
-
-/**
- * Before the crux, a climber who can hang off a good hold shakes out the hand that is
- * about to move and chalks up: the other hand on a jug-like grip, a foot on to take
- * some weight. Returns the hand to rest, or null if there's no rest to be had there.
- */
-function restBefore(stance: Stance, hand: 0 | 1, holds: Hold[], wall: Wall): 0 | 1 | null {
-  const stay = holds[stance.limbs[1 - hand]];
-  if (!stay || holds[stance.limbs[hand]] === undefined) return null;
-  if (stance.limbs[2] === OFF && stance.limbs[3] === OFF) return null;
-  const feet = [2, 3].filter((f) => stance.limbs[f] !== OFF).map((f) => stance.points[f]);
-  const below = { u: feet.reduce((s, p) => s + p.u, 0) / feet.length, v: feet.reduce((s, p) => s + p.v, 0) / feet.length };
-  return handGrip(stay, below, wall) >= 0.7 ? hand : null;
-}
-
-function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
-  const frames: Keyframe[] = [];
-  if (result.ok) {
-    const crux = Math.max(result.crux, 0.3);
-    frames.push({ to: contactsOf(result.start), holds: [...result.start.limbs], limb: -1, duration: 0.6, strain: 0, move: -1 });
-    let rested = false;
-    result.moves.forEach((m, i) => {
-      const strain = Math.min(1, m.difficulty / crux);
-      if (!rested && strain >= 0.98 && m.limb < 2) {
-        rested = true;
-        const before = i === 0 ? result.start : result.moves[i - 1].to;
-        const hand = restBefore(before, m.limb as 0 | 1, holds, day.wall);
-        if (hand !== null)
-          frames.push({ to: contactsOf(before), holds: [...before.limbs], limb: -1, duration: REST, strain: 0, move: -1, rest: hand });
-      }
-      // Hard moves are slower and more deliberate; dynos are quick. Easy moves stay
-      // brisk so a daily test doesn't drag; the crux keeps its full weight.
-      const base = m.limb >= 2 ? 0.42 : 0.55 + strain * 0.45;
-      // Before a dyno the climber pumps: same holds, eyes on the target, hips sinking.
-      if (m.dynamic && m.limb < 2) {
-        const before = i === 0 ? result.start : result.moves[i - 1].to;
-        frames.push({ to: contactsOf(before), holds: [...before.limbs], limb: -1, duration: WINDUP, strain: 0, move: -1, windup: true });
-      }
-      frames.push({
-        to: contactsOf(m.to),
-        holds: [...m.to.limbs],
-        limb: m.limb,
-        duration: m.dynamic ? 0.55 : base,
-        dynamic: m.dynamic,
-        strain,
-        grade: moveGrade(m.difficulty),
-        move: i,
-      });
-    });
-    // The top-out (see topOut) sets the real end once the climber lands; this is a backstop.
-    const tail = SEND.release + 3.5;
-    const send = verdictOf(result, day.targetGrade) !== 'fail';
-    return { frames, ending: 'top', send, total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
-  }
-  if (!result.highPoint) return { frames: [], ending: 'shrug', total: 1.6, tail: 1.6 };
-  const hp = contactsOf(result.highPoint);
-  frames.push({ to: hp, holds: [...result.highPoint.limbs], limb: -1, duration: 0.8, strain: 0.6, move: -1 });
-  // Reach hopefully toward the finish... and peel off.
-  const lunge: Contacts = {
-    hands: [
-      hp.hands[0],
-      {
-        u: hp.hands[1].u + (day.finish.u - hp.hands[1].u) * 0.25,
-        v: hp.hands[1].v + Math.min(45, (day.finish.v - hp.hands[1].v) * 0.4),
-      },
-    ],
-    feet: hp.feet,
-  };
-  frames.push({ to: lunge, holds: [], limb: 1, duration: 0.8, strain: 1, move: -1 });
-  const tail = 2.3;
-  return { frames, ending: 'fall', total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
 }
 
 const STEP = 1 / 120;
@@ -524,6 +392,10 @@ interface Run {
   rest: { hand: 0 | 1; t0: number; hold: number; at: THREE.Vector3; dipped: boolean } | null;
   /** Hip sink of a dyno's wind-up this step (see windupSink). */
   sink: number;
+  /** The moving limb's drive, held back until its wind-up is over (see Keyframe.prep). */
+  launch: { at: number; n: number; to: THREE.Vector3; normal: THREE.Vector3; duration: number; lift: number } | null;
+  /** The limb winding up to move, while it does (feet: the hips shift off it first). */
+  winding: number;
   /** Hip turn for the current reach (see hipTurn): + left hip in, - right hip in. */
   twist: number;
   lastThud: number;
@@ -557,6 +429,8 @@ export function Climber({ day }: { day: Day }) {
     resting: 0 | 1 | null = null,
     sink = 0,
     twist = 0,
+    /** A foot about to move (2/3): the weight comes off it before it lifts. */
+    winding = -1,
   ): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
@@ -565,7 +439,7 @@ export function Climber({ day }: { day: Day }) {
       e[3].mode === 'free' ? null : sim.pos[J.footR].clone(),
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
-    const lifting: [boolean, boolean] = [e[2].mode === 'moving', e[3].mode === 'moving'];
+    const lifting: [boolean, boolean] = [e[2].mode === 'moving' || winding === 2, e[3].mode === 'moving' || winding === 3];
     return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting, sink, twist));
   };
 
@@ -600,7 +474,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, launch: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -631,6 +505,8 @@ export function Climber({ day }: { day: Day }) {
   const enterFrame = (r: Run, f: Keyframe) => {
     const { sim } = r;
     r.rest = null;
+    r.launch = null;
+    r.winding = f.prep ? f.limb : -1;
     // Decide which way a free leg flags: toward the reach (see flagFor). Between reaches a
     // flag stays where it is rather than swinging the leg over.
     const reaching = f.limb === 0 || f.limb === 1 ? f.limb : null;
@@ -674,7 +550,10 @@ export function Climber({ day }: { day: Day }) {
     contacts.forEach((c, n) => {
       const target = c ? toWorld(c, n < 2 ? 0.07 : 0.06) : null;
       const normal = c ? normalAt(c) : new THREE.Vector3(0, 0, 1);
-      if (n === f.limb) sim.drive(n, target, normal, f.duration * 0.85, f.dynamic ? 0.14 : 0.07);
+      // The moving limb waits out its wind-up on its hold, then travels; the rest of the
+      // keyframe is the settle as the weight comes onto it.
+      if (n === f.limb && target && f.prep) r.launch = { at: r.t + f.prep, n, to: target, normal, duration: f.travel ?? f.duration * 0.85, lift: f.dynamic ? 0.14 : 0.07 };
+      else if (n === f.limb) sim.drive(n, target, normal, f.travel ?? f.duration * 0.85, f.dynamic ? 0.14 : 0.07);
       else sim.drive(n, target, normal, 0.3, 0.05);
     });
     sim.tone = 1 - 0.45 * f.strain;
@@ -686,7 +565,7 @@ export function Climber({ day }: { day: Day }) {
       useClimb.setState({ grade: null, label: 'Shaking out before the crux…' });
     }
     if (f.windup) useClimb.setState({ grade: null, label: 'Pumping for the dyno…' });
-    if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + f.duration * 0.85, limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
+    if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + (f.prep ?? 0) + (f.travel ?? f.duration * 0.85), limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
     if (f.dynamic) {
       // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
       const target = toWorld(f.to.hands[f.limb as 0 | 1], 0.07);
@@ -815,8 +694,10 @@ export function Climber({ day }: { day: Day }) {
       return ending === 'top' || ending === 'fall' ? toWorld(day.finish, 0) : null;
     };
     if (f.limb < 0 || !r.gaze[i]) return ahead();
-    const watch = f.dynamic ? 0.95 : f.limb >= 2 ? 0.85 : 0.65;
-    return inFrame / f.duration < watch ? r.gaze[i] : ahead();
+    // Eyes stay on the hold through the wind-up and most of the reach (a foot right onto
+    // it), then move on while the limb settles.
+    const until = (f.prep ?? 0) + (f.travel ?? f.duration * 0.85) * (f.dynamic || f.limb >= 2 ? 1 : 0.75);
+    return inFrame < until ? r.gaze[i] : ahead();
   };
 
   const endRun = (r: Run) => {
@@ -984,7 +865,7 @@ export function Climber({ day }: { day: Day }) {
     // Crux cam: the hardest move plays in slow motion.
     const cur = r.frame >= 0 ? timeline.frames[r.frame] : null;
     const slow = cur && cur.limb >= 0 && cur.strain >= 0.98 && timeline.ending === 'top' && !r.ended;
-    r.acc += Math.min(dt, 0.05) * (slow ? 0.55 : 1) * usePlaySpeed.getState().speed;
+    r.acc += Math.min(dt, 0.05) * (slow ? CRUX_SLOWMO : 1) * usePlaySpeed.getState().speed;
     while (r.acc >= STEP) {
       r.acc -= STEP;
       r.t += STEP;
@@ -1023,10 +904,22 @@ export function Climber({ day }: { day: Day }) {
         }
       }
       if (r.rest) shakeOut(r);
+      if (r.launch && r.t >= r.launch.at) {
+        const l = r.launch;
+        r.launch = null;
+        r.winding = -1;
+        sim.drive(l.n, l.to, l.normal, l.duration, l.lift);
+      }
       const outPose = r.out ? topOut(r) : null;
-      const wind = idx >= 0 && timeline.frames[idx].windup;
-      r.sink = wind ? windupSink(Math.min(1, t / timeline.frames[idx].duration)) : 0;
-      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist)));
+      const kf = idx >= 0 ? timeline.frames[idx] : null;
+      // A hand's wind-up: the hips dip and drive back up as the hand leaves, so the reach
+      // starts from the legs instead of the arm snapping off on its own.
+      r.sink = kf?.windup
+        ? windupSink(Math.min(1, t / kf.duration))
+        : kf && kf.prep && kf.limb < 2 && t < kf.prep
+          ? 0.3 * Math.sin((Math.PI * t) / kf.prep)
+          : 0;
+      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist, r.winding)));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {

@@ -47,10 +47,11 @@ export type Speed = (typeof SPEEDS)[number];
 function readSpeed(): Speed {
   try {
     const v = Number(localStorage.getItem('topout:speed'));
-    // A daily puzzle shouldn't make you wait: double speed unless you've picked otherwise.
-    return (SPEEDS as readonly number[]).includes(v) ? (v as Speed) : 2;
+    // Real time unless you've picked otherwise: watching the climb is the fun part, and
+    // moves are timed to read at 1x (see beats in scene/timeline.ts). 2x/4x and Skip stay.
+    return (SPEEDS as readonly number[]).includes(v) ? (v as Speed) : 1;
   } catch {
-    return 2;
+    return 1;
   }
 }
 
