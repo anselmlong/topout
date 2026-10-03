@@ -7,8 +7,10 @@ export interface ClimbFeed {
   /** Index of the current move in result.moves, -1 before the first. */
   move: number;
   total: number;
-  /** Difficulty of the current move relative to the crux, 0..1. */
-  strain: number;
+  /** Grade of the current move on its own (tips.ts moveGrade), null between moves. */
+  grade: number | null;
+  /** Hardest move grade so far this climb. */
+  peak: number;
   label: string;
   status: 'idle' | 'climbing' | 'topped' | 'fell';
   /** Chalk build-up per hold id. Persists for the session. */
@@ -20,7 +22,8 @@ export interface ClimbFeed {
 export const useClimb = create<ClimbFeed>(() => ({
   move: -1,
   total: 0,
-  strain: 0,
+  grade: null,
+  peak: 0,
   label: '',
   status: 'idle',
   chalk: {},

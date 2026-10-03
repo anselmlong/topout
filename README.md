@@ -43,6 +43,12 @@ help (behind the ? button) has a worked example, a gallery of hand-built example
 plays yesterday's setter route, and a grade guide (also behind the ? on the brief's
 grade). Playback defaults to 2×.
 
+While the climber is on the wall, the ticker grades each move on its own ("This move
+V4.5") on a bar that runs from V0 to a few grades past the brief, with the brief's pass
+band shaded, a tick at the brief and one at the hardest move so far. The numbered move tags
+on the wall use the same colours: green for moves well under the brief, ochre on it, brick
+over it, so a V0 jug ladder reads green instead of every route's crux glowing red.
+
 After each test the result card breaks the crux down ("What made it V5.1"): the hold hung
 off, the catch, the reach, the steepness, the feet, a barn door or high step, and the pump,
 each as the grades it adds, and the tip goes after the biggest one.

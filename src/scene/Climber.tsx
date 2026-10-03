@@ -6,6 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
+import { moveGrade } from '../game/tips';
 import { bestPull, footTechnique, handGrip, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
@@ -291,6 +292,8 @@ interface Keyframe {
   dynamic?: boolean;
   /** Difficulty relative to the route's crux, 0..1. */
   strain: number;
+  /** The move's own grade, for the ticker. */
+  grade?: number;
   move: number;
   /** A shake-out: this hand lets go, shakes, chalks up and grabs the same hold again. */
   rest?: 0 | 1;
@@ -366,6 +369,7 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
         duration: m.dynamic ? 0.55 : base,
         dynamic: m.dynamic,
         strain,
+        grade: moveGrade(m.difficulty),
         move: i,
       });
     });
@@ -523,7 +527,7 @@ export function Climber({ day }: { day: Day }) {
       (u, v) => (surfaceAt(vols, u, v)?.height ?? 0) / 100,
     );
     first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
-    useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, strain: 0, label: 'Chalking up…', status: 'climbing' });
+    useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, grade: null, peak: 0, label: 'Chalking up…', status: 'climbing' });
     const gaze = timeline.frames.map((f) => {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
@@ -612,9 +616,9 @@ export function Climber({ day }: { day: Day }) {
       r.rest = { hand, t0: r.t, hold: f.holds[hand], at: toWorld(f.to.hands[hand], 0.07), dipped: false };
       r.grip[hand] = -1;
       r.arms[hand] = null;
-      useClimb.setState({ strain: 0, label: 'Shaking out before the crux…' });
+      useClimb.setState({ grade: null, label: 'Shaking out before the crux…' });
     }
-    if (f.windup) useClimb.setState({ strain: 0, label: 'Pumping for the dyno…' });
+    if (f.windup) useClimb.setState({ grade: null, label: 'Pumping for the dyno…' });
     if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + f.duration * 0.85, limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
     if (f.dynamic) {
       // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
@@ -635,7 +639,8 @@ export function Climber({ day }: { day: Day }) {
       const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];
       useClimb.setState({
         move: f.move,
-        strain: f.strain,
+        grade: f.grade ?? null,
+        peak: Math.max(useClimb.getState().peak, f.grade ?? 0),
         label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
           tech === 'heel'
             ? ' (heel hook)'

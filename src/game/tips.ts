@@ -22,6 +22,17 @@ export function gradeGap(test: TestRun, target: number): number | null {
   return test.result.ok ? test.result.grade - target : null;
 }
 
+/** One move's grade on its own: what the route would grade if it were its crux, no pump. */
+export const moveGrade = (difficulty: number) => toGrade(difficulty, 0);
+
+/**
+ * Where a move's grade sits against the brief, 0..1, for colouring move tags and the
+ * climb ticker: 0 = well under it (filler), 0.5 = on it, 1 = 1.5+ grades over it.
+ */
+export function gradeTone(grade: number, target: number): number {
+  return Math.max(0, Math.min(1, 0.5 + (grade - target) / 3));
+}
+
 export function gapLabel(gap: number): string {
   const a = Math.abs(gap);
   if (a < 0.5) return 'on grade';

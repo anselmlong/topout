@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
-import { MAX_TESTS, SQUARE, holds as nHolds } from '../game/rules';
+import { MAX_TESTS, SQUARE, TOLERANCE, holds as nHolds } from '../game/rules';
+import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
 import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
@@ -477,9 +478,39 @@ function MuteButton() {
   );
 }
 
+/**
+ * How hard each move is, on the brief's own scale: the bar runs from V0 to a few grades
+ * past the target, the shaded band is the pass window, the tick marks the hardest move
+ * so far. A V0 jug ladder stays green; a move over the brief goes red.
+ */
+function MoveMeter({ grade, peak, target }: { grade: number | null; peak: number; target: number }) {
+  const top = Math.min(14, Math.max(6, target + 3));
+  const at = (g: number) => `${(Math.max(0, Math.min(top, g)) / top) * 100}%`;
+  const lo = Math.max(0, target - TOLERANCE - 0.5);
+  const hi = Math.min(top, target + TOLERANCE + 0.5);
+  return (
+    <div className="move-meter" aria-hidden="true">
+      <div className="track">
+        <span className="band" style={{ left: at(lo), width: `calc(${at(hi)} - ${at(lo)})` }} />
+        <span className={`fill ${grade === null ? '' : 'on'}`} style={{ width: grade === null ? 0 : at(grade), background: strainColor(gradeTone(grade ?? 0, target)) }} />
+        {peak > 0 && <span className="peak" style={{ left: at(peak) }} />}
+        <span className="target" style={{ left: at(target) }} />
+      </div>
+      <div className="scale">
+        {target >= 2 && <span>V0</span>}
+        <span className={`mark ${target < 2 ? 'start' : ''}`} style={{ left: at(target) }}>
+          V{target} brief
+        </span>
+        <span className="end">V{top}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Live move-by-move readout while the climber is on the wall. */
 export function ClimbTicker() {
   const phase = useGame((s) => s.phase);
+  const target = useGame((s) => s.day?.targetGrade ?? 0);
   const feed = useClimb();
   const speed = usePlaySpeed((s) => s.speed);
   const skip = useGame((s) => s.skipClimb);
@@ -488,12 +519,12 @@ export function ClimbTicker() {
     <div className={`card ticker ${feed.status}`} role="status" aria-live="polite">
       <div className="row1">
         <span>{feed.move >= 0 ? `Move ${feed.move + 1} / ${feed.total}` : 'Starting'}</span>
-        <span>Strain</span>
+        <span>
+          <span className="word">This move </span><b className="mono">{feed.grade === null ? '–' : `V${feed.grade.toFixed(1)}`}</b>
+        </span>
       </div>
       <div className="label">{feed.label}</div>
-      <div className="strain">
-        <span style={{ width: `${Math.round(feed.strain * 100)}%`, background: strainColor(feed.strain) }} />
-      </div>
+      <MoveMeter grade={feed.grade} peak={feed.peak} target={target} />
       <div className="playback">
         <button className="mono" onClick={cycleSpeed} title="Playback speed" aria-label={`Playback speed ${speed}×`}>
           {speed}×

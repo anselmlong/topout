@@ -926,17 +926,74 @@ button {
 .ticker.fell .label {
   color: var(--bad);
 }
-.strain {
-  height: 5px;
+.move-meter .track {
+  position: relative;
+  height: 6px;
   border-radius: 3px;
   background: rgba(60, 55, 45, 0.1);
-  overflow: hidden;
 }
-.strain span {
-  display: block;
+.move-meter .track span {
+  position: absolute;
+}
+.move-meter .band,
+.move-meter .fill {
+  top: 0;
   height: 100%;
+}
+.move-meter .band {
+  background: rgba(179, 151, 75, 0.22);
+}
+.move-meter .fill {
+  left: 0;
   border-radius: 3px;
   transition: width 0.3s ease, background 0.3s;
+}
+/* A V0 move still shows: a stub of green rather than an empty bar. */
+.move-meter .fill.on {
+  min-width: 6px;
+}
+.move-meter .peak,
+.move-meter .target {
+  width: 2px;
+  margin-left: -1px;
+  top: -2px;
+  height: 10px;
+  border-radius: 1px;
+}
+.move-meter .peak {
+  background: rgba(60, 55, 45, 0.35);
+  transition: left 0.3s ease;
+}
+.move-meter .target {
+  background: var(--ink-2);
+}
+.move-meter .scale {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  height: 14px;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--ink-3);
+}
+.move-meter .scale .end {
+  margin-left: auto;
+}
+.move-meter .scale .mark {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.move-meter .scale .mark.start {
+  transform: none;
+}
+.ticker .row1 b {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .ticker .playback {
@@ -1533,6 +1590,12 @@ details.more[open] summary {
   .ticker .label {
     font-size: 13px;
     margin: 2px 0 4px;
+  }
+  .ticker .row1 .word {
+    display: none;
+  }
+  .move-meter .scale {
+    margin-top: 1px;
   }
   .modal {
     max-height: calc(100% - 8px);

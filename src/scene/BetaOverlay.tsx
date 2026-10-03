@@ -1,7 +1,8 @@
-// Numbered hand moves on the wall, coloured by how hard each move is relative
-// to the crux. While the climber is on the wall, tags appear as moves happen.
+// Numbered hand moves on the wall, coloured by each move's own grade against the
+// brief (green filler, ochre on grade, brick over it), so an easy route reads easy. While the climber is on the wall, tags appear as moves happen.
 import { Html } from '@react-three/drei';
 import { useMemo } from 'react';
+import { gradeTone, moveGrade } from '../game/tips';
 import type { Day } from '../solver/types';
 import { surfaceAt } from '../solver/volumes';
 import { useClimb } from '../state/climb';
@@ -42,10 +43,10 @@ export function BetaOverlay({ day }: { day: Day }) {
         const side = m.limb === 0 ? -1 : 1;
         const relief = (surfaceAt(beta.volumes, p.u, p.v)?.height ?? 0) / 100;
         const pos = uvToWorld(day.wall, frames, p.u + side * 9, p.v + 7).addScaledVector(f.normal, 0.08 + relief);
-        const strain = m.difficulty / Math.max(crux, 1e-6);
-        return { key: i, move: i, n, pos, strain, crux: m.difficulty >= crux - 1e-9, hand: m.limb === 0 ? 'L' : 'R', dyno: m.dynamic };
+        const tone = gradeTone(moveGrade(m.difficulty), day.targetGrade);
+        return { key: i, move: i, n, pos, tone, crux: m.difficulty >= crux - 1e-9, hand: m.limb === 0 ? 'L' : 'R', dyno: m.dynamic };
       });
-  }, [beta, frames, day.wall]);
+  }, [beta, frames, day.wall, day.targetGrade]);
 
   if (!tags.length) return null;
   const climbing = phase === 'climbing';
@@ -57,7 +58,7 @@ export function BetaOverlay({ day }: { day: Day }) {
           <Html key={t.key} position={t.pos} center zIndexRange={[4, 0]} style={{ pointerEvents: 'none' }}>
             <div
               className={`beta-tag ${t.crux ? 'crux' : ''} ${climbing && t.move === current ? 'now' : ''}`}
-              style={{ background: strainColor(t.strain) }}
+              style={{ background: strainColor(t.tone) }}
             >
               <span className="n">{t.n}</span>
               <span className="h">{t.hand}</span>

@@ -3,7 +3,7 @@ import { generateDay } from '../gen/day';
 import { solve } from '../solver/solve';
 import type { Hold, SolveResult } from '../solver/types';
 import { verdictOf, type TestRun } from './rules';
-import { gapLabel, gradeDrivers, setterTip } from './tips';
+import { gapLabel, gradeDrivers, gradeTone, moveGrade, setterTip } from './tips';
 import { ANCHORS, ANCHOR_FINISH as ROUTE_FINISH, ANCHOR_START as ROUTE_START, anchorRoute, gradeAnchor } from '../../scripts/calibrate';
 import { moveDifficulty, moveParts } from '../solver/solve';
 
@@ -66,5 +66,25 @@ describe('grade drivers', () => {
   it('turns the biggest driver into the tip on a stiff route', () => {
     const { d, test } = day('40° slopers');
     expect(setterTip(d, test)).toMatch(/hangs off the big sloper/);
+  });
+});
+
+describe('move grades', () => {
+  it('grades a lone move like a one-move route', () => {
+    for (const anchor of ANCHORS) {
+      const a = gradeAnchor(anchor);
+      if (!a.ok) continue;
+      const hardest = Math.max(...a.moves.map((m) => moveGrade(m.difficulty)));
+      // The crux move alone, before any pump: never above the route's grade, at most the pump below it.
+      expect(hardest).toBeLessThanOrEqual(a.grade + 1e-9);
+      expect(hardest).toBeGreaterThan(a.grade - 0.61);
+    }
+  });
+
+  it('tones moves against the brief, not against the route', () => {
+    expect(gradeTone(0, 0)).toBe(0.5);
+    expect(gradeTone(2, 5)).toBe(0);
+    expect(gradeTone(8, 5)).toBe(1);
+    expect(gradeTone(5.6, 5)).toBeGreaterThan(gradeTone(4.4, 5));
   });
 });
