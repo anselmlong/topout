@@ -331,6 +331,26 @@ export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): F
 }
 
 /**
+ * Hip turn (twist lock / backstep): reaching a long way up with one hand on vertical or
+ * steeper ground, a climber turns that hip into the wall and stands on the outside edge
+ * of that foot. The reaching shoulder rises toward the hold and the other arm stays
+ * straight, so the body adds reach without a lock-off. Slabs stay square, weight over the
+ * feet, and so do bunched stances (that's a rockover). Returns 0 (square) .. 1 (fully
+ * side-on). Animation only: the solver doesn't price it.
+ */
+export function hipTurn(wall: Wall, hands: [Point, Point], feet: [Point | null, Point | null], hand: 0 | 1): number {
+  if (!feet[0] || !feet[1]) return 0;
+  const reach = hands[hand];
+  const stay = hands[1 - hand];
+  const up = reach.v - stay.v;
+  if (up < 25) return 0;
+  if (reach.v - (feet[0].v + feet[1].v) / 2 < 120) return 0;
+  const steep = Math.max(0, Math.min(1, (angleAt(wall, stay.v) + 10) / 30));
+  const long = Math.max(0, Math.min(1, (Math.hypot(reach.u - stay.u, up) - 40) / 40));
+  return steep * long;
+}
+
+/**
  * High step: how tucked a foot is under the hands, 0 (normal stance) .. 1 (foot up at the
  * hips, nearly a heel hook). Getting a foot that high takes hip mobility, and standing up
  * on it is a rockover: the hips have to come over the foot before it holds any weight.

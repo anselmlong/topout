@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { footTechnique, handGrip, handTechnique, lipV, toGrade } from './model';
+import { footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade } from './model';
 import { lipContacts } from './volumes';
-import type { Hold, HoldType, Volume, Wall } from './types';
+import type { Hold, HoldType, Point, Volume, Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
 
@@ -101,6 +101,23 @@ describe('solver', () => {
     expect(handTechnique(edge(Math.PI), { u: 150, v: 240 })).toBe('undercling');
     // Pinches are squeezed, not sidepulled.
     expect(handTechnique({ ...edge(Math.PI / 2), type: 'pinch' }, { u: 260, v: 200 })).toBe(null);
+  });
+
+  it('turns the hip in on long reaches up steep ground, stays square on slabs and short moves', () => {
+    const feet: [Point, Point] = [{ u: 180, v: 60 }, { u: 230, v: 80 }];
+    const long: [Point, Point] = [{ u: 230, v: 260 }, { u: 190, v: 180 }];
+    // Left hand reaching 80 cm up a 25° overhang: fully side-on.
+    expect(hipTurn(wall(25), long, feet, 0)).toBeCloseTo(1, 5);
+    // Vertical: a partial turn. Slab: square.
+    const vert = hipTurn(wall(0), long, feet, 0);
+    expect(vert).toBeGreaterThan(0.2);
+    expect(vert).toBeLessThan(1);
+    expect(hipTurn(wall(-15), long, feet, 0)).toBe(0);
+    // The hand that stays low doesn't turn; neither does a short move, a foot off, or a bunched stance.
+    expect(hipTurn(wall(25), long, feet, 1)).toBe(0);
+    expect(hipTurn(wall(25), [{ u: 200, v: 210 }, { u: 190, v: 180 }], feet, 0)).toBe(0);
+    expect(hipTurn(wall(25), long, [feet[0], null], 0)).toBe(0);
+    expect(hipTurn(wall(25), long, [{ u: 180, v: 160 }, { u: 230, v: 170 }], 0)).toBe(0);
   });
 
   it('reports an unreachable finish instead of crashing', () => {

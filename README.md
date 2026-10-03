@@ -64,6 +64,10 @@ to the crease and each knee points out over its own foot, pushing the faces apar
 When a hand ends up down by the hips (a rockover, a hand-foot match, a mantle onto a
 lip) on ground no steeper than ~15°, it presses instead of pulling: elbow up and back,
 palm flat with the fingers turned in, shoulder over the hand, hips in over the feet.
+On a long static reach up vertical or steeper ground, the climber turns that hip in to the
+wall (a twist lock): hips side-on, the turned-in leg backstepping on the outside edge of
+its shoe, the reaching shoulder riding up while the other arm hangs straight (`hipTurn` in
+`src/solver/model.ts`; slabs, short moves, stems, hooks and bunched stances stay square).
 Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
 hips sinking down and back over bent knees, eyes on the target, then launches from the
 low point. Before the crux, if one hand is on a good hold with a foot on, the climber hangs

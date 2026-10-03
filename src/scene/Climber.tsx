@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { bestPull, footTechnique, handGrip, handTechnique, highStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
+import { bestPull, footTechnique, handGrip, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -75,6 +75,8 @@ function poseFrom(
   resting: 0 | 1 | null = null,
   /** Winding up a dyno, 0..1: hips sink down and back off straight arms, knees bent. */
   sink = 0,
+  /** Hip turn on a long reach (see hipTurn): + turns the left hip in, - the right. */
+  twist = 0,
 ): Pose {
   const holding = resting === null ? hands : [hands[1 - resting], hands[1 - resting]];
   // Stemming: the feet bridged across an inside corner, one on each face, pressing them
@@ -87,6 +89,8 @@ function poseFrom(
     faces[0]!.x * faces[1]!.x < -0.01 &&
     feet[1].clone().sub(feet[0]).dot(faces[0]!) > 0.03 &&
     feet[0].clone().sub(feet[1]).dot(faces[1]!) > 0.03;
+  // Bridged across a corner the body squares up to it; there's no hip to turn in.
+  if (stem) twist = 0;
   // Facet nearest the hands (a dihedral has two faces at the same height). A stemming
   // climber squares up to the corner instead, facing into the crease, back to the room.
   const handFace = nearestFrame(frames, holding[0].clone().add(holding[1]).multiplyScalar(0.5)).normal;
@@ -134,7 +138,7 @@ function poseFrom(
   // ...while the hips stay in to the wall, keeping weight on the feet. A heel hook or drop
   // knee pulls them in further.
   const twisted = legs[0] || legs[1] ? 1 : 0;
-  const hipsIn = (0.3 * steep + 0.18 * twisted) * (1 - lean);
+  const hipsIn = (0.3 * steep + 0.18 * twisted + 0.15 * Math.abs(twist)) * (1 - lean);
   const torsoDir = bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean - 0.35 * load).normalize();
   const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
   // Climber's right. We see their back, so this is +x on screen.
@@ -143,13 +147,20 @@ function poseFrom(
   // Drop knee: the hip on that side turns in to the wall (the other swings out).
   const turn = legs[0] === 'drop-knee' ? 1 : legs[1] === 'drop-knee' ? -1 : 0;
   const head = chest.clone().addScaledVector(torsoDir, 0.2).addScaledVector(normal, 0.05);
+  // A hip turn rotates the body side-on about the spine: the hips by up to ~50°, the
+  // shoulders less (the chest still faces the holds). The turned-in side goes to the wall,
+  // and the reaching shoulder rides up toward its hold while the other arm hangs straight.
+  const hipYaw = 0.8 * twist;
+  const shoulderYaw = 0.5 * twist;
+  const sideOn = (at: THREE.Vector3, s: -1 | 1, half: number, yaw: number) =>
+    at.clone().addScaledVector(lateral, s * half * Math.cos(yaw)).addScaledVector(normal, s * half * Math.sin(yaw));
   const shoulders: [THREE.Vector3, THREE.Vector3] = [
-    chest.clone().addScaledVector(lateral, -0.19),
-    chest.clone().addScaledVector(lateral, 0.19),
+    sideOn(chest, -1, 0.19, shoulderYaw).addScaledVector(torsoDir, 0.05 * Math.max(0, twist)),
+    sideOn(chest, 1, 0.19, shoulderYaw).addScaledVector(torsoDir, 0.05 * Math.max(0, -twist)),
   ];
   const pelvis: [THREE.Vector3, THREE.Vector3] = [
-    hip.clone().addScaledVector(lateral, -0.1).addScaledVector(normal, -0.06 * turn),
-    hip.clone().addScaledVector(lateral, 0.1).addScaledVector(normal, 0.06 * turn),
+    sideOn(hip, -1, 0.1, hipYaw).addScaledVector(normal, -0.06 * turn),
+    sideOn(hip, 1, 0.1, hipYaw).addScaledVector(normal, 0.06 * turn),
   ];
   const arm = (i: 0 | 1) => {
     const side = i === 0 ? -1 : 1;
@@ -186,7 +197,10 @@ function poseFrom(
     target ??= pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
     // Knees out, frog-style, by default. A heel hook cocks the knee up and out to the side;
     // a toe hook reaches the leg out long, knee up, so the shin can pull the toe back; a
-    // drop knee turns it in and down toward the other foot.
+    // drop knee turns it in and down toward the other foot. In a hip turn the turned-in
+    // leg backsteps: the knee swings across toward the other leg so the outside edge of
+    // the shoe bites, while the other knee opens out.
+    const backstep = twist * -side;
     const pole =
       legs[i] === 'heel'
         ? lateral.clone().multiplyScalar(side * 0.8).addScaledVector(torsoDir, 0.6).addScaledVector(normal, 0.4)
@@ -194,6 +208,8 @@ function poseFrom(
           ? torsoDir.clone().multiplyScalar(0.9).addScaledVector(normal, 0.3).addScaledVector(lateral, side * 0.2)
           : legs[i] === 'drop-knee'
           ? torsoDir.clone().multiplyScalar(-1).addScaledVector(lateral, -side * 0.4).addScaledVector(normal, 0.2)
+          : backstep > 0.15
+            ? lateral.clone().multiplyScalar(-side * 0.7).addScaledVector(normal, 0.45).addScaledVector(torsoDir, -0.25)
           : stem
             ? // Bridged: each knee points out along its own face, away from the crease,
               // and a little down, so the leg pushes into that face like a strut.
@@ -438,6 +454,8 @@ interface Run {
   rest: { hand: 0 | 1; t0: number; hold: number; at: THREE.Vector3; dipped: boolean } | null;
   /** Hip sink of a dyno's wind-up this step (see windupSink). */
   sink: number;
+  /** Hip turn for the current reach (see hipTurn): + left hip in, - right hip in. */
+  twist: number;
   lastThud: number;
 }
 
@@ -466,6 +484,7 @@ export function Climber({ day }: { day: Day }) {
     arms?: [ArmTechnique, ArmTechnique],
     resting: 0 | 1 | null = null,
     sink = 0,
+    twist = 0,
   ): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
@@ -475,7 +494,7 @@ export function Climber({ day }: { day: Day }) {
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
     const lifting: [boolean, boolean] = [e[2].mode === 'moving', e[3].mode === 'moving'];
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting, sink));
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting, sink, twist));
   };
 
   const start = (pb: Playback): Run | null => {
@@ -509,7 +528,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -572,6 +591,14 @@ export function Climber({ day }: { day: Day }) {
         return tech;
       }) as [ArmTechnique, ArmTechnique];
     }
+    // A long static reach on vertical or steeper ground: turn that hip in to the wall.
+    // Not off a hook or drop knee (the legs already set the hips), and not for a reach
+    // into an undercling, gaston or press, which want the body square to the hold.
+    const reaching = f.limb === 0 || f.limb === 1 ? f.limb : null;
+    r.twist =
+      reaching !== null && f.holds.length && !f.dynamic && !r.legs[0] && !r.legs[1] && (!r.arms[reaching] || r.arms[reaching] === 'sidepull')
+        ? hipTurn(day.wall, f.to.hands, f.to.feet, reaching) * (reaching === 0 ? 1 : -1)
+        : 0;
     const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
     contacts.forEach((c, n) => {
       const target = c ? toWorld(c, n < 2 ? 0.07 : 0.06) : null;
@@ -620,6 +647,8 @@ export function Climber({ day }: { day: Day }) {
                   ? h?.id.startsWith('lip:') ? ' (mantle)' : ' (press)'
                   : tech
                   ? ` (${tech})`
+                  : m < 2 && Math.abs(r.twist) > 0.3
+                  ? ' (hip turn)'
                   : foot && across && stemBonus(day.wall, [foot.u, across.u]) > 0
                   ? ' (stem)'
                   : h && foot && highStep(f.to.hands, foot) > 0.8
@@ -800,7 +829,7 @@ export function Climber({ day }: { day: Day }) {
       if (r.rest) shakeOut(r);
       const wind = idx >= 0 && timeline.frames[idx].windup;
       r.sink = wind ? windupSink(Math.min(1, t / timeline.frames[idx].duration)) : 0;
-      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink));
+      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {
