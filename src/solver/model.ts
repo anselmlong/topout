@@ -370,6 +370,43 @@ export function hipTurn(wall: Wall, hands: [Point, Point], feet: [Point | null, 
   return steep * long;
 }
 
+export type Flag = {
+  /** Which way the free leg goes: -1 to the climber's left, +1 right. */
+  side: -1 | 1;
+  /** Outside: the leg reaches out on its own side. Back: it crosses behind the standing leg. */
+  kind: 'outside' | 'back';
+  /** Hip turn (as hipTurn, unsigned) that goes with it: a back flag turns the reaching hip in. */
+  turn: number;
+};
+
+/**
+ * Flag: with one foot off, the free leg presses on the wall as a counterweight. It goes
+ * the way the weight has to move: toward the reaching hand's side of the standing foot.
+ * On its own side that's an outside flag (left foot and left hand on, reaching right: the
+ * right leg out right stops the barn door). The other way it crosses behind the standing
+ * leg, a back flag (standing on the right foot reaching right: the left leg behind it),
+ * and the hip on the reaching side turns in while the standing foot backsteps. Without a
+ * reach the free leg hangs out on its own side. Animation only: the solver prices flags
+ * without caring which way they go.
+ */
+export function flagFor(
+  wall: Wall,
+  hands: [Point, Point],
+  feet: [Point | null, Point | null],
+  free: 0 | 1,
+  reaching: 0 | 1 | null,
+): Flag | null {
+  const planted = feet[1 - free];
+  if (feet[free] || !planted) return null;
+  const own = free === 0 ? -1 : 1;
+  const dx = reaching === null ? 0 : hands[reaching].u - planted.u;
+  const side = Math.abs(dx) < 10 ? own : dx < 0 ? -1 : 1;
+  if (side === own) return { side, kind: 'outside', turn: 0 };
+  // Slabs stay square over the feet; vertical and steeper ground turns the hip in.
+  const steep = Math.max(0, Math.min(1, (angleAt(wall, hands[1 - reaching!].v) + 10) / 20));
+  return { side, kind: 'back', turn: 0.5 * steep };
+}
+
 /**
  * High step: how tucked a foot is under the hands, 0 (normal stance) .. 1 (foot up at the
  * hips, nearly a heel hook). Getting a foot that high takes hip mobility, and standing up

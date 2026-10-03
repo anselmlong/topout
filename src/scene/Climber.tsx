@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
 import { moveGrade } from '../game/tips';
-import { bestPull, footTechnique, handGrip, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
+import { bestPull, flagFor, footTechnique, handGrip, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
@@ -189,11 +189,19 @@ function poseFrom(
     const side = i === 0 ? -1 : 1;
     const other = feet[1 - i];
     let target = feet[i];
+    const away = flagAway?.[i] || side;
     if (!target && other) {
-      // Flag: the free leg reaches out along the wall, away from the hands, as a counterweight.
-      const away = flagAway?.[i] || Math.sign(other.clone().sub(handsMid).dot(lateral)) || side;
-      target = other.clone().addScaledVector(lateral, away * 0.5).addScaledVector(torsoDir, 0.08).addScaledVector(normal, 0.04);
+      // Flag: the free leg presses on the wall as a counterweight (see flagFor). An outside
+      // flag reaches long and nearly straight out on its own side; a back flag crosses
+      // behind the standing leg to a spot on the wall beyond and below that foot.
+      target =
+        away === side
+          ? pelvis[i].clone().addScaledVector(lateral, away * 0.55).addScaledVector(torsoDir, -0.6)
+          : other.clone().addScaledVector(lateral, away * 0.3).addScaledVector(torsoDir, -0.22);
+      // Pressed against the wall, level with the standing foot.
+      target.addScaledVector(normal, other.clone().sub(target).dot(normal) + 0.04);
     }
+    const flag = !feet[i] && !!other;
     // No feet on at all (campus): tucked up, knee bent, clear of the mat.
     target ??= pelvis[i].clone().add(V(side * 0.16, -0.5, 0)).addScaledVector(normal, 0.22);
     // Knees out, frog-style, by default. A heel hook cocks the knee up and out to the side;
@@ -202,8 +210,12 @@ function poseFrom(
     // leg backsteps: the knee swings across toward the other leg so the outside edge of
     // the shoe bites, while the other knee opens out.
     const backstep = twist * -side;
-    const pole =
-      legs[i] === 'heel'
+    const pole = flag
+      ? away === side
+        ? normal.clone().addScaledVector(torsoDir, 0.5)
+        : // Crossing behind: the knee comes out from the wall, past the standing leg.
+          normal.clone().addScaledVector(lateral, away * 0.4).addScaledVector(torsoDir, -0.2)
+      : legs[i] === 'heel'
         ? lateral.clone().multiplyScalar(side * 0.8).addScaledVector(torsoDir, 0.6).addScaledVector(normal, 0.4)
         : legs[i] === 'toe'
           ? torsoDir.clone().multiplyScalar(0.9).addScaledVector(normal, 0.3).addScaledVector(lateral, side * 0.2)
@@ -563,13 +575,12 @@ export function Climber({ day }: { day: Day }) {
   const enterFrame = (r: Run, f: Keyframe) => {
     const { sim } = r;
     r.rest = null;
-    // Decide which way a free leg flags: away from the hands, on the supporting foot's side.
-    const handsU = (f.to.hands[0].u + f.to.hands[1].u) / 2;
-    r.flagAway = [0, 1].map((i) => {
-      const on = f.to.feet[1 - i];
-      if (f.to.feet[i] || !on) return 0;
-      return Math.sign(on.u - handsU) || (i === 0 ? -1 : 1);
-    }) as [number, number];
+    // Decide which way a free leg flags: toward the reach (see flagFor). Between reaches a
+    // flag stays where it is rather than swinging the leg over.
+    const reaching = f.limb === 0 || f.limb === 1 ? f.limb : null;
+    const flags = ([0, 1] as const).map((i) => flagFor(day.wall, f.to.hands, f.to.feet, i, reaching));
+    r.flagAway = flags.map((fl, i) => (!fl ? 0 : reaching === null && r.flagAway[i] ? r.flagAway[i] : fl.side)) as [number, number];
+    const backFlag = reaching !== null ? flags.find((fl) => fl?.kind === 'back') : undefined;
     if (f.holds.length) {
       r.grip = [f.holds[0], f.holds[1]];
       r.legs = [0, 1].map((i) => {
@@ -597,11 +608,11 @@ export function Climber({ day }: { day: Day }) {
     }
     // A long static reach on vertical or steeper ground: turn that hip in to the wall.
     // Not off a hook or drop knee (the legs already set the hips), and not for a reach
-    // into an undercling, gaston or press, which want the body square to the hold.
-    const reaching = f.limb === 0 || f.limb === 1 ? f.limb : null;
+    // into an undercling, gaston or press, which want the body square to the hold. A back
+    // flag turns the reaching hip in too, the standing foot on its outside edge.
     r.twist =
       reaching !== null && f.holds.length && !f.dynamic && !r.legs[0] && !r.legs[1] && (!r.arms[reaching] || r.arms[reaching] === 'sidepull')
-        ? hipTurn(day.wall, f.to.hands, f.to.feet, reaching) * (reaching === 0 ? 1 : -1)
+        ? (backFlag?.turn ?? hipTurn(day.wall, f.to.hands, f.to.feet, reaching)) * (reaching === 0 ? 1 : -1)
         : 0;
     const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
     contacts.forEach((c, n) => {
@@ -637,6 +648,7 @@ export function Climber({ day }: { day: Day }) {
       const foot = m >= 2 ? f.to.feet[m - 2] : null;
       const across = m >= 2 ? f.to.feet[3 - m] : null;
       const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];
+      const flagged = r.flagAway.findIndex((a) => a !== 0);
       useClimb.setState({
         move: f.move,
         grade: f.grade ?? null,
@@ -652,6 +664,8 @@ export function Climber({ day }: { day: Day }) {
                   ? h?.id.startsWith('lip:') ? ' (mantle)' : ' (press)'
                   : tech
                   ? ` (${tech})`
+                  : m < 2 && !f.dynamic && flagged >= 0
+                  ? r.flagAway[flagged] === (flagged === 0 ? -1 : 1) ? ' (flag)' : ' (back flag)'
                   : m < 2 && Math.abs(r.twist) > 0.3
                   ? ' (hip turn)'
                   : foot && across && stemBonus(day.wall, [foot.u, across.u]) > 0

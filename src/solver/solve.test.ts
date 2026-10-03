@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade } from './model';
+import { flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade } from './model';
 import { lipContacts } from './volumes';
 import type { Hold, HoldType, Point, Volume, Wall } from './types';
 
@@ -129,6 +129,25 @@ describe('solver', () => {
     expect(hipTurn(wall(25), [{ u: 200, v: 210 }, { u: 190, v: 180 }], feet, 0)).toBe(0);
     expect(hipTurn(wall(25), long, [feet[0], null], 0)).toBe(0);
     expect(hipTurn(wall(25), long, [{ u: 180, v: 160 }, { u: 230, v: 170 }], 0)).toBe(0);
+  });
+
+  it('flags the free leg toward the reach: outside on its own side, back across the standing leg', () => {
+    const hands: [Point, Point] = [{ u: 160, v: 220 }, { u: 280, v: 230 }];
+    // Standing on the right foot, reaching right with the right hand: the left leg back flags.
+    const right: [Point | null, Point | null] = [null, { u: 220, v: 90 }];
+    expect(flagFor(wall(0), hands, right, 0, 1)).toMatchObject({ side: 1, kind: 'back' });
+    expect(flagFor(wall(0), hands, right, 0, 1)!.turn).toBeGreaterThan(0.2);
+    // ...but on a slab the hips stay square.
+    expect(flagFor(wall(-15), hands, right, 0, 1)!.turn).toBe(0);
+    // Left foot and left hand on, reaching right: the right leg flags out right.
+    const left: [Point | null, Point | null] = [{ u: 180, v: 90 }, null];
+    expect(flagFor(wall(0), hands, left, 1, 1)).toEqual({ side: 1, kind: 'outside', turn: 0 });
+    // Reaching left off the left foot: the right leg crosses behind to the left.
+    expect(flagFor(wall(0), [{ u: 100, v: 230 }, hands[1]], left, 1, 0)).toMatchObject({ side: -1, kind: 'back' });
+    // No reach: the free leg hangs out on its own side. Both feet on, or none: no flag.
+    expect(flagFor(wall(0), hands, right, 0, null)).toMatchObject({ side: -1, kind: 'outside' });
+    expect(flagFor(wall(0), hands, [left[0], right[1]], 0, 1)).toBe(null);
+    expect(flagFor(wall(0), hands, [null, null], 0, 1)).toBe(null);
   });
 
   it('reports an unreachable finish instead of crashing', () => {
