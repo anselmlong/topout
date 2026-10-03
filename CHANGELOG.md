@@ -6,6 +6,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-04
 
+**Climber**
+- Tops out properly: matches the finish, holds it a beat, looks down and drops onto the pad,
+  then turns round and throws both arms up with a couple of claps. Topping out off the brief
+  gets a quieter landing and a shrug back up at the route.
+
 **Grades**
 - Grades are checked against four more reference climbs drawn from real Kilter Board grades:
   small crimps on a vertical wall, a jump between jugs at 20° and at 40°, and a long jug haul

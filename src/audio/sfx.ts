@@ -121,6 +121,22 @@ export const sfx = {
     tone(c, t + 0.11, 659.25, 0.35, 0.16, 'triangle');
     tone(c, t + 0.22, 783.99, 0.6, 0.16, 'triangle');
   },
+  /** Chalky hands clapped together overhead. */
+  clap() {
+    const c = ready();
+    if (!c) return;
+    const t = c.currentTime;
+    noise(c, t, 0.06, 1500, 0.9, 0.35);
+    noise(c, t + 0.005, 0.3, 4200, 0.5, 0.06, 'highpass');
+  },
+  /** Topped out but off the brief: a soft, unbothered "huh". */
+  shrug() {
+    const c = ready();
+    if (!c) return;
+    const t = c.currentTime;
+    tone(c, t, 392, 0.2, 0.1, 'triangle');
+    tone(c, t + 0.14, 349.23, 0.35, 0.09, 'triangle', 330);
+  },
   fail() {
     const c = ready();
     if (!c) return;

@@ -85,7 +85,10 @@ Between reaches a flag stays put. The ticker labels these "(flag)" and "(back fl
 Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
 hips sinking down and back over bent knees, eyes on the target, then launches from the
 low point. Before the crux, if one hand is on a good hold with a foot on, the climber hangs
-off it straight-armed, shakes out the other arm and chalks up. The head follows
+off it straight-armed, shakes out the other arm and chalks up. On top, the climber matches the finish, holds it a beat,
+looks down at the pad and drops off: lands in a squat, stands, turns round to the room and,
+on a send, throws both arms up and claps twice (`topOut` in `src/scene/Climber.tsx`). A route
+that tops out off the brief gets the same drop and a shrug back up at the route. The head follows
 the eyes: it spots each hold before the move, watches a foot all the way onto its
 hold, and reads the crux while shaking out.
 

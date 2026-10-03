@@ -6,6 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
+import { verdictOf } from '../game/rules';
 import { moveGrade } from '../game/tips';
 import { bestPull, flagFor, footTechnique, handGrip, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
@@ -316,6 +317,8 @@ interface Keyframe {
 interface Timeline {
   frames: Keyframe[];
   ending: 'top' | 'fall' | 'shrug';
+  /** Topped out on the brief (a send) rather than off it (a near miss). */
+  send?: boolean;
   total: number;
   /** Extra time after the last frame for the ending to play out. */
   tail: number;
@@ -335,6 +338,55 @@ const WINDUP = 0.5;
 function windupSink(k: number): number {
   if (k < 0.4) return 0.45 * Math.sin((Math.PI * k) / 0.4);
   return 0.5 - 0.5 * Math.cos((Math.PI * (k - 0.4)) / 0.6);
+}
+
+/**
+ * The top-out, in seconds after the match on the finish: hold it, look down at the pad,
+ * let go. After landing: absorb in a squat and stand, turn round to face the room, then
+ * celebrate (arms up and two claps) or, topped out off the brief, shrug at the route.
+ */
+const SEND = { hold: 0.35, release: 0.75, absorb: 0.5, turn: 0.3, turnFor: 0.45, cheer: 0.55, claps: [0.95, 1.2], end: 1.75, shrugEnd: 1.5 };
+
+type Celebrate = 'drop' | 'cheer' | 'clap' | 'shrug';
+
+/**
+ * A free-standing body for the drop off the top and what follows: built around the
+ * pelvis at `hip`, facing `face` (horizontal), sunk into a squat by `squat` 0..1.
+ */
+function dropPose(hip: THREE.Vector3, face: THREE.Vector3, squat: number, arms: Celebrate, k = 0): Pose {
+  const up = V(0, 1, 0);
+  const right = face.clone().cross(up).normalize();
+  const chest = hip.clone().addScaledVector(up, 0.5 - 0.06 * squat).addScaledVector(face, 0.12 * squat);
+  const shrug = arms === 'shrug' ? 0.05 * k : 0;
+  const shoulders = [-1, 1].map((sd) => chest.clone().addScaledVector(right, sd * 0.19).addScaledVector(up, shrug)) as [THREE.Vector3, THREE.Vector3];
+  const head = chest.clone().addScaledVector(up, 0.21 - shrug * 0.6).addScaledVector(face, 0.03 * squat);
+  const pelvis = [-1, 1].map((sd) => hip.clone().addScaledVector(right, sd * 0.1)) as [THREE.Vector3, THREE.Vector3];
+  const legs = [-1, 1].map((sd, i) => {
+    const foot = hip.clone().addScaledVector(up, -0.84 + 0.38 * squat).addScaledVector(right, sd * (0.14 + 0.05 * squat));
+    return ik(pelvis[i], foot, LEG, face.clone().addScaledVector(right, sd * 0.3));
+  });
+  const armsOut = [-1, 1].map((sd, i) => {
+    const sh = shoulders[i];
+    let hand: THREE.Vector3;
+    if (arms === 'drop') hand = sh.clone().addScaledVector(up, 0.5).addScaledVector(right, sd * 0.12);
+    else if (arms === 'cheer') hand = sh.clone().addScaledVector(up, 0.52 * k - 0.5 * (1 - k)).addScaledVector(right, sd * (0.24 * k + 0.04)).addScaledVector(face, 0.05);
+    else if (arms === 'clap') {
+      // Hands meet overhead and part again: k 0 apart, 1 together.
+      hand = chest.clone().addScaledVector(up, 0.72).addScaledVector(face, 0.1).addScaledVector(right, sd * (0.03 + 0.25 * (1 - k)));
+    } else hand = sh.clone().addScaledVector(up, -0.5 + 0.22 * k).addScaledVector(right, sd * (0.08 + 0.22 * k)).addScaledVector(face, 0.22 * k);
+    return ik(sh, hand, ARM, arms === 'shrug' ? up.clone().multiplyScalar(-1).addScaledVector(right, sd) : right.clone().multiplyScalar(sd).addScaledVector(face, -0.3));
+  });
+  return {
+    hip: hip.clone(),
+    chest,
+    head,
+    shoulders,
+    elbows: [armsOut[0].joint, armsOut[1].joint],
+    hands: [armsOut[0].end, armsOut[1].end],
+    pelvis,
+    knees: [legs[0].joint, legs[1].joint],
+    feet: [legs[0].end, legs[1].end],
+  };
 }
 
 /**
@@ -385,8 +437,10 @@ function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Timeline {
         move: i,
       });
     });
-    const tail = 1.6;
-    return { frames, ending: 'top', total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
+    // The top-out (see topOut) sets the real end once the climber lands; this is a backstop.
+    const tail = SEND.release + 3.5;
+    const send = verdictOf(result, day.targetGrade) !== 'fail';
+    return { frames, ending: 'top', send, total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
   }
   if (!result.highPoint) return { frames: [], ending: 'shrug', total: 1.6, tail: 1.6 };
   const hp = contactsOf(result.highPoint);
@@ -473,6 +527,8 @@ interface Run {
   /** Hip turn for the current reach (see hipTurn): + left hip in, - right hip in. */
   twist: number;
   lastThud: number;
+  /** The top-out after a send or near miss (see topOut). */
+  out: { t0: number; released: boolean; landed: number; face: THREE.Vector3; turned: number; claps: number; floor: number } | null;
 }
 
 export function Climber({ day }: { day: Day }) {
@@ -544,7 +600,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -738,6 +794,19 @@ export function Climber({ day }: { day: Day }) {
   const gazeFor = (r: Run, inFrame: number): THREE.Vector3 | null => {
     const { frames: fs, ending } = r.timeline;
     if (r.limp) return null;
+    if (r.ended && ending === 'top' && r.out) {
+      const out = r.out;
+      const k = r.t - out.t0;
+      // Hold the finish, then look down at the landing; once down, face the room, or
+      // glance back up at the route that didn't come out on the brief.
+      if (k < SEND.hold) return toWorld(day.finish, 0);
+      const hip = r.sim.pos[J.pelvis];
+      if (out.landed < 0) return hip.clone().addScaledVector(out.face, -0.9).setY(pad.top);
+      const t = r.t - out.landed;
+      if (t < SEND.turn) return hip.clone().addScaledVector(out.face, -1).setY(pad.top);
+      if (!r.timeline.send && t > SEND.cheer - 0.1) return toWorld(day.finish, 0);
+      return hip.clone().addScaledVector(out.face, -3).setY(hip.y + (r.timeline.send && t > SEND.cheer ? 1.2 : 0.7));
+    }
     if (r.ended) return ending === 'top' ? toWorld(day.finish, 0) : null;
     const i = Math.max(0, r.frame);
     const f = fs[i];
@@ -753,15 +822,15 @@ export function Climber({ day }: { day: Day }) {
   const endRun = (r: Run) => {
     const { sim, timeline } = r;
     if (timeline.ending === 'top') {
-      // Fist pump off the finish with the right hand, and a cloud of chalk.
+      // Matched the finish. Hold it a beat, look down, then drop off (see topOut).
       const n = frameAt(frames, day.finish.u, day.finish.v).normal;
-      const up = sim.pos[J.shoulderR].clone().add(new THREE.Vector3(0.3, 0.5, 0)).addScaledVector(n, 0.3);
-      sim.drive(1, up, n, 0.35, 0);
-      r.grip[1] = -1;
+      const face = V(-n.x, 0, -n.z);
+      if (face.lengthSq() < 0.01) face.set(0, 0, -1);
+      r.out = { t0: r.t, released: false, landed: -1, face: face.normalize(), turned: 0, claps: 0, floor: 0 };
       sim.tone = 1;
-      puff(toWorld(day.finish, 0.05), n, 40, 1.1);
-      sfx.topout();
-      useClimb.setState({ status: 'topped', label: 'Topped out!' });
+      puff(toWorld(day.finish, 0.05), n, timeline.send ? 24 : 10, 0.7);
+      if (timeline.send) sfx.topout();
+      useClimb.setState({ status: 'topped', label: timeline.send ? 'Topped out!' : 'Topped out… off the brief' });
     } else {
       // Let go of everything. Physics does the rest.
       sim.ends.forEach((e) => (e.mode = 'free'));
@@ -774,6 +843,114 @@ export function Climber({ day }: { day: Day }) {
     }
   };
 
+  const pad = useMemo(() => padBox(day.wall), [day.wall]);
+  /** Height of whatever is underfoot at (x, z): the pad, or the floor beside it. */
+  const groundAt = (x: number, z: number) =>
+    Math.abs(x) < pad.width / 2 && z > pad.minZ && z < pad.maxZ ? pad.top : 0;
+
+  /**
+   * After the match: hold the finish, look down at the pad, let go and drop, land in a
+   * squat and stand, turn round to the room, then celebrate a send (arms up, two claps)
+   * or, topped out off the brief, glance back up at the route and shrug. Returns the
+   * posture to hold, or null to keep climbing posture (still on the finish).
+   */
+  const topOut = (r: Run): THREE.Vector3[] | null => {
+    const out = r.out!;
+    const { sim } = r;
+    const k = r.t - out.t0;
+    const ease = (a: number, b: number) => {
+      const x = Math.max(0, Math.min(1, (k - a) / (b - a)));
+      return x * x * (3 - 2 * x);
+    };
+    if (!out.released) {
+      if (k < SEND.release) return null;
+      out.released = true;
+      sim.ends.forEach((e) => (e.mode = 'free'));
+      r.grip = [-1, -1];
+      sim.tone = 0.7;
+      sim.drag = 0.998;
+      // A little push off the wall so the body drops clear of it instead of scraping down.
+      sim.impulse(out.face.clone().multiplyScalar(-0.7).add(V(0, 0.5, 0)), STEP);
+      sfx.whoosh();
+      useClimb.setState({ label: 'Dropping off…' });
+    }
+    const hip = sim.pos[J.pelvis];
+    if (out.landed < 0) {
+      const lowest = Math.min(...[J.footL, J.footR].map((j) => sim.pos[j].y - groundAt(sim.pos[j].x, sim.pos[j].z)));
+      const falling = sim.pos[J.pelvis].y - sim.prev[J.pelvis].y < 0;
+      if (lowest > 0.07 || !falling) return poseToArray(dropPose(hip, out.face, 0.25, 'drop'));
+      // Touchdown: plant the feet under the hips and soak it up.
+      out.landed = r.t;
+      out.floor = groundAt(hip.x, hip.z);
+      sim.drag = null;
+      sim.tone = 1;
+      const right = out.face.clone().cross(V(0, 1, 0)).normalize();
+      [2, 3].forEach((n) => {
+        const sd = n === 2 ? -1 : 1;
+        const at = hip.clone().addScaledVector(right, sd * 0.15).setY(out.floor + 0.02);
+        sim.drive(n, at, V(0, 1, 0), 0.08, 0);
+      });
+    }
+    const t = r.t - out.landed;
+    // Stand back up out of the landing squat, stepping a little away from the wall.
+    const squat = t < 0.08 ? t / 0.08 : 1 - ease(out.landed - out.t0 + 0.08, out.landed - out.t0 + SEND.absorb);
+    // Turn round to face the room, stepping the feet round.
+    const turnK = ease(out.landed - out.t0 + SEND.turn, out.landed - out.t0 + SEND.turn + SEND.turnFor);
+    const angle = Math.PI * turnK;
+    const face = out.face.clone().applyAxisAngle(V(0, 1, 0), angle);
+    const stand = V(hip.x, out.floor + 0.86 - 0.36 * squat, hip.z);
+    if (t >= SEND.turn && out.turned === 0) {
+      out.turned = 1;
+      const end = out.face.clone().applyAxisAngle(V(0, 1, 0), Math.PI);
+      const right = end.clone().cross(V(0, 1, 0)).normalize();
+      // Each foot arcs its own way round (one forward, one back): a pivot, not a shuffle through.
+      [2, 3].forEach((n) => {
+        const sd = n === 2 ? -1 : 1;
+        const at = stand.clone().addScaledVector(right, sd * 0.14).addScaledVector(end, 0.08).setY(out.floor + 0.02);
+        sim.drive(n, at, out.face.clone().multiplyScalar(sd).add(V(0, 0.6, 0)).normalize(), SEND.turnFor, 0.07);
+      });
+    }
+    const send = r.timeline.send;
+    let arms: Celebrate = 'cheer';
+    let ak = 0;
+    const c0 = SEND.cheer;
+    if (send) {
+      if (t >= c0) {
+        ak = Math.min(1, (t - c0) / 0.2);
+        ak = ak * ak * (3 - 2 * ak);
+      }
+      if (t >= SEND.claps[0] - 0.15) {
+        arms = 'clap';
+        ak = Math.max(...SEND.claps.map((c) => Math.exp(-(((t - c) / 0.07) ** 2))));
+      }
+      // Then the arms come down and the climber stands there, pleased.
+      if (t >= SEND.end - 0.25) {
+        arms = 'cheer';
+        ak = 1 - ease(out.landed - out.t0 + SEND.end - 0.25, out.landed - out.t0 + SEND.end + 0.35);
+      }
+      if (out.claps < SEND.claps.length && t >= SEND.claps[out.claps]) {
+        out.claps++;
+        sfx.clap();
+        const mid = sim.pos[J.handL].clone().add(sim.pos[J.handR]).multiplyScalar(0.5);
+        puff(mid, V(0, 1, 0), 8, 0.6);
+        if (out.claps === 1) useClimb.setState({ label: 'Sent it!' });
+      }
+    } else if (t >= c0) {
+      arms = 'shrug';
+      ak = Math.sin(Math.min(1, (t - c0) / 0.75) * Math.PI);
+      if (out.claps === 0) {
+        out.claps = 1;
+        sfx.shrug();
+        useClimb.setState({ label: 'Topped out, but off the brief' });
+      }
+    }
+    if (!r.finished && t >= (send ? SEND.end : SEND.shrugEnd)) {
+      r.finished = true;
+      useClimb.setState({ status: 'idle' });
+      useGame.getState().climbFinished();
+    }
+    return poseToArray(dropPose(stand, face, squat, arms, ak));
+  };
   useFrame((_, dt) => {
     if (!rig.current) return;
     if (!playback) {
@@ -846,9 +1023,10 @@ export function Climber({ day }: { day: Day }) {
         }
       }
       if (r.rest) shakeOut(r);
+      const outPose = r.out ? topOut(r) : null;
       const wind = idx >= 0 && timeline.frames[idx].windup;
       r.sink = wind ? windupSink(Math.min(1, t / timeline.frames[idx].duration)) : 0;
-      sim.step(STEP, r.limp ? null : postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist));
+      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist)));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {

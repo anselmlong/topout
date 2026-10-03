@@ -60,6 +60,8 @@ export class Ragdoll {
   ends: EndDrive[] = [];
   /** 0..1 how strongly the body holds its posture. 0 = limp. */
   tone = 1;
+  /** Per-step velocity kept, overriding the tone's default (a controlled drop: little air drag, posture held). */
+  drag: number | null = null;
 
   /** Seconds since the last ground contact that counted as an impact (for thud sounds). */
   impacts: number[] = [];
@@ -159,7 +161,7 @@ export class Ragdoll {
   step(dt: number, posture: THREE.Vector3[] | null) {
     const { pos, prev } = this;
     // 1. Integrate. Damped well on the wall so limbs settle smoothly; barely when falling.
-    const damp = this.tone > 0 ? 0.965 : 0.999;
+    const damp = this.drag ?? (this.tone > 0 ? 0.965 : 0.999);
     for (let i = 0; i < JOINTS; i++) {
       const p = pos[i];
       const vx = (p.x - prev[i].x) * damp;
@@ -180,10 +182,10 @@ export class Ragdoll {
         const k = (freeKnee ? 0.16 : soft ? 0.05 : 0.11) * this.tone;
         pos[i].lerp(posture[i], k);
       }
-      // Free feet still want to hang roughly under the hips, a little.
+      // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat;
+      // free hands (only ever let go on purpose, dropping off the top) are held too.
       this.ends.forEach((e, n) => {
-        // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat.
-        if (e.mode === 'free' && n >= 2) pos[ENDS[n]].lerp(posture[ENDS[n]], 0.14 * this.tone);
+        if (e.mode === 'free') pos[ENDS[n]].lerp(posture[ENDS[n]], 0.14 * this.tone);
       });
     }
     // 3. Advance kinematic ends.
