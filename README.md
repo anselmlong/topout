@@ -48,6 +48,9 @@ V4.5") on a bar that runs from V0 to a few grades past the brief, with the brief
 band shaded, a tick at the brief and one at the hardest move so far. The numbered move tags
 on the wall use the same colours: green for moves well under the brief, ochre on it, brick
 over it, so a V0 jug ladder reads green instead of every route's crux glowing red.
+Moves onto the same hold (a match on the Finish, a re-grab) share one tag ("5R 6L"), and each
+frame the tags are nudged apart on screen, nearest free spot first, so none covers another or
+the Start/Finish labels at any zoom.
 
 After each test the result card breaks the crux down ("What made it V5.1"): the hold hung
 off, the catch, the reach, the steepness, the feet, a barn door or high step, and the pump,

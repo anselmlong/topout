@@ -869,6 +869,17 @@ button {
   white-space: nowrap;
   animation: pop 0.25s ease-out;
 }
+.beta-slot {
+  transition: transform 0.18s ease-out;
+}
+.beta-tag .move {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.beta-tag .move + .move {
+  margin-left: 4px;
+}
 .beta-tag .h {
   opacity: 0.8;
   font-size: 9.5px;
