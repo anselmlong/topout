@@ -89,6 +89,17 @@ describe('solver', () => {
     expect(g).toBeGreaterThan(0.5 * handGrip({ ...sp, rot: 0 }, { u: 195, v: 170 }, wall(0)));
   });
 
+  it('stands into an undercling at the waist, but not one overhead', () => {
+    const uc: Hold = { id: 'u', type: 'edge', size: 'm', u: 200, v: 250, rot: Math.PI };
+    // Feet high, body just below the hold: the climber stands up into it.
+    const waist = handGrip(uc, { u: 210, v: 200 }, wall(0));
+    expect(waist).toBeGreaterThan(0.3);
+    // Still more strenuous than the same edge pulled the right way up.
+    expect(waist).toBeLessThan(handGrip({ ...uc, rot: 0 }, { u: 210, v: 200 }, wall(0)));
+    // Feet far below: the body can't get over it.
+    expect(handGrip(uc, { u: 210, v: 100 }, wall(0))).toBeLessThan(0.05);
+  });
+
   it('names how a hand holds a hold: sidepull, gaston, undercling', () => {
     const edge = (rot: number): Hold => ({ id: 'e', type: 'edge', size: 'm', u: 150, v: 200, rot });
     const body = { u: 200, v: 150 };

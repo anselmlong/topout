@@ -198,6 +198,18 @@ export function bestPull(rot: number): { u: number; v: number } {
 /** How far (cm) a climber leans the body out sideways off a sidepull (see pullParts). */
 export const SIDEPULL_LEAN = 45;
 
+/**
+ * How far (cm) a climber brings the body up over an undercling (see pullParts): feet
+ * high, legs pushing, so the shoulder rises above the hand.
+ */
+export const UNDERCLING_RISE = 120;
+
+/**
+ * How much of a hold's grip a straight-on undercling keeps: even stood up into it, the
+ * body hangs on tension between hand and feet, so it's never as restful as a pull.
+ */
+export const UNDERCLING = 0.8;
+
 /** How much of a hold's grip a gaston (pulling the hold outward, away from the body) keeps. */
 export const GASTON = 0.5;
 
@@ -208,17 +220,22 @@ export const GASTON = 0.5;
 function pullParts(hold: Hold, pullTo: { u: number; v: number }) {
   const best = bestPull(hold.rot);
   let du = pullTo.u - hold.u;
-  const dv = pullTo.v - hold.v;
+  let dv = pullTo.v - hold.v;
   // Sidepull: a hold whose lip faces sideways toward the body. Climbers don't hang
   // straight under it; they lean off it, straight-armed, hips swung out the other way
   // and the feet pushing back, so the pull comes in far more side-on than the stance's
   // centre alone says. Only toward the side the body is already on: leaning out past a
   // gaston would just turn it into a sidepull from the wrong side of the hold.
   if (Math.sign(du) === Math.sign(best.u)) du += best.u * SIDEPULL_LEAN;
+  // Undercling: a hold whose lip faces down can't be hung from below. Climbers bring
+  // their feet up and stand into it, so the body rises over the hand and the arm pulls
+  // up while the legs push down. That only reaches so far: an undercling at the waist
+  // holds, one overhead with the feet far below it still doesn't.
+  if (best.v > 0) dv += best.v * UNDERCLING_RISE;
   const len = Math.hypot(du, dv) || 1;
   const c = (du * best.u + dv * best.v) / len;
   const t = hold.tol ?? GRIP[hold.type].tolerance;
-  const pull = Math.max(0, Math.min(1, (c + t) / (1 + t)));
+  const pull = Math.max(0, Math.min(1, (c + t) / (1 + t))) * (1 - (1 - UNDERCLING) * Math.max(0, best.v));
   // Gaston: a hold whose edge faces away from the body, out to the side, isn't dead.
   // Thumb down, elbow out, the hand pulls it outward and the body stays on in
   // opposition (the other hand and the feet push back). Strenuous, so it only reaches

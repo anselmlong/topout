@@ -4,7 +4,8 @@
 //   vertical jug ladder ≈ V0, vertical edges ≈ V1-2, vertical crimps ≈ V3,
 //   20° jugs ≈ V1-2, 20° edges ≈ V4, 40° board jugs ≈ V3-4 (MoonBoard floor is V4),
 //   40° edges ≈ V6, 40° crimps ≈ V8, slab crimps + smears ≈ V2-3,
-//   vertical gaston edges ≈ V4-5, vertical sidepull edges ≈ V3.
+//   vertical gaston edges ≈ V4-5, vertical sidepull edges ≈ V3,
+//   vertical undercling edges ≈ V4.
 import { solve } from '../src/solver/solve';
 import type { Hold, HoldSize, HoldType, Wall } from '../src/solver/types';
 
@@ -25,6 +26,8 @@ export interface Anchor {
   gaston?: boolean;
   /** Turn the hand holds' edges to face in, toward the line (sidepulls). */
   sidepull?: boolean;
+  /** Turn the hand holds upside down, lip facing the floor (underclings). */
+  undercling?: boolean;
 }
 
 export const ANCHORS: Anchor[] = [
@@ -51,6 +54,9 @@ export const ANCHORS: Anchor[] = [
   // The same edges turned to face in: sidepulls you lean off. About a grade over the
   // plain edges, well under the gastons.
   { name: 'vertical sidepull edges', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 3, sidepull: true },
+  // The same edges upside down: underclings. Feet up, stand into each one and reach
+  // off it; strenuous like a sidepull, but you can't lean off it, so a grade over.
+  { name: 'vertical undercling edges', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 4, undercling: true },
   { name: 'vertical jug dyno', angle: 0, type: 'jug', size: 'l', spacing: 125, feet: true, expect: 4, column: true },
 ];
 
@@ -74,7 +80,7 @@ export function anchorRoute(a: Anchor) {
   for (let v = 150 + a.spacing; v < TOP - 20 - a.spacing / 2; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
-    const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : 0;
+    const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot });
   }
   if (a.feet)
