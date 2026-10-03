@@ -4,7 +4,7 @@ import { solve } from '../solver/solve';
 import type { Hold, SolveResult } from '../solver/types';
 import { verdictOf, type TestRun } from './rules';
 import { gapLabel, gradeDrivers, gradeTone, moveGrade, setterTip } from './tips';
-import { ANCHORS, ANCHOR_FINISH as ROUTE_FINISH, ANCHOR_START as ROUTE_START, anchorRoute, gradeAnchor } from '../../scripts/calibrate';
+import { ANCHORS, ANCHOR_START as ROUTE_START, anchorRoute, gradeAnchor } from '../../scripts/calibrate';
 import { moveDifficulty, moveParts } from '../solver/solve';
 
 
@@ -39,18 +39,18 @@ describe('grade drivers', () => {
   // Rebuild real calibration routes as days, so the breakdown runs on the solver's own beta.
   const day = (name: string) => {
     const a = ANCHORS.find((x) => x.name === name)!;
-    const { wall, holds } = anchorRoute(a);
+    const { wall, holds, finish } = anchorRoute(a);
     const result = gradeAnchor(a);
-    const d = { ...generateDay(5), wall, start: ROUTE_START, finish: ROUTE_FINISH, targetGrade: 0 };
+    const d = { ...generateDay(5), wall, start: ROUTE_START, finish, targetGrade: 0 };
     return { d, test: run(result, holds), result };
   };
 
   it('rebuilds every move of the beta exactly from its parts', () => {
     for (const a of ANCHORS) {
-      const { wall, holds } = anchorRoute(a);
+      const { wall, holds, finish } = anchorRoute(a);
       const r = gradeAnchor(a);
       if (!r.ok) continue;
-      for (const m of r.moves) expect(moveDifficulty(moveParts(wall, ROUTE_START, ROUTE_FINISH, holds, m)!)).toBeCloseTo(m.difficulty, 9);
+      for (const m of r.moves) expect(moveDifficulty(moveParts(wall, ROUTE_START, finish, holds, m)!)).toBeCloseTo(m.difficulty, 9);
     }
   });
 

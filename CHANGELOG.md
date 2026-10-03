@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-04
+
+**Grades**
+- Grades are checked against four more reference climbs drawn from real Kilter Board grades:
+  small crimps on a vertical wall, a jump between jugs at 20° and at 40°, and a long jug haul
+  up a steep highball.
+
 ## 2026-10-03
 
 **Climber**
