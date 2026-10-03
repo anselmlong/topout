@@ -104,7 +104,7 @@ export function HelpModal() {
           a dyno. Undo and redo sit in the bar at the bottom.
         </p>
         <p className="fine">
-          Every day brings a new wall: slabs, overhangs, headwalls, caves and roofs with a lip to pull, ledges to mantle onto, corners you
+          Every day brings a new wall: slabs, overhangs, headwalls, tall highballs, caves and roofs with a lip to pull, ledges to mantle onto, corners you
           can stem (some of them overhanging), and arêtes and overhanging prows whose edge is itself a hold. After a test,
           numbered tags show the climber’s beta, coloured by how hard each move was. On steep walls they’ll heel hook big holds
           out to the side, and toe hook a hold far out whose lip faces away from them. Hands follow the hold too: a lip facing

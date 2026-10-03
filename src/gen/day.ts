@@ -18,7 +18,7 @@ export function dateOf(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop' | 'rollover' | 'belly' | 'overlap' | 'ledge' | 'roof';
+export type WallStyle = 'slab' | 'vertical' | 'overhang' | 'steep' | 'headwall' | 'kicker' | 'corner' | 'arete' | 'bulge' | 'cave' | 'prow' | 'dihedral' | 'scoop' | 'rollover' | 'belly' | 'overlap' | 'ledge' | 'roof' | 'highball';
 
 export const STYLE_LABEL: Record<WallStyle, string> = {
   slab: 'Slab',
@@ -39,6 +39,7 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   overlap: 'Overlap',
   ledge: 'Ledge',
   roof: 'Roof',
+  highball: 'Highball',
 };
 
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
@@ -182,6 +183,12 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
       ];
       return { width, panels, seed, lip: true };
     }
+    case 'highball': {
+      // The gym's tall wall: 5.6-6.2 m of near-vertical to gently overhanging plywood over a
+      // deep pad. Half as many moves again as a normal problem, so the pump and the rests count.
+      panels = [{ length: r.int(560, 620), angle: r.int(-2, 12) }];
+      break;
+    }
     case 'arete': {
       // An outside corner: faces turned away, the edge itself a hold. Sharper is juggier.
       panels = [{ length: tall, angle: r.int(-5, 15) }];
@@ -199,6 +206,9 @@ function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
   return { width, panels, seed };
 }
 
+/** A single-panel wall longer than this (cm) is a highball; every other wall tops out by 5 m. */
+const HIGHBALL = 530;
+
 export function wallStyleOf(wall: Wall): WallStyle {
   if (wall.fold) {
     const a = wall.panels[0].angle;
@@ -213,6 +223,7 @@ export function wallStyleOf(wall: Wall): WallStyle {
     if (p[0].angle > p[1].angle + 15) return 'bulge';
     return p[0].length > 100 ? 'headwall' : 'kicker';
   }
+  if (p[0].length > HIGHBALL) return 'highball';
   const a = p[0].angle;
   if (a < 0) return 'slab';
   if (a < 10) return 'vertical';
@@ -226,9 +237,9 @@ const WEEKDAY_GRADE = [3, 1, 2, 3, 4, 5, 4]; // Sun..Sat
 const STYLE_BY_WEEKDAY: WallStyle[][] = [
   ['overhang', 'headwall', 'kicker', 'corner', 'arete'], // Sun
   ['vertical', 'slab', 'overhang', 'corner'], // Mon
-  ['vertical', 'overhang', 'slab', 'corner', 'arete', 'overlap', 'ledge'], // Tue
-  ['overhang', 'kicker', 'vertical', 'corner', 'bulge', 'scoop', 'rollover', 'belly', 'ledge'], // Wed
-  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop', 'belly', 'overlap', 'roof'], // Thu
+  ['vertical', 'overhang', 'slab', 'corner', 'arete', 'overlap', 'ledge', 'highball'], // Tue
+  ['overhang', 'kicker', 'vertical', 'corner', 'bulge', 'scoop', 'rollover', 'belly', 'ledge', 'highball'], // Wed
+  ['overhang', 'headwall', 'steep', 'corner', 'arete', 'prow', 'scoop', 'belly', 'overlap', 'roof', 'highball'], // Thu
   ['steep', 'kicker', 'headwall', 'bulge', 'cave', 'prow', 'dihedral'], // Fri
   ['overhang', 'steep', 'headwall', 'corner', 'bulge', 'cave', 'prow', 'dihedral', 'scoop', 'rollover', 'belly', 'overlap', 'ledge', 'roof'], // Sat
 ];
@@ -270,7 +281,8 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
   };
   if (twist === 'no-jugs') weights.jug = 0;
 
-  const handCount = r.int(12, 15);
+  // A highball is half as long again: the extra moves need more holds.
+  const handCount = r.int(12, 15) + (style === 'highball' ? 5 : 0);
   const counts = new Map<string, TraySlot>();
   const types = Object.keys(weights) as (keyof typeof weights)[];
   const total = types.reduce((s, t) => s + weights[t], 0);
@@ -302,7 +314,7 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
     slot.count++;
     counts.set(key, slot);
   }
-  const feet = twist === 'no-smear' ? r.int(8, 10) : r.int(5, 7);
+  const feet = (twist === 'no-smear' ? r.int(8, 10) : r.int(5, 7)) + (style === 'highball' ? 3 : 0);
   const jibs = r.int(3, 5);
   const order: HoldType[] = ['jug', 'edge', 'pocket', 'pinch', 'sloper', 'crimp'];
   const sizes: HoldSize[] = ['l', 'm', 's'];
@@ -332,6 +344,7 @@ export const ANGLE_RANGE: Record<WallStyle, [number, number]> = {
   overlap: [40, 60],
   ledge: [-5, 20],
   roof: [60, 85],
+  highball: [-8, 20],
 };
 
 export const ALL_STYLES = Object.keys(ANGLE_RANGE) as WallStyle[];
