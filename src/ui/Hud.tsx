@@ -150,6 +150,7 @@ export function Controls() {
   const armed = useGame((s) => s.armed);
   const selected = useGame((s) => s.selectedId);
   const onSpot = useGame((s) => !!s.selectedId && isSpotId(s.day!, s.selectedId));
+  const climbing = useGame((s) => s.phase === 'climbing');
   // Tablets are wide enough for this hint but have no mouse or keyboard.
   const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
   const text = touch
@@ -167,7 +168,9 @@ export function Controls() {
         : selected
           ? 'Drag to move · Q / E to rotate · Delete to remove · Ctrl+Z undoes'
           : 'The taped Start and Finish spots are fixed (click one to swap its hold) · pick holds from the tray and click the wall to place them between · drag to orbit · right-drag or Shift+drag to pan · scroll zooms';
-  return <p className="controls">{text}</p>;
+  // Setting help: nothing to do with the climb, so it fades out while the climber is on the
+  // wall (kept in the layout so the camera's framing doesn't shift).
+  return <p className={`controls ${climbing ? 'away' : ''}`}>{text}</p>;
 }
 
 export function Tray() {
@@ -515,12 +518,17 @@ export function ClimbTicker() {
   const speed = usePlaySpeed((s) => s.speed);
   const skip = useGame((s) => s.skipClimb);
   if (phase !== 'climbing') return null;
+  // The current move hasn't landed yet: its grade is still to come.
+  const pending = feed.landed < feed.move;
   return (
-    <div className={`card ticker ${feed.status}`} role="status" aria-live="polite">
+    <div className={`card ticker ${feed.status} ${pending ? 'pending' : ''}`} role="status" aria-live="polite">
       <div className="row1">
+        {/* Two beats a move: as it winds up, the count and the words say what's coming; when
+            the limb lands, its grade, the meter and its tag on the wall. */}
         <span>{feed.move >= 0 ? `Move ${feed.move + 1} / ${feed.total}` : 'Starting'}</span>
         <span>
-          <span className="word">This move </span><b className="mono">{feed.grade === null ? '–' : `V${feed.grade.toFixed(1)}`}</b>
+          <span className="word">This move </span>
+          <b className={`mono ${pending ? 'pending' : ''}`}>{feed.grade === null || pending ? '–' : `V${feed.grade.toFixed(1)}`}</b>
         </span>
       </div>
       <div className="label">{feed.label}</div>

@@ -211,9 +211,17 @@ function CameraRig({ wall }: { wall: Wall }) {
     c.addEventListener('start', onStart);
     return () => c.removeEventListener('start', onStart);
   }, []);
-  useFrame(() => {
+  // How free the camera is to move, eased so it never starts or stops with a jerk: 0 while
+  // the climber is mid-move (see climberFocus.hold), 1 otherwise.
+  const freedom = useRef(1);
+  useFrame((_, delta) => {
     const c = controls.current;
     if (!c) return;
+    const dt = Math.min(delta, 0.05);
+    // One thing at a time: during a move only the climber moves; the camera catches up in the settle.
+    const still = climberFocus.active && climberFocus.hold && !climberFocus.free;
+    freedom.current += ((still ? 0 : 1) - freedom.current) * (1 - Math.pow(0.82, dt * 60));
+    const free = freedom.current;
     // Landing shake: jolt the view, then let the next frame's jolt replace it.
     camera.position.sub(shakeOffset.current);
     shakeOffset.current.set(0, 0, 0);
@@ -229,8 +237,8 @@ function CameraRig({ wall }: { wall: Wall }) {
     }
     // Ease into a new framing sideways and in depth; the follow below owns the height.
     const g = glide.current;
-    if (g) {
-      const k = 0.08;
+    if (g && free > 0.01) {
+      const k = (1 - Math.pow(0.92, dt * 60)) * free;
       c.target.x += (g.target.x - c.target.x) * k;
       c.target.z += (g.target.z - c.target.z) * k;
       const off = camera.position.clone().sub(c.target);
@@ -246,7 +254,7 @@ function CameraRig({ wall }: { wall: Wall }) {
       ? Math.max(homeY - 0.4, Math.min(Math.max(homeY, b.height - 0.9), climberFocus.pos.y - 0.2))
       : homeY;
     if (Math.abs(want - c.target.y) < 1e-4) return;
-    const dy = (want - c.target.y) * 0.03;
+    const dy = (want - c.target.y) * (1 - Math.pow(0.97, dt * 60)) * free;
     c.target.y += dy;
     camera.position.y += dy;
   });

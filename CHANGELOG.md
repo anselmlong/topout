@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-04
 
 **Climber**
+- One thing at a time while the climber climbs: the camera holds still during each move and only
+  catches up after it, a move's grade and its number on the wall appear as the hand lands rather
+  than before it moves, and the setting tips fade out until the climb is over.
 - Climbs play at normal speed by default, and every move reads: a beat to wind up, the move,
   then a moment to settle onto the hold. 2× and 4× and Skip are still on the ticker.
 - Tops out properly: matches the finish, holds it a beat, looks down and drops onto the pad,

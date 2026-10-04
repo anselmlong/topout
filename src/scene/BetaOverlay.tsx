@@ -1,5 +1,6 @@
 // Numbered hand moves on the wall, coloured by each move's own grade against the
-// brief (green filler, ochre on grade, brick over it), so an easy route reads easy. While the climber is on the wall, tags appear as moves happen.
+// brief (green filler, ochre on grade, brick over it), so an easy route reads easy. While the
+// climber is on the wall, each tag pops in as its hand lands on the hold, one at a time.
 // Moves onto the same hold (a match, a re-grab) share one tag, and every frame the tags are
 // spread apart on screen so none hides another or the Start/Finish labels.
 import { Html } from '@react-three/drei';
@@ -59,7 +60,8 @@ const GAP = 2;
 export function BetaOverlay({ day }: { day: Day }) {
   const beta = useGame((s) => s.beta);
   const phase = useGame((s) => s.phase);
-  const current = useClimb((s) => s.move);
+  // The last move whose hand has landed: its tag shows (and is highlighted) from then on.
+  const current = useClimb((s) => s.landed);
   const frames = useMemo(() => panelFrames(day.wall), [day.wall]);
   const slots = useRef(new Map<number, HTMLDivElement>());
   const placed = useRef(new Map<number, [number, number]>());
@@ -100,6 +102,8 @@ export function BetaOverlay({ day }: { day: Day }) {
   const shown = tags
     .map((t) => ({ ...t, entries: t.entries.filter((e) => !climbing || e.move <= current) }))
     .filter((t) => t.entries.length);
+  // The newest hand tag stays highlighted until the next hand lands (foot moves leave it be).
+  const latest = climbing ? Math.max(-1, ...shown.flatMap((t) => t.entries.map((e) => e.move))) : -1;
 
   // Spread the tags apart in screen space. Earlier tags keep their spot and later ones find
   // a free one nearby, so tags don't jump around as the climb adds new ones.
@@ -120,7 +124,7 @@ export function BetaOverlay({ day }: { day: Day }) {
       if (v.z > 1) continue;
       const cx = ((v.x + 1) / 2) * size.width;
       const cy = ((1 - v.y) / 2) * size.height;
-      const now = climbing && t.entries.some((e) => e.move === current) ? 1.25 : 1;
+      const now = climbing && t.entries.some((e) => e.move === latest) ? 1.25 : 1;
       const w = el.offsetWidth * now + GAP * 2;
       const h = el.offsetHeight * now + GAP * 2;
       // The crux label rides above the pill.
@@ -158,7 +162,7 @@ export function BetaOverlay({ day }: { day: Day }) {
       {shown.map((t) => {
         const crux = t.entries.some((e) => e.crux);
         const tone = Math.max(...t.entries.map((e) => e.tone));
-        const now = climbing && t.entries.some((e) => e.move === current);
+        const now = climbing && t.entries.some((e) => e.move === latest);
         const off = placed.current.get(t.key);
         return (
           <Html key={t.key} position={t.pos} center zIndexRange={[4, 0]} style={{ pointerEvents: 'none' }}>

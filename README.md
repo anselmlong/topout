@@ -21,7 +21,9 @@ wheel zooms (or rotates the armed/selected hold). A click without dragging place
 or selects, and a drag that starts on a placed hold moves it. Reset view (and every load or
 resize) fits the whole wall into the screen space the HUD leaves free. When a test climb
 starts, the camera eases over to fit the wall around the move ticker too (below it on a
-phone, above it on desktop), and eases back when the climb ends.
+phone, above it on desktop), and eases back when the climb ends. While a move plays (its
+wind-up and the limb travelling, or a dyno's pumps) the camera holds still and only reframes in
+the settle after it; the landing shake is kept for the drop off the top and for falls.
 Q/E rotate, right-click (without dragging) removes. While a handhold is armed or
 dragged, an arc on the wall shows the climber's reach from the nearest handhold
 below (solid: static, dashed: dyno only; `src/game/reach.ts` mirrors the solver's
@@ -48,7 +50,11 @@ While the climber is on the wall, the ticker grades each move on its own ("This 
 V4.5") on a bar that runs from V0 to a few grades past the brief, with the brief's pass
 band shaded, a tick at the brief and one at the hardest move so far. The numbered move tags
 on the wall use the same colours: green for moves well under the brief, ochre on it, brick
-over it, so a V0 jug ladder reads green instead of every route's crux glowing red.
+over it, so a V0 jug ladder reads green instead of every route's crux glowing red. During a
+climb the ticker changes in two beats per move: as the move winds up, the count and its words
+("Left hand → edge (hip turn)"); when the limb lands, its grade, the meter and its tag on the
+wall, so tags pop in one at a time as hands land. The setting hints fade out while the climber
+is on the wall.
 Moves onto the same hold (a match on the Finish, a re-grab) share one tag ("5R 6L"), and each
 frame the tags are nudged apart on screen, nearest free spot first, so none covers another or
 the Start/Finish labels at any zoom.

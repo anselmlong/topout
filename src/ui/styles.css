@@ -274,6 +274,11 @@ button {
   background: rgba(248, 246, 241, 0.6);
   border-radius: 8px;
   max-width: 260px;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+.controls.away {
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* ---------------------------------------------------------------- tray */
@@ -887,6 +892,9 @@ button {
 .beta-tag.crux {
   outline: 2px solid rgba(255, 255, 255, 0.9);
 }
+.beta-tag {
+  transition: transform 0.25s ease-out;
+}
 .beta-tag.now {
   transform: scale(1.25);
 }
@@ -957,7 +965,7 @@ button {
 .move-meter .fill {
   left: 0;
   border-radius: 3px;
-  transition: width 0.3s ease, background 0.3s;
+  transition: width 0.3s ease, background 0.3s, opacity 0.2s;
 }
 /* A V0 move still shows: a stub of green rather than an empty bar. */
 .move-meter .fill.on {
@@ -1005,6 +1013,14 @@ button {
 .ticker .row1 b {
   color: var(--ink);
   font-weight: 600;
+  transition: color 0.2s;
+}
+/* While a move is on its way its grade is still to come: the meter dims to the last one. */
+.ticker .row1 b.pending {
+  color: var(--ink-3);
+}
+.ticker.pending .move-meter .fill {
+  opacity: 0.35;
 }
 
 .ticker .playback {

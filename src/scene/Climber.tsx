@@ -379,7 +379,7 @@ interface Run {
   /** Gaze target per keyframe: the hold its moving limb lands on (see gazeFor). */
   gaze: (THREE.Vector3 | null)[];
   /** Pending arrival events (grab sound + chalk) keyed by sim time. */
-  arrivals: { at: number; limb: number; hold: number; strain: number }[];
+  arrivals: { at: number; limb: number; hold: number; strain: number; move: number; grade: number | null }[];
   /** Hold index under each hand (-1 = not gripping), for turning the mittens. */
   grip: [number, number];
   /** Flag direction per foot, fixed for the move so the free leg doesn't flip sides. */
@@ -469,7 +469,7 @@ export function Climber({ day }: { day: Day }) {
       (u, v) => (surfaceAt(vols, u, v)?.height ?? 0) / 100,
     );
     first.feet.forEach((p, i) => !p && (sim.ends[2 + i].mode = 'free'));
-    useClimb.setState({ move: -1, total: pb.result.ok ? pb.result.moves.length : 0, grade: null, peak: 0, label: 'Chalking up…', status: 'climbing' });
+    useClimb.setState({ move: -1, landed: -1, total: pb.result.ok ? pb.result.moves.length : 0, grade: null, peak: 0, label: 'Chalking up…', status: 'climbing' });
     const gaze = timeline.frames.map((f) => {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
@@ -562,10 +562,12 @@ export function Climber({ day }: { day: Day }) {
       r.rest = { hand, t0: r.t, hold: f.holds[hand], at: toWorld(f.to.hands[hand], 0.07), dipped: false };
       r.grip[hand] = -1;
       r.arms[hand] = null;
-      useClimb.setState({ grade: null, label: 'Shaking out before the crux…' });
+      // The meter keeps the last move's grade: only the words change between moves.
+      useClimb.setState({ label: 'Shaking out before the crux…' });
     }
-    if (f.windup) useClimb.setState({ grade: null, label: 'Pumping for the dyno…' });
-    if (f.limb >= 0 && f.holds.length) r.arrivals.push({ at: r.t + (f.prep ?? 0) + (f.travel ?? f.duration * 0.85), limb: f.limb, hold: f.holds[f.limb], strain: f.strain });
+    if (f.windup) useClimb.setState({ label: 'Pumping for the dyno…' });
+    if (f.limb >= 0 && f.holds.length)
+      r.arrivals.push({ at: r.t + (f.prep ?? 0) + (f.travel ?? f.duration * 0.85), limb: f.limb, hold: f.holds[f.limb], strain: f.strain, move: f.move, grade: f.grade ?? null });
     if (f.dynamic) {
       // Launch: throw the hips at the target, and let the feet cut loose on steep ground.
       const target = toWorld(f.to.hands[f.limb as 0 | 1], 0.07);
@@ -584,10 +586,10 @@ export function Climber({ day }: { day: Day }) {
       const across = m >= 2 ? f.to.feet[3 - m] : null;
       const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];
       const flagged = r.flagAway.findIndex((a) => a !== 0);
+      // As the move winds up the ticker says what's coming; its grade, the meter and its
+      // tag on the wall wait for the landing (see arrivals), one beat at a time.
       useClimb.setState({
         move: f.move,
-        grade: f.grade ?? null,
-        peak: Math.max(useClimb.getState().peak, f.grade ?? 0),
         label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
           tech === 'heel'
             ? ' (heel hook)'
@@ -837,6 +839,7 @@ export function Climber({ day }: { day: Day }) {
     if (!playback) {
       run.current = null;
       climberFocus.active = false;
+      climberFocus.hold = false;
       const it = idle.current;
       it.t += Math.min(dt, 0.05);
       const cycle = it.t % 7;
@@ -890,6 +893,7 @@ export function Climber({ day }: { day: Day }) {
         const a = r.arrivals[i];
         if (r.t < a.at) continue;
         r.arrivals.splice(i, 1);
+        if (a.move >= 0) useClimb.setState({ landed: a.move, grade: a.grade, peak: Math.max(useClimb.getState().peak, a.grade ?? 0) });
         const hold = r.holds[a.hold];
         const p = sim.pos[[J.handL, J.handR, J.footL, J.footR][a.limb]];
         if (a.limb < 2) {
@@ -928,7 +932,9 @@ export function Climber({ day }: { day: Day }) {
       if (r.t - r.lastThud > 0.12 && v > 0.03) {
         r.lastThud = r.t;
         sfx.thud(v);
-        climberFocus.shake = Math.min(0.05, v * 1.5);
+        // Shake the view for a real landing (a drop off the top or a fall), not for a cut-loose
+        // foot brushing the pad mid-climb, which would jolt the camera under a move.
+        if (r.ended) climberFocus.shake = Math.min(0.05, v * 1.5);
         puff(sim.pos[J.pelvis].clone().setY(0.32), new THREE.Vector3(0, 1, 0), 10, 1.2);
       }
     }
@@ -940,6 +946,12 @@ export function Climber({ day }: { day: Day }) {
     let inFrame = r.t;
     for (let i = 0; i < r.frame; i++) inFrame -= timeline.frames[i].duration;
     pose.look = gazeFor(r, inFrame);
+    // The camera holds still through a move (wind-up, travel, a dyno's pumps) and only
+    // reframes in the settle after it.
+    const kfNow = r.frame >= 0 ? timeline.frames[r.frame] : null;
+    climberFocus.free = r.ended;
+    climberFocus.hold =
+      !r.ended && !!kfNow && (!!kfNow.windup || (kfNow.limb >= 0 && inFrame < (kfNow.prep ?? 0) + (kfNow.travel ?? kfNow.duration * 0.85)));
     rig.current.apply(pose);
     if (!r.finished && r.t >= timeline.total) {
       r.finished = true;
