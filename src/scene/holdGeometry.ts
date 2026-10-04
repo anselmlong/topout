@@ -1,10 +1,10 @@
 // Procedural low-poly hold meshes. Local frame: base on z = 0 (the wall),
 // +z out of the wall, +y is the incut side (hold "up" at rot = 0). Metres.
 //
-// Edges and crimps are side profiles lofted across their width; jugs,
-// slopers, pinches, pockets, foot chips and jibs are built in rings around
-// their outline. Each is jittered per variant so
-// no two look quite alike. Per-face colour grain is baked in as vertex colours
+// Edges, crimps and ledge jugs are side profiles lofted across their width;
+// other jugs, horns, slopers, pinches, pockets, foot chips and jibs are built
+// in rings around their outline. Jugs come in families (see JUG_FAMILIES).
+// Each is jittered per variant so no two look quite alike. Per-face colour grain is baked in as vertex colours
 // (multiplied with the material colour). A per-vertex `grip` attribute marks
 // the surfaces hands and shoes actually use, so chalk builds up there and
 // nowhere else (see the hold material in Scene.tsx).
@@ -63,11 +63,42 @@ interface Profile {
   bendRange?: [number, number];
   /** Where on the profile (0..1) the bolt goes through the face. */
   boltAt: number;
+  /** Per-vertex roughness out of the wall (fraction); defaults to 0.05. */
+  jitter?: number;
   grip?: GripFn;
 }
 
 /** Real-hold shapes, drawn as a side profile and lofted across the width. */
-const PROFILES: Partial<Record<HoldType, Profile>> = {
+const PROFILES: Partial<Record<HoldType | 'ledge', Profile>> = {
+  // A flat-topped ledge jug: a long bar standing well out of the wall with a
+  // flat shelf deep enough for the whole first knuckle, a little lip at the
+  // front to catch the fingertips, and a back wall the knuckles rest against.
+  ledge: {
+    pts: [
+      [0, -0.03],
+      [0.02, -0.025],
+      [0.037, -0.014],
+      [0.048, 0.0],
+      [0.052, 0.012],
+      [0.049, 0.019],
+      [0.043, 0.018],
+      [0.033, 0.0135],
+      [0.021, 0.013],
+      [0.01, 0.016],
+      [0.004, 0.025],
+      [0, 0.033],
+    ],
+    width: 0.16,
+    blunt: 3.4,
+    tipHeight: 0.45,
+    bend: 0.008,
+    lumps: 0.08,
+    bendRange: [-0.4, 1.2],
+    boltAt: 0.28,
+    jitter: 0.015,
+    // Fingers lie along the shelf and curl over the lip.
+    grip: (n, c) => (c.z > 0.008 ? smooth(0.1, 0.7, n.y + 0.3 * Math.max(0, n.z)) : 0.2 * smooth(0.3, 0.8, n.y)),
+  },
   // A flat ledge: a wedge-shaped body that slopes up out of the wall to a
   // rounded nose, a lip with a slight incut, and a shelf a couple of finger
   // pads deep that dips before it climbs back into the wall.
@@ -168,7 +199,8 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
     for (let m = 0; m < M; m++) {
       const p = prof[m];
       const inner = m > 0 && m < M - 1 && Math.abs(u) < 0.999;
-      pos.push(...at(u, p, inner ? r.range(0.95, 1.05) : 1));
+      const jit = pr.jitter ?? 0.05;
+      pos.push(...at(u, p, inner ? r.range(1 - jit, 1 + jit) : 1));
       // The incut shelf behind the lip sits in its own shadow.
       const shelf = p.y > mid && p.x < outMax * 0.75 ? 0.9 : 1;
       shade.push(shelf);
@@ -314,6 +346,41 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   };
 }
 
+/** The shape of a ringed jug: its outline, its mouth and how deep the scoop behind the lip goes. */
+interface JugForm {
+  /** Half-width and half-height of the outline on the wall. */
+  W: number;
+  H: number;
+  /** How square the ends are (superellipse exponent; lower is blockier). */
+  ends: number;
+  /** How much the ends droop (fraction of a bucket's droop). */
+  droop: number;
+  /** Mouth: centre height, how far out of the wall, half-width (fraction of W) and lip-to-back half-depth. */
+  hy: number;
+  zc: number;
+  mouth: number;
+  R: number;
+  /** How far the mouth's plane tips up from facing straight out (radians). */
+  tilt: number;
+  /** How far the scoop drops below the mouth. */
+  D: number;
+  /** Belly profile exponent: under 1 bulges out early and rolls over to the lip, over 1 rises steep to it. */
+  fill: number;
+}
+
+/** A deep bucket: a wide crescent with a thick lip over a scoop four fingers can bury in. */
+const BUCKET: JugForm = { W: 0.08, H: 0.046, ends: 0.7, droop: 1, hy: 0.018, zc: 0.036, mouth: 0.58, R: 0.013, tilt: 0.305, D: 0.022, fill: 1.1 };
+/**
+ * A pinchable jug: narrow and tall, with blocky ends and steep flanks, so the
+ * thumb wraps the side while the fingers take a deep but narrow scoop.
+ */
+const PINCH_JUG: JugForm = { W: 0.054, H: 0.056, ends: 0.42, droop: 0.25, hy: 0.022, zc: 0.042, mouth: 0.5, R: 0.012, tilt: 0.305, D: 0.022, fill: 0.85 };
+/**
+ * A slopey jug: a fat round dome with a small, shallow mouth high on its top,
+ * a thumb-deep lip over a big rolled belly you half palm and half grab.
+ */
+const SLOPEY_JUG: JugForm = { W: 0.084, H: 0.056, ends: 0.78, droop: 0.7, hy: 0.03, zc: 0.044, mouth: 0.4, R: 0.008, tilt: 0.52, D: 0.011, fill: 0.6 };
+
 /**
  * A bucket jug: a wide crescent bolted on its back, built in rings from its
  * outline up a round belly to a thick rolled lip. Behind the lip a scoop
@@ -323,24 +390,28 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
  * scoop sits low against the wall, so from level you see the lip and a dark
  * slot behind it, and from above the whole bucket. The ends droop a little
  * (a frown, like most moulded jugs) and one end is fuller than the other.
+ * `form` reshapes the same build into a pinchable or a slopey jug.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugForm = BUCKET) {
   const N = 36;
-  const W = 0.08 * (0.94 + 0.1 * k);
-  const H = 0.046;
+  const W = form.W * (0.94 + 0.1 * k);
+  const H = form.H;
   // Mouth: centre (height, out of the wall), half-width, and half-depth from lip to back.
-  const hy = 0.018 + 0.003 * k;
-  const zc = 0.036 * (1.04 - 0.08 * k);
-  const a = W * (0.58 + 0.08 * k);
-  const R = 0.013 + 0.004 * k;
-  // The mouth lies in a plane tilted up and back: `dir` runs from the lip to the
-  // back of the scoop, `up` is the plane's normal (up and a little out). [y, z] pairs.
-  const dir = [0.3, -0.954];
-  const up = [0.954, 0.3];
+  const hy = form.hy + 0.003 * k;
+  const zc = form.zc * (1.04 - 0.08 * k);
+  const a = W * (form.mouth + 0.08 * k);
+  const R = form.R + 0.004 * k;
+  // The mouth lies in a plane tilted up and back by `tilt` from straight out:
+  // `dir` runs from the lip to the back of the scoop, `up` is the plane's normal
+  // (up and a little out). [y, z] pairs.
+  const dir = [Math.sin(form.tilt), -Math.cos(form.tilt)];
+  const up = [Math.cos(form.tilt), Math.sin(form.tilt)];
   // How far the scoop drops below the mouth.
-  const D = 0.022 + 0.006 * k;
-  const bend = r.range(0.004, 0.016);
+  const D = form.D + 0.006 * k;
+  // How the belly rises off the wall: under 1 it bulges out early and rolls over to the lip.
+  const fill = form.fill;
+  const bend = r.range(0.004, 0.016) * form.droop;
   const lean = r.range(-0.12, 0.12);
   const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
   const wobble = Array.from({ length: N }, (_, j) => {
@@ -348,7 +419,7 @@ function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
     return 1 + 0.03 * Math.sin(2 * th + p1) + 0.02 * Math.sin(3 * th + p2);
   });
   const outline = (c: number, s: number, j: number): [number, number] => [
-    W * sgnpow(c, 0.7) * wobble[j],
+    W * sgnpow(c, form.ends) * wobble[j],
     H * sgnpow(s, 0.85) * (s < 0 ? 1.08 : 0.94) * wobble[j],
   ];
   // A point on the mouth's outline (s = -1 the lip, +1 the back), grown by `d`
@@ -367,7 +438,7 @@ function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
         const [ox, oy] = outline(c, s, j);
         const [rx, ry, rz] = mouth(c, s, RIM);
         // A steep skirt off the wall, then a round belly up to the lip.
-        const z = rz * (t === 0 ? 0 : Math.sin((Math.PI / 2) * t) ** 1.1);
+        const z = rz * (t === 0 ? 0 : Math.sin((Math.PI / 2) * t) ** fill);
         return [ox + (rx - ox) * t, oy + (ry - oy) * t, z];
       },
       shade: t === 0 ? 0.86 : 1,
@@ -447,6 +518,109 @@ function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
       if (w < -D - 0.004 || w > 0.008) return 0.2 * TOP_GRIP(n, c);
       return d < 0.8 ? 0.5 + 0.5 * smooth(-0.3, 0.5, n.y) : d < 1.15 ? 0.6 * smooth(-0.2, 0.6, n.y + 0.4 * n.z) : 0.2 * TOP_GRIP(n, c);
     }) as GripFn,
+  };
+}
+
+/**
+ * A horn: a stubby, tapering post that leaves the wall from a broad base,
+ * stands out and curls up at its tip like a cow's horn, so the hand wraps it
+ * like a handle or hooks over the tip. Built in rings square to a curved
+ * spine, from a footprint flat on the wall to a rounded tip; the cross-section
+ * is a little flattened top to bottom and the spine leans to one side. The
+ * bolt goes through the apron below the horn. `S` is the size scale.
+ */
+function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+  const N = 24;
+  const W = 0.05 * (0.92 + 0.12 * k);
+  const H = 0.047;
+  // Spine: from the middle of the base out of the wall, curling up toward the tip.
+  const y0 = 0.006;
+  const L = 0.07 * (0.94 + 0.12 * k);
+  const rise = 0.03 + 0.01 * k;
+  const lean = r.range(-0.012, 0.012);
+  const spine = (t: number) => new THREE.Vector3(lean * t * t, y0 + rise * t ** 2.2, L * Math.sin((Math.PI / 2) * t));
+  const tangent = (t: number) => spine(Math.min(1, t + 0.01)).sub(spine(Math.max(0, t - 0.01))).normalize();
+  // Cross-section half-sizes along the spine: a thick neck tapering to a round tip.
+  const rx = (t: number) => 0.016 + 0.019 * (1 - t) ** 1.3;
+  const ry = (t: number) => 0.014 + 0.016 * (1 - t) ** 1.3;
+  const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
+  const wobble = Array.from({ length: N }, (_, j) => {
+    const th = (j / N) * Math.PI * 2;
+    return 1 + 0.035 * Math.sin(2 * th + p1) + 0.025 * Math.sin(3 * th + p2);
+  });
+  // The footprint: a rounded shield, with an apron below the horn for the bolt.
+  const outline = (c: number, s: number, j: number): [number, number] => [
+    W * sgnpow(c, 0.8) * wobble[j],
+    y0 + H * sgnpow(s, 0.85) * (s < 0 ? 1.15 : 0.75) * wobble[j],
+  ];
+  const X = new THREE.Vector3(1, 0, 0);
+  const ringAt = (t: number, c: number, s: number) => {
+    const T = tangent(t);
+    const Y = new THREE.Vector3().crossVectors(T, X).negate().normalize();
+    const Xs = new THREE.Vector3().crossVectors(Y, T).normalize();
+    return spine(t).addScaledVector(Xs, rx(t) * c).addScaledVector(Y, ry(t) * s);
+  };
+  const pos: number[] = [];
+  const shade: number[] = [];
+  const index: number[] = [];
+  // Footprint, a low skirt, then rings up the horn.
+  const ts = [0.1, 0.22, 0.36, 0.5, 0.64, 0.78, 0.9, 0.97];
+  const rings = 2 + ts.length;
+  for (let i = 0; i < rings; i++) {
+    for (let j = 0; j < N; j++) {
+      const th = (j / N) * Math.PI * 2;
+      const c = Math.cos(th), s = Math.sin(th);
+      if (i < 2) {
+        // The base flares out over the wall: the footprint, then a skirt partway to the neck.
+        const [ox, oy] = outline(c, s, j);
+        const neck = ringAt(0.04, c, s);
+        const t = i === 0 ? 0 : 0.42;
+        const z = i === 0 ? 0 : 0.011 + 0.003 * Math.max(0, s);
+        pos.push(ox + (neck.x - ox) * t, oy + (neck.y - oy) * t, z);
+        shade.push(i === 0 ? 0.86 : 1);
+        continue;
+      }
+      const t = ts[i - 2];
+      const p = ringAt(t, c, s);
+      const jz = r.range(0.985, 1.015);
+      pos.push(p.x, p.y, p.z * jz);
+      // The underside of the horn sits in its own shadow.
+      shade.push(1 - 0.12 * Math.max(0, -s) * (1 - t));
+    }
+    if (i === 0) continue;
+    for (let j = 0; j < N; j++) {
+      const A = (i - 1) * N + j;
+      const B = (i - 1) * N + ((j + 1) % N);
+      const C = i * N + ((j + 1) % N);
+      const D = i * N + j;
+      index.push(A, B, C, A, C, D);
+    }
+  }
+  // Rounded tip: a fan out to a point just past the last ring.
+  const last = (rings - 1) * N;
+  const tip = pos.length / 3;
+  const end = spine(1).addScaledVector(tangent(1), 0.006);
+  pos.push(end.x, end.y, end.z);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(last + j, last + ((j + 1) % N), tip);
+  const base = pos.length / 3;
+  pos.push(0, 0, 0);
+  shade.push(1);
+  for (let j = 0; j < N; j++) index.push(base, (j + 1) % N, j);
+
+  const flat = indexedToFlat(pos, shade, index, S);
+  // The bolt goes through the apron under the horn, square to its face.
+  const ray = new THREE.Raycaster(new THREE.Vector3(0, (y0 - 0.034) * S, 1), new THREE.Vector3(0, 0, -1));
+  const mesh = new THREE.Mesh(flat.geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  const hit = ray.intersectObject(mesh)[0];
+  const at = hit ? hit.point.clone() : new THREE.Vector3(0, (y0 - 0.034) * S, 0.008 * S);
+  const n = hit?.face ? hit.face.normal.clone() : new THREE.Vector3(0, 0, 1);
+  if (n.z < 0) n.negate();
+  return {
+    ...flat,
+    bolt: { at: at.addScaledVector(n, 0.0006), tilt: Math.atan2(n.y, n.z) },
+    // The hand wraps the horn: chalk all over its top and sides, most on top and over the tip.
+    grip: ((nn, c) => (c.z / S > 0.018 ? 0.35 + 0.65 * smooth(-0.4, 0.6, nn.y) : 0.15 * TOP_GRIP(nn, c))) as GripFn,
   };
 }
 
@@ -830,7 +1004,7 @@ function indexedToFlat(pos: number[], shade: number[], index: number[], S: numbe
 }
 
 const SHAPES: Record<HoldType, Shape> = {
-  // Built by jugGeometry; only `bolt` is read here.
+  // Built by jugGeometry, hornGeometry or the ledge profile (see JUG_FAMILIES); unused here.
   jug: { scale: [0.08, 0.05, 0.06], detail: 0, jitter: 0, bolt: true },
   edge: {
     scale: [0.08, 0.03, 0.036],
@@ -890,6 +1064,11 @@ const SHAPES: Record<HoldType, Shape> = {
 // Drawn ~20% larger than life so holds read at game zoom. Keep in step with holdRadius.
 const SIZE: Record<HoldSize, number> = { s: 0.95, m: 1.2, l: 1.5 };
 const VARIANTS = 4;
+/**
+ * Jug families, picked by variant: deep buckets most often, then a flat-topped
+ * ledge, a horn, a pinchable jug and a slopey jug. Each also comes in two builds.
+ */
+const JUG_FAMILIES = ['bucket', 'ledge', 'bucket', 'horn', 'pinch', 'slopey'] as const;
 
 export interface HoldMeshData {
   geometry: THREE.BufferGeometry;
@@ -904,6 +1083,26 @@ export interface HoldMeshData {
 const cache = new Map<string, HoldMeshData>();
 
 export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshData {
+  if (type === 'jug') {
+    // Jugs come in families, so a wall of them doesn't look cloned.
+    const family = JUG_FAMILIES[variant % JUG_FAMILIES.length];
+    const kj = Math.floor(variant / JUG_FAMILIES.length) % 2 ? 0.8 : 0.2;
+    const key = `jug-family:${size}:${variant % (2 * JUG_FAMILIES.length)}`;
+    const hit = cache.get(key);
+    if (hit) return hit;
+    const rj = rng(hash(3, 0x6a, family.length, size.charCodeAt(0), variant % (2 * JUG_FAMILIES.length)));
+    const p =
+      family === 'ledge'
+        ? { ...profileGeometry(PROFILES.ledge!, SIZE[size], kj, rj), grip: PROFILES.ledge!.grip! }
+        : family === 'horn'
+          ? hornGeometry(SIZE[size], kj, rj)
+          : jugGeometry(SIZE[size], kj, rj, { bucket: BUCKET, pinch: PINCH_JUG, slopey: SLOPEY_JUG }[family]);
+    const data = finish(p.geometry, rj, false, (_x, _y, _z, i) => p.shade(i), p.grip);
+    data.bolt = p.bolt.at;
+    data.boltTilt = p.bolt.tilt;
+    cache.set(key, data);
+    return data;
+  }
   const v = variant % VARIANTS;
   const key = `${type}:${size}:${v}`;
   const hit = cache.get(key);
@@ -911,15 +1110,10 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   const spec = SHAPES[type];
   const r = rng(hash(type.length, type.charCodeAt(0), type.charCodeAt(1), size.charCodeAt(0), v));
   const k = v / (VARIANTS - 1);
-  if (type === 'pocket' || type === 'sloper' || type === 'pinch' || type === 'jug') {
-    const build = { pocket: pocketGeometry, sloper: sloperGeometry, pinch: pinchGeometry, jug: jugGeometry }[type];
+  if (type === 'pocket' || type === 'sloper' || type === 'pinch') {
+    const build = { pocket: pocketGeometry, sloper: sloperGeometry, pinch: pinchGeometry }[type];
     const p = build(SIZE[size], k, r);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
-    if (type === 'jug') {
-      const { at, tilt } = (p as ReturnType<typeof jugGeometry>).bolt;
-      data.bolt = at;
-      data.boltTilt = tilt;
-    }
     cache.set(key, data);
     return data;
   }

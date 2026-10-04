@@ -16,6 +16,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   then turns round and throws both arms up with a couple of claps. Topping out off the brief
   gets a quieter landing and a shrug back up at the route.
 
+**Holds**
+- Jugs come in five families instead of one cloned bucket: deep buckets, long flat-topped
+  ledges, horns that stick out and curl up, narrow pinchable jugs and fat slopey jugs with a
+  shallow lip, so a wall of jugs looks like a real gym's mix.
+
 **Game**
 - A first test with nowhere to stand now marks the spot: rings appear on the wall under the start
   where foot chips will work, and a foot chip is already in hand when you close the result.
