@@ -390,6 +390,7 @@ function WallView({ day }: { day: Day }) {
         <HoldMesh key={h.id} hold={h} wall={day.wall} frames={frames} fixed={!!viewing} tint={tint} />
       ))}
       <GhostHold wall={day.wall} frames={frames} />
+      <FootHint wall={day.wall} frames={frames} />
       <ReachGuide day={day} frames={frames} />
     </group>
   );
@@ -734,6 +735,45 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
         <meshStandardMaterial color={color} transparent opacity={0.6} flatShading depthWrite={false} />
       </mesh>
       <PullArrow dir={bestPull(0)} color={color} />
+    </group>
+  );
+}
+
+/**
+ * After a test with nowhere to stand: a pulsing ring on the wall where a foot chip would
+ * give the climber a start. Each ring goes once a hold covers it.
+ */
+function FootHint({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
+  const hint = useGame((s) => s.footHint);
+  const placed = useGame((s) => s.placed);
+  const show = useGame((s) => s.phase === 'setting' && !s.viewing && !s.done);
+  const open = hint.filter((p) => !placed.some((h) => Math.hypot(h.u - p.u, h.v - p.v) < 12));
+  if (!show || !open.length) return null;
+  return (
+    <>
+      {open.map((p) => (
+        <FootRing key={`${p.u},${p.v}`} wall={wall} frames={frames} u={p.u} v={p.v} />
+      ))}
+    </>
+  );
+}
+
+function FootRing({ wall, frames, u, v }: { wall: Wall; frames: PanelFrame[]; u: number; v: number }) {
+  const ring = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => ring.current?.scale.setScalar(1 + 0.15 * Math.sin(clock.elapsedTime * 4)));
+  const f = frameAt(frames, u, v);
+  return (
+    <group position={uvToWorld(wall, frames, u, v).addScaledVector(f.normal, 0.007)} quaternion={holdQuaternion(f, 0)}>
+      <group ref={ring}>
+        <mesh raycast={() => null}>
+          <circleGeometry args={[0.05, 32]} />
+          <meshBasicMaterial color={PALETTE.ghostOk} transparent opacity={0.55} depthWrite={false} />
+        </mesh>
+        <mesh raycast={() => null}>
+          <ringGeometry args={[0.05, 0.068, 32]} />
+          <meshBasicMaterial color="#2a2926" transparent opacity={0.85} depthWrite={false} />
+        </mesh>
+      </group>
     </group>
   );
 }

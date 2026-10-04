@@ -61,7 +61,9 @@ the Start/Finish labels at any zoom.
 
 After each test the result card breaks the crux down ("What made it V5.1"): the hold hung
 off, the catch, the reach, the steepness, the feet, a barn door or high step, and the pump,
-each as the grades it adds, and the tip goes after the biggest one.
+each as the grades it adds, and the tip goes after the biggest one. A test with no starting stance
+rings the spots under the start where foot chips would give one (`footSpots` in `src/game/tips.ts`)
+and puts a foot chip in hand when the card closes.
 
 **Practice** (top bar) builds any wall style, angle, grade and twist with a full
 tray and unlimited tests. The wall is encoded in the URL

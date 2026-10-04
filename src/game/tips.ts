@@ -1,10 +1,10 @@
 // Setter feedback after a test: how far off the brief the route landed and one
 // concrete thing to change. Pure, so it can be unit-tested.
 import { BODY, heightAt, toGrade, wallHeight } from '../solver/model';
-import { moveDifficulty, moveParts, type MoveParts } from '../solver/solve';
-import { OFF, SMEAR, type Day, type Hold, type HoldType, type Move } from '../solver/types';
+import { canStart, moveDifficulty, moveParts, type MoveParts } from '../solver/solve';
+import { OFF, SMEAR, type Day, type Hold, type HoldType, type Move, type Point } from '../solver/types';
 import { contactList } from '../solver/volumes';
-import type { TestRun } from './rules';
+import { canPlace, type TestRun } from './rules';
 import { withSpots } from './spots';
 
 const NAME: Partial<Record<HoldType, string>> = {
@@ -140,11 +140,50 @@ export function gradeDrivers(day: Day, test: TestRun): Driver[] {
   return out.sort((a, b) => b.grades - a.grades);
 }
 
+/**
+ * Where to put foot chips so a route with no starting stance gets one: one spot if one
+ * will do, else a pair, nearest a natural stance (about 85 cm under the start hands,
+ * centred under them) first. Empty unless the test failed for want of feet.
+ */
+export function footSpots(day: Day, test: TestRun): Point[] {
+  const r = test.result;
+  if (r.ok || r.reason !== 'no-start') return [];
+  const tape = withSpots(day, test.spots);
+  const opts = { noSmear: day.twist === 'no-smear', volumes: test.volumes };
+  const fixed = [...tape.start, tape.finish, ...test.holds];
+  const u0 = tape.start.reduce((a, h) => a + h.u, 0) / tape.start.length;
+  const low = Math.min(...tape.start.map((h) => h.v));
+  const chip = (u: number, v: number, id: string): Hold => ({ id, type: 'foot', size: 'm', u, v, rot: 0 });
+  const spots: Hold[] = [];
+  for (let dv = 40; dv <= 160; dv += 10)
+    for (let du = -60; du <= 60; du += 10) {
+      const h = chip(u0 + du, low - dv, 'hint-a');
+      if (canPlace(day.wall, fixed, h)) spots.push(h);
+    }
+  const cost = (h: Hold) => Math.abs(low - h.v - 85) + Math.abs(h.u - u0) * 0.7;
+  spots.sort((a, b) => cost(a) - cost(b));
+  const starts = (holds: Hold[]) => canStart(day.wall, tape.start, tape.finish, [...test.holds, ...holds], opts);
+  const one = spots.find((h) => starts([h]));
+  if (one) return [{ u: one.u, v: one.v }];
+  for (const a of spots)
+    for (const b0 of spots) {
+      if (b0.u <= a.u + 20) continue;
+      const b = { ...b0, id: 'hint-b' };
+      if (canPlace(day.wall, [...fixed, a], b) && starts([a, b])) return [a, b].map((h) => ({ u: h.u, v: h.v }));
+    }
+  return [];
+}
+
 /** One sentence of advice, or null when the route is on grade. */
 export function setterTip(day: Day, test: TestRun): string | null {
   const r = test.result;
   if (!r.ok) {
-    if (r.reason === 'no-start') return 'Nothing for the feet at the start: add a foot chip or two low down, below the start holds.';
+    if (r.reason === 'no-start') {
+      const n = footSpots(day, test).length;
+      return n
+        ? `Nothing to stand on at the start. Put a foot chip on ${n === 1 ? 'the ring' : 'each ring'} marked under the start.`
+        : 'Nothing for the feet at the start: add a foot chip or two low down, below the start holds.';
+    }
     const top = heightAt(day.wall, wallHeight(day.wall));
     const hp = r.highPoint;
     if (!hp) return 'Add holds between the start and the finish; the climber can move about an arm’s length per hand.';

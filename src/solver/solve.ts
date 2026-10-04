@@ -189,6 +189,12 @@ export function moveParts(wall: Wall, start: Hold[], finish: Hold, placed: Hold[
   return parts[0] ?? null;
 }
 
+/** Whether the climber has a legal starting stance (hands on the start, a foot on): the 'no-start' check alone. */
+export function canStart(wall: Wall, start: Hold[], finish: Hold, placed: Hold[], opts: SolveOptions = {}): boolean {
+  const ctx = new Context(wall, contactList(start, finish, placed, opts.volumes, wall), opts);
+  return ctx.startStates(start.length === 1 ? [0, 0] : orderHands(start)).length > 0;
+}
+
 function orderHands(start: Hold[]): [number, number] {
   return start[0].u <= start[1].u ? [0, 1] : [1, 0];
 }

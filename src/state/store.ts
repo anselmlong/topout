@@ -6,7 +6,8 @@ import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
 import { defaultSpots, isSpotId, spotsFilled, spotsOf, withSpots, type SpotHold, type Spots } from '../game/spots';
 import { solveInWorker } from '../solver/client';
-import type { Day, Hold, HoldSize, HoldType, SolveResult, Volume, VolumeShape } from '../solver/types';
+import type { Day, Hold, HoldSize, HoldType, Point, SolveResult, Volume, VolumeShape } from '../solver/types';
+import { footSpots } from '../game/tips';
 import { loadDay, recordResult, saveDay } from './persist';
 
 export interface Ghost {
@@ -73,6 +74,8 @@ interface GameState {
   /** Last solved route, shown as a beta overlay until the route is edited. */
   beta: { result: SolveResult; holds: Hold[]; volumes: Volume[]; spots?: Spots } | null;
   lastTest: TestRun | null;
+  /** After a test with nowhere to stand: rings on the wall where foot chips would give a start. */
+  footHint: Point[];
   modal: 'help' | 'tour' | 'grades' | 'result' | 'stats' | 'practice' | null;
   toast: string | null;
   /** Earlier route states for undo, oldest first; `redoStack` holds undone ones. */
@@ -208,6 +211,7 @@ export const useGame = create<GameState>((set, get) => {
     playback: null,
     beta: null,
     lastTest: null,
+    footHint: [],
     modal: null,
     toast: null,
     undoStack: [],
@@ -258,6 +262,7 @@ export const useGame = create<GameState>((set, get) => {
         playback: null,
         beta: null,
         lastTest: null,
+        footHint: [],
         phase: 'setting',
         placed: save?.placed ?? [],
         volumes: save?.volumes ?? [],
@@ -492,6 +497,7 @@ export const useGame = create<GameState>((set, get) => {
       set({
         tests: [...get().tests, test],
         lastTest: test,
+        footHint: footSpots(s.day!, test),
         phase: 'climbing',
         playback: { result, run: ++playRun, holds, volumes, spots },
         beta: { result, holds, volumes, spots },
@@ -546,7 +552,12 @@ export const useGame = create<GameState>((set, get) => {
       const s = get();
       // Closing the result card returns to setting.
       set({ modal, phase: s.phase === 'review' && modal === null ? 'setting' : s.phase });
-      if (modal === null && s.phase === 'review') set({ playback: null });
+      if (modal === null && s.phase === 'review') {
+        set({ playback: null });
+        // Nowhere to stand: hand the player a foot chip, so the next tap on a ring places it.
+        const chip = { type: 'foot' as const, size: 'm' as const };
+        if (s.footHint.length && !s.done && remaining(s.day!, s.placed, s.volumes, chip) > 0) get().arm(chip);
+      }
     },
 
     resetView() {

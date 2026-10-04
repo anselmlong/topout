@@ -3,9 +3,9 @@ import { generateDay } from '../gen/day';
 import { solve } from '../solver/solve';
 import type { Hold, SolveResult } from '../solver/types';
 import { verdictOf, type TestRun } from './rules';
-import { gapLabel, gradeDrivers, gradeTone, moveGrade, setterTip } from './tips';
+import { footSpots, gapLabel, gradeDrivers, gradeTone, moveGrade, setterTip } from './tips';
 import { ANCHORS, ANCHOR_START as ROUTE_START, anchorRoute, gradeAnchor } from '../../scripts/calibrate';
-import { moveDifficulty, moveParts } from '../solver/solve';
+import { canStart, moveDifficulty, moveParts } from '../solver/solve';
 
 
 const run = (result: SolveResult, holds: Hold[] = []): TestRun => ({ holds, result, verdict: verdictOf(result, 4), holdCount: holds.length });
@@ -24,6 +24,24 @@ describe('setter tips', () => {
     const tip = setterTip(day, run(result));
     expect(tip).toBeTruthy();
     if (!result.ok && result.reason === 'unreachable') expect(tip).toMatch(/Stuck at \d\.\d m/);
+  });
+
+  it('marks foot chips that give a route with nowhere to stand a start', () => {
+    // Days whose bare start has no stance: the rings must fix that, on the real solver.
+    let checked = 0;
+    for (let n = 1; n <= 40 && checked < 4; n++) {
+      const day = generateDay(n);
+      const opts = { noSmear: day.twist === 'no-smear' };
+      const result = solve(day.wall, day.start, day.finish, [], opts);
+      if (result.ok || result.reason !== 'no-start') continue;
+      checked++;
+      const spots = footSpots(day, run(result));
+      expect(spots.length).toBeGreaterThan(0);
+      const chips = spots.map((p, i): Hold => ({ id: `c${i}`, type: 'foot', size: 'm', u: p.u, v: p.v, rot: 0 }));
+      expect(canStart(day.wall, day.start, day.finish, chips, opts)).toBe(true);
+      expect(setterTip(day, run(result))).toMatch(/ring/);
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
   it('is quiet on grade and points the right way off it', () => {
