@@ -29,6 +29,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Grades are checked against four more reference climbs drawn from real Kilter Board grades:
   small crimps on a vertical wall, a jump between jugs at 20° and at 40°, and a long jug haul
   up a steep highball.
+- Grades are checked against four more Kilter Board climbs: pinches at 20° and 40°, and big
+  slopers at 20° and 30°. Pinches and slopers on steep walls still come out up to a grade too
+  hard, and those climbs are marked so a later fix can aim at them.
 
 ## 2026-10-03
 

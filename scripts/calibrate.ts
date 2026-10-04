@@ -98,6 +98,51 @@ export const ANCHORS: Anchor[] = [
   // V3 at 40°): on jugs, length pumps you but barely moves the grade. Graded with the
   // 40° jugs above.
   { name: '40° jug haul, highball', angle: 40, type: 'jug', size: 'm', spacing: 55, feet: true, expect: 4, top: 600 },
+  // Pinches and slopers off vertical, from the same Kilter Board Original per-angle grades
+  // on boardsesh.com (checked 2026-10-04). Before these, pinches were anchored only at 30°
+  // and slopers only at 40°, both by intuition.
+  // Pinches on a gentle overhang: "Pinché Pinch!" (568 ascents) is V4 at 20°, "quad pinch"
+  // V4 at 20°, "Pinch N Crimp" (4,841) V3 at 20°.
+  { name: '20° pinches', angle: 20, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 4 },
+  // Big slopers on a gentle overhang: "Super Sloper Slam Fest" (2,219 ascents) is V4 at 20°,
+  // "Sloper Season" V3 at 20°.
+  { name: '20° slopers', angle: 20, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 4 },
+  // The same slopers at 30°: Super Sloper Slam Fest V5, "slopers traing" V4, Sloper Season
+  // V3 at 30°. The most-climbed one sets the grade.
+  {
+    name: '30° slopers',
+    angle: 30,
+    type: 'sloper',
+    size: 'l',
+    spacing: 55,
+    feet: true,
+    expect: 5,
+    // Grades V6.0 (2026-10-04). Slopers lose grip as the wall steepens (GRIP.sloper.steepLoss
+    // 0.7) and the model adds ~1.6 grades per 10° (20° V4.4, 30° V6.0, 40° V7.6); Kilter adds
+    // ~1 (Super Sloper Slam Fest V4 / V5 / V6 at 20° / 30° / 40°). Easing steepLoss would fix
+    // this but pull the 40° slopers well under their V8, an intuition anchor Kilter puts at
+    // V5-V7 (Slam Fest V6, Sloper Season V5, slopers traing V7). Needs a call on that anchor first.
+    miss: 'slopers climb ~0.6 grade per 10° too steeply: V6.0',
+  },
+  // Pinches on a 40° board: Pinché Pinch! V5, "Easy pinch" (408 ascents) V4, Pinch N Crimp
+  // V6 at 40°. One to three grades over their 20° grades.
+  {
+    name: '40° pinches',
+    angle: 40,
+    type: 'pinch',
+    size: 'm',
+    spacing: 55,
+    feet: true,
+    expect: 5,
+    // Grades V6.6 (2026-10-04). Every hand move hangs off a 0.61-grip pinch, so the crux
+    // (2.98) is the plain reach between pinches, not one bad move; the 20° pinches hit
+    // within 0.6, so it's the climb from 20° to 40° (model +2.0, Kilter +1 to +3, ~+1.5)
+    // plus the 20° offset. The 30° pinches (V5 by intuition, V5.6 here) sit on the model's
+    // side, while Kilter puts the same three problems at V4 at 30°. Closing this means
+    // deciding whether the intuition anchors at 30-40° (pinches V5, slopers V8) or the
+    // board grades win; not a constant to nudge here.
+    miss: 'pinches climb ~0.5 grade too steeply from 20° to 40°: V6.6',
+  },
 ];
 
 const TOP = 400;
