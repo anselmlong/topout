@@ -27,6 +27,12 @@ type ArmTechnique = HandTechnique | 'press';
 
 /** Where each limb sits (cm across, LH RH LF RF) on a mantle shelf it shares with another. */
 const SHELF_SPREAD = [-11, 11, -24, 24];
+/**
+ * How fast a free leg swings between an outside flag (-1/+1 on its own side) and a back flag
+ * (the other side), in that unit per second: the whole swing takes ~0.5 s, so the leg sweeps
+ * across behind the standing leg during the reach instead of jumping there in one frame.
+ */
+const FLAG_SWING = 4;
 
 /**
  * The solver's foot techniques, plus a mantle: the foot up on the shelf the hands press out
@@ -40,7 +46,10 @@ function poseFrom(
   hands: [THREE.Vector3, THREE.Vector3],
   feet: [THREE.Vector3 | null, THREE.Vector3 | null],
   _hipV: number,
-  /** Which way (-1 left, +1 right on screen) each free leg flags; decided once per move. */
+  /**
+   * Which way (-1 left, +1 right on screen) each free leg flags; decided once per move and
+   * eased in between (see FLAG_SWING), so a value in between is a leg partway across.
+   */
   flagAway?: [number, number],
   /** Heel/toe hook or drop knee per foot (see footTechnique), decided once per move. */
   legs: [LegTechnique, LegTechnique] = [null, null],
@@ -174,15 +183,17 @@ function poseFrom(
     const side = i === 0 ? -1 : 1;
     const other = feet[1 - i];
     let target = feet[i];
-    const away = flagAway?.[i] || side;
+    const away = flagAway?.[i] ?? side;
+    // 0 = an outside flag, 1 = a back flag, smoothstepped while the leg swings across.
+    const across = Math.min(1, Math.max(0, (1 - away * side) / 2));
+    const back = across * across * (3 - 2 * across);
     if (!target && other) {
       // Flag: the free leg presses on the wall as a counterweight (see flagFor). An outside
       // flag reaches long and nearly straight out on its own side; a back flag crosses
       // behind the standing leg to a spot on the wall beyond and below that foot.
-      target =
-        away === side
-          ? pelvis[i].clone().addScaledVector(lateral, away * 0.55).addScaledVector(torsoDir, -0.6)
-          : other.clone().addScaledVector(lateral, away * 0.3).addScaledVector(torsoDir, -0.22);
+      const outside = pelvis[i].clone().addScaledVector(lateral, side * 0.55).addScaledVector(torsoDir, -0.6);
+      const behind = other.clone().addScaledVector(lateral, -side * 0.3).addScaledVector(torsoDir, -0.22);
+      target = outside.lerp(behind, back);
       // Pressed against the wall, level with the standing foot.
       target.addScaledVector(normal, other.clone().sub(target).dot(normal) + 0.04);
     }
@@ -196,10 +207,12 @@ function poseFrom(
     // the shoe bites, while the other knee opens out.
     const backstep = twist * -side;
     const pole = flag
-      ? away === side
-        ? normal.clone().addScaledVector(torsoDir, 0.5)
-        : // Crossing behind: the knee comes out from the wall, past the standing leg.
-          normal.clone().addScaledVector(lateral, away * 0.4).addScaledVector(torsoDir, -0.2)
+      ? // Out on its own side the knee points up the wall; crossing behind, it comes out from
+        // the wall, past the standing leg.
+        normal
+          .clone()
+          .addScaledVector(torsoDir, 0.5 * (1 - back) - 0.2 * back)
+          .addScaledVector(lateral, -side * 0.4 * back)
       : legs[i] === 'mantle'
         ? // Rocking over onto the shelf (the topout's rockover): the knee comes up by the chest
           // and out from the wall, over the foot, so the hips can come up onto it.
@@ -374,6 +387,8 @@ interface Run {
   grip: [number, number];
   /** Flag direction per foot, fixed for the move so the free leg doesn't flip sides. */
   flagAway: [number, number];
+  /** Where each free leg actually is between its two flags, easing toward flagAway (see FLAG_SWING). */
+  flagSwing: [number, number];
   /** Heel hook / drop knee per foot for the current move. */
   legs: [LegTechnique, LegTechnique];
   /** Sidepull / gaston / undercling / press per hand for the current move. */
@@ -465,7 +480,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, launch: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, launch: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -980,7 +995,11 @@ export function Climber({ day }: { day: Day }) {
         outPose.forEach((p, i) => (sim.pos[i].copy(p), sim.prev[i].copy(p)));
         continue;
       }
-      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist, r.winding)));
+      r.flagSwing = r.flagSwing.map((a, i) => {
+        const want = r.flagAway[i] || (i === 0 ? -1 : 1);
+        return a + Math.max(-FLAG_SWING * STEP, Math.min(FLAG_SWING * STEP, want - a));
+      }) as [number, number];
+      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagSwing, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist, r.winding)));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {

@@ -96,7 +96,9 @@ With one foot off, the free leg flags toward the reach (`flagFor` in `src/solver
 reaching away from the standing foot on the free leg's own side it swings out long and
 straight (an outside flag, killing the barn door); reaching across, it crosses behind the
 standing leg (a back flag) while the reaching hip turns in and the standing foot backsteps.
-Between reaches a flag stays put. The ticker labels these "(flag)" and "(back flag)".
+Between reaches a flag stays put, and switching sides the leg sweeps
+across behind the standing leg over about half a second. A free foot (flagging, or cut loose on
+a campus move) is swung by the leg: it moves with the hips, damped, at no more than ~2.5 m/s. The ticker labels these "(flag)" and "(back flag)".
 Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
 hips sinking down and back over bent knees, eyes on the target, then launches from the
 low point. Before the crux, if one hand is on a good hold with a foot on, the climber hangs

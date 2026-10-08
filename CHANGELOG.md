@@ -7,6 +7,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-09
 
 **Climber**
+- Free legs swing instead of teleporting: a foot coming off a hold to flag, or crossing over from
+  an outside flag to a back flag, sweeps across in about half a second instead of jumping a metre
+  in one frame, and feet cut loose on a steep campus move swing and settle instead of bouncing
+  out from the wall.
 - Mantles mid-wall: with nothing to pull on above a ledge or the top of a volume, the climber
   presses down on it with both palms, gets a foot up beside the hands, stands up on it and reaches
   from there. Finishes that used to be out of reach above a ledge or a big volume now go, and a
