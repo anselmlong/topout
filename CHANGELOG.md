@@ -4,6 +4,20 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-08
+
+**Climber**
+- Tops out for real: after matching a finish near the top, the climber reaches over the lip,
+  mantles onto the top of the wall, stands up and celebrates (or shrugs) from up there instead of
+  dropping off. Finishes well below the top, like traverses, still end with the drop.
+- Uses the holds bolted onto a volume (a foot chip on a pyramid, say) before the bare volume, and
+  only stands on or palms the volume itself when there's nothing better within reach.
+
+**Game**
+- Clear asks first ("Remove all 9 holds?") so a stray tap doesn't wipe the wall, and says that
+  Undo brings the holds back.
+- Volumes can be dragged and selected on phones and tablets, like holds.
+
 ## 2026-10-04
 
 **Climber**
