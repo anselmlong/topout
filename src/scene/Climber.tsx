@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { bestPull, flagFor, footTechnique, handTechnique, highStep, hipTurn, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
+import { bestPull, flagFor, footTechnique, handTechnique, highStep, hipTurn, mantleable, mantleStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, Wall } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
@@ -25,6 +25,15 @@ const PRESS_ABOVE_FEET = 60;
 /** The solver's hand techniques, plus a press: palm down on a hold at waist height (a mantle). */
 type ArmTechnique = HandTechnique | 'press';
 
+/** Where each limb sits (cm across, LH RH LF RF) on a mantle shelf it shares with another. */
+const SHELF_SPREAD = [-11, 11, -24, 24];
+
+/**
+ * The solver's foot techniques, plus a mantle: the foot up on the shelf the hands press out
+ * ('mantle'), then stood on it while a hand reaches up off it ('shelf').
+ */
+type LegTechnique = FootTechnique | 'mantle' | 'shelf';
+
 /** Build a full-body pose from 3D contact points (feet may be null = dangling). */
 function poseFrom(
   frames: PanelFrame[],
@@ -34,7 +43,7 @@ function poseFrom(
   /** Which way (-1 left, +1 right on screen) each free leg flags; decided once per move. */
   flagAway?: [number, number],
   /** Heel/toe hook or drop knee per foot (see footTechnique), decided once per move. */
-  legs: [FootTechnique, FootTechnique] = [null, null],
+  legs: [LegTechnique, LegTechnique] = [null, null],
   /** Feet in flight carry no weight: the hips shift over the standing foot first. */
   lifting: [boolean, boolean] = [false, false],
   /** Sidepull / gaston / undercling / press per hand (see handTechnique), decided once per move. */
@@ -88,10 +97,17 @@ function poseFrom(
   // Loading a dyno: arms lock straight and the hips drop low and back, as far as the
   // legs have room to bend, so the legs can drive the body up from there.
   const load = sink * Math.max(0, Math.min(1, (handsToFeet - 0.85) / 0.45));
-  const chest = handsMid
-    .clone()
-    .addScaledVector(bodyDir, -chestDrop + press * (chestDrop + 0.3) - 0.2 * load)
-    .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep + 0.06 * press + 0.06 * load);
+  // Stood up on a mantle shelf, a hand reaching up off it: the body stands over the feet
+  // (as on the deck after the topout, see topout.ts stand), as tall as the reach needs, bent
+  // at the hips toward the wall while the other palm still presses the shelf.
+  const stood = legs.includes('shelf') && on.length > 0;
+  const above = Math.max(holding[0].y, holding[1].y) - feetMid.y;
+  const chest = stood
+    ? feetMid.clone().add(V(0, Math.max(0.6, Math.min(1.25, above - 0.55)), 0)).addScaledVector(normal, 0.2)
+    : handsMid
+        .clone()
+        .addScaledVector(bodyDir, -chestDrop + press * (chestDrop + 0.3) - 0.2 * load)
+        .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep + 0.06 * press + 0.06 * load);
   // Opposition shifts the body sideways: lean away from a sidepull (laying back off it),
   // and in toward a gaston (the hand pushes the hold apart from the body).
   const across = V().crossVectors(bodyDir, normal).normalize();
@@ -107,7 +123,9 @@ function poseFrom(
   // knee pulls them in further.
   const twisted = legs[0] || legs[1] ? 1 : 0;
   const hipsIn = (0.3 * steep + 0.18 * twisted + 0.15 * Math.abs(twist)) * (1 - lean);
-  const torsoDir = bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean - 0.35 * load).normalize();
+  const torsoDir = stood
+    ? V(0, 1, 0).addScaledVector(normal, -0.35).normalize()
+    : bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean - 0.35 * load).normalize();
   const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
   // Climber's right. We see their back, so this is +x on screen.
   const lateral = V().crossVectors(torsoDir, normal).normalize();
@@ -182,7 +200,11 @@ function poseFrom(
         ? normal.clone().addScaledVector(torsoDir, 0.5)
         : // Crossing behind: the knee comes out from the wall, past the standing leg.
           normal.clone().addScaledVector(lateral, away * 0.4).addScaledVector(torsoDir, -0.2)
-      : legs[i] === 'heel'
+      : legs[i] === 'mantle'
+        ? // Rocking over onto the shelf (the topout's rockover): the knee comes up by the chest
+          // and out from the wall, over the foot, so the hips can come up onto it.
+          torsoDir.clone().multiplyScalar(0.8).addScaledVector(normal, 0.6).addScaledVector(lateral, side * 0.3)
+        : legs[i] === 'heel'
         ? lateral.clone().multiplyScalar(side * 0.8).addScaledVector(torsoDir, 0.6).addScaledVector(normal, 0.4)
         : legs[i] === 'toe'
           ? torsoDir.clone().multiplyScalar(0.9).addScaledVector(normal, 0.3).addScaledVector(lateral, side * 0.2)
@@ -353,7 +375,7 @@ interface Run {
   /** Flag direction per foot, fixed for the move so the free leg doesn't flip sides. */
   flagAway: [number, number];
   /** Heel hook / drop knee per foot for the current move. */
-  legs: [FootTechnique, FootTechnique];
+  legs: [LegTechnique, LegTechnique];
   /** Sidepull / gaston / undercling / press per hand for the current move. */
   arms: [ArmTechnique, ArmTechnique];
   /** A shake-out in progress: which hand, when it began, and the hold it goes back to. */
@@ -392,7 +414,7 @@ export function Climber({ day }: { day: Day }) {
   const postureFor = (
     sim: Ragdoll,
     flagAway?: [number, number],
-    legs?: [FootTechnique, FootTechnique],
+    legs?: [LegTechnique, LegTechnique],
     arms?: [ArmTechnique, ArmTechnique],
     resting: 0 | 1 | null = null,
     sink = 0,
@@ -484,10 +506,19 @@ export function Climber({ day }: { day: Day }) {
     const backFlag = reaching !== null ? flags.find((fl) => fl?.kind === 'back') : undefined;
     if (f.holds.length) {
       r.grip = [f.holds[0], f.holds[1]];
+      // A mantle: a foot up on the shelf the hands are on, beside them (as the solver sees it).
+      const shelf = [0, 1].map((i) => !!r.holds[f.holds[i]] && mantleable(r.holds[f.holds[i]], day.wall)) as [boolean, boolean];
       r.legs = [0, 1].map((i) => {
         const foot = f.to.feet[i];
-        return foot && f.holds[2 + i] >= 0 ? footTechnique(day.wall, f.to.hands, foot) : null;
-      }) as [FootTechnique, FootTechnique];
+        const hold = r.holds[f.holds[2 + i]];
+        if (!foot || !hold) return null;
+        // Only while both hands are still down on the shelf: once one reaches up off it the
+        // climber is standing up on that foot.
+        const up = Math.max(f.to.hands[0].v, f.to.hands[1].v) - foot.v < 45;
+        if (mantleable(hold, day.wall) && mantleStep(f.to.hands, shelf, foot)) return up ? 'mantle' : 'shelf';
+        return footTechnique(day.wall, f.to.hands, foot);
+      }) as [LegTechnique, LegTechnique];
+      const mantling = r.legs.includes('mantle');
       // The body centre each hand pulls toward, as the solver sees it: between the
       // other hand and the feet.
       const on = f.to.feet.filter(Boolean) as Point[];
@@ -502,6 +533,8 @@ export function Climber({ day }: { day: Day }) {
         // A hold pulled down that's now down by the hips (a rockover, a hand-foot match, a
         // mantle) can't be hung from: the climber turns the hand over and presses down on
         // it. Only up to ~15° overhanging; steeper, the body hangs below it instead.
+        // Mantling, both palms push down on the shelf, whatever the rest of the body is doing.
+        if (mantling && shelf[i]) return 'press';
         const low = f.to.hands[i].v - feet.v < PRESS_ABOVE_FEET;
         if (!tech && low && on.length && hold.type !== 'pinch' && normalAt(f.to.hands[i]).y > -0.26) return 'press';
         return tech;
@@ -515,7 +548,13 @@ export function Climber({ day }: { day: Day }) {
       reaching !== null && f.holds.length && !f.dynamic && !r.legs[0] && !r.legs[1] && (!r.arms[reaching] || r.arms[reaching] === 'sidepull')
         ? (backFlag?.turn ?? hipTurn(day.wall, f.to.hands, f.to.feet, reaching)) * (reaching === 0 ? 1 : -1)
         : 0;
-    const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet];
+    // Limbs sharing a mantle shelf spread out along it, palms either side of the middle and
+    // the feet outside them, instead of all piling onto the one point the solver gives it.
+    const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet].map((c, n) => {
+      const hold = r.holds[f.holds[n]];
+      if (!c || !hold || f.holds.filter((h) => h === f.holds[n]).length < 2 || !mantleable(hold, day.wall)) return c;
+      return { u: c.u + SHELF_SPREAD[n], v: c.v };
+    });
     contacts.forEach((c, n) => {
       const target = c ? toWorld(c, n < 2 ? 0.07 : 0.06) : null;
       const normal = c ? normalAt(c) : new THREE.Vector3(0, 0, 1);
@@ -562,6 +601,8 @@ export function Climber({ day }: { day: Day }) {
         label: `${LIMB_NAME[m]} → ${what}${f.dynamic ? ' (dyno!)' : ''}${
           tech === 'heel'
             ? ' (heel hook)'
+            : tech === 'mantle' || tech === 'shelf'
+              ? ' (mantle)'
             : tech === 'toe'
               ? ' (toe hook)'
               : tech === 'drop-knee'

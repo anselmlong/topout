@@ -82,6 +82,12 @@ to the crease and each knee points out over its own foot, pushing the faces apar
 When a hand ends up down by the hips (a rockover, a hand-foot match, a mantle onto a
 lip) on ground no steeper than ~15°, it presses instead of pulling: elbow up and back,
 palm flat with the fingers turned in, shoulder over the hand, hips in over the feet.
+Mid-wall, on a ledge's lip or the bare top of a volume with nothing above it to pull on, the
+climber mantles (`mantleable` in `src/solver/model.ts`): both palms press the shelf out, a foot
+comes up onto it beside them, the knee up by the chest as in the topout's rockover, then the
+climber stands up on it, palm still on the shelf, and reaches up from there. The solver prices
+the press as most of the body weight on the arms, on palms that care how wide the shelf is, not
+how incut; only up to ~15° overhanging, and never onto a bolt-on hold, however big.
 On a long static reach up vertical or steeper ground, the climber turns that hip in to the
 wall (a twist lock): hips side-on, the turned-in leg backstepping on the outside edge of
 its shoe, the reaching shoulder riding up while the other arm hangs straight (`hipTurn` in

@@ -22,6 +22,11 @@ import {
   hasShelf,
   heightAt,
   highStep,
+  MANTLE_LOAD,
+  MANTLE_REACH,
+  mantleable,
+  mantleStep,
+  pressQuality,
   stemBonus,
   vAtHeight,
   wallPoint,
@@ -162,12 +167,12 @@ export type MoveParts =
       commit: number;
       match: number;
     }
-  | { kind: 'foot'; angle: number; feetQ: [number, number]; g: number; match: number; hookK: number; highK: number };
+  | { kind: 'foot'; angle: number; feetQ: [number, number]; g: number; match: number; hookK: number; highK: number; minLoad: number };
 
 /** A move's difficulty rebuilt from its parts: the same sum moveCost scores. */
 export function moveDifficulty(m: MoveParts): number {
   if (m.kind === 'foot') {
-    const load = handLoad(m.angle, m.feetQ);
+    const load = Math.max(m.minLoad, handLoad(m.angle, m.feetQ));
     return (load / m.g) * (1 + m.highK) + m.match + m.hookK * load;
   }
   const load = handLoad(m.angle, m.feetQ) * m.loadMul;
@@ -204,6 +209,8 @@ const flatDist = (a: Point, b: Point) => Math.hypot(a.u - b.u, a.v - b.v);
 class Context {
   handIdx: number[];
   footVals: number[];
+  /** Whether each hold is a shelf to mantle onto (see mantleable). */
+  mantle: boolean[];
   /** Wall v where the surface meets the top of the crash pad. */
   padV: number;
   /** Each hold's point, shared by every stance that uses it. */
@@ -241,6 +248,7 @@ class Context {
         }
       : flatDist;
     this.at = holds.map((h) => ({ u: h.u, v: h.v }));
+    this.mantle = holds.map((h) => mantleable(h, wall));
     this.handIdx = holds.map((h, i) => (GRIP[h.type].hand ? i : -1)).filter((i) => i >= 0);
     this.footVals = [...holds.map((_, i) => i), SMEAR, OFF];
     this.padV = vAtHeight(wall, PAD);
@@ -286,13 +294,37 @@ class Context {
    * How stretched the hands are, as a fraction of the reachable limit (1 = full static reach).
    * Sideways the limit is the arm span; straight up it's the much shorter lock-off reach.
    */
-  handSpan(a: Point, b: Point): number {
+  handSpan(a: Point, b: Point, lockoff = BODY.lockoff): number {
     const du = Math.abs(b.u - a.u);
     const dv = Math.abs(b.v - a.v);
-    const ellipse = Math.hypot(du / BODY.span, dv / BODY.lockoff);
+    const ellipse = Math.hypot(du / BODY.span, dv / lockoff);
     // A dihedral brings points closer in 3D than on the unfolded wall.
     const flat = Math.hypot(du, dv);
     return flat > 1e-6 ? ellipse * (this.dist(a, b) / flat) : 0;
+  }
+
+  /**
+   * Foot `f` is up on a mantle shelf beside a hand pressing on one (see mantleable): about
+   * level with that hand, just under it at most, and beside it rather than out to the side.
+   */
+  mantleFoot(l: Limbs, f: 2 | 3, p: Point[]): boolean {
+    if (l[f] < 0 || !this.mantle[l[f]]) return false;
+    return mantleStep([p[0], p[1]], [this.mantle[l[0]], this.mantle[l[1]]], p[f]);
+  }
+
+  /**
+   * Hand `i` is pressing out a mantle: its shelf has a foot up beside it. The climber stands
+   * up on that foot, the palm on the shelf at the thigh for balance, so the other hand reaches
+   * MANTLE_REACH up from it, not just a lock-off.
+   */
+  pressing(l: Limbs, p: Point[], i: number): boolean {
+    if (!this.mantle[l[i]]) return false;
+    return ([2, 3] as const).some((f) => l[f] >= 0 && this.mantle[l[f]] && p[f].v <= p[i].v + 10 && p[f].v >= p[i].v - 30 && Math.abs(p[f].u - p[i].u) <= 70);
+  }
+
+  /** Hand-to-hand stretch (handSpan), with MANTLE_REACH for the lock-off when hand `a` is pressing a mantle. */
+  spanOf(l: Limbs, p: Point[], a: number, b: Point): number {
+    return this.handSpan(p[a], b, this.pressing(l, p, a) ? MANTLE_REACH : BODY.lockoff);
   }
 
   /** Both feet's quality, plus the stemming bonus when they push on opposite faces of a corner. */
@@ -358,7 +390,10 @@ class Context {
   hookOf(l: Limbs, f: 2 | 3, p: Point[]): 'heel' | 'toe' | null {
     if (l[f] < 0) return null;
     const t = footTechnique(this.wall, [p[0], p[1]], p[f]);
-    return t === 'heel' || t === 'toe' ? t : null;
+    if (t !== 'heel' && t !== 'toe') return null;
+    // A foot stood on a mantle shelf isn't hooking it (unless it could: steep enough to heel).
+    if (this.mantleFoot(l, f, p) && !this.hookOk(l[f], p[f], p)) return null;
+    return t;
   }
 
   footQ(val: number, p: Point, hook: 'heel' | 'toe' | null = null): number {
@@ -386,7 +421,7 @@ class Context {
 
   /** Stance validity. `slack` > 1 allows the stretched landing of a dyno. */
   valid(l: Limbs, slack = BODY.dynoLimit, p = this.points(l)): boolean {
-    if (this.handSpan(p[0], p[1]) > slack) return false;
+    if (Math.min(this.spanOf(l, p, 0, p[1]), this.spanOf(l, p, 1, p[0])) > slack) return false;
     // The arête helps (a layback, a slap) but you can't climb it bare: one hand stays on a real hold.
     if (this.holds[l[0]].id.startsWith('arete:') && this.holds[l[1]].id.startsWith('arete:')) return false;
     // Matching needs a hold with room for two.
@@ -412,12 +447,14 @@ class Context {
       if (footQuality(this.holds[val]) < 0.05) return false;
       // A foothold under the crash pad is the mat: that's a dab.
       if (fp.v < this.padV) return false;
-      // A foot up near the hands is only possible as a heel or toe hook (on steep ground, out to the side).
+      // A foot up near the hands is only possible as a heel or toe hook (on steep ground, out
+      // to the side), or stood on a shelf the hands are pressing out (a mantle).
+      const mantle = this.mantleFoot(l, f, p);
       const heel = fp.v > loV + 15 || fp.v > hiV - 50;
-      if (heel && !this.hookOk(val, fp, p)) return false;
+      if (heel && !mantle && !this.hookOk(val, fp, p)) return false;
       for (const hp of [p[0], p[1]]) {
         const d = this.dist(fp, hp);
-        if (d > BODY.reach * slack || d < (heel ? 35 : BODY.crouch)) return false;
+        if (d > BODY.reach * slack || d < (mantle ? 0 : heel ? 35 : BODY.crouch)) return false;
       }
     }
     if (l[2] >= 0 && l[3] >= 0 && this.dist(p[2], p[3]) > BODY.stride) return false;
@@ -481,7 +518,8 @@ class Context {
           }
         : { u: p[other].u, v: p[other].v - 140 };
       const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
-      const g = handGrip(this.holds[l[other]], c, this.wall);
+      // Stood up on a mantle shelf, the palm still pressing on it steadies the body.
+      const g = Math.max(handGrip(this.holds[l[other]], c, this.wall), this.pressing(l, p, other) ? pressQuality(this.holds[l[other]]) : 0);
       if (g < MIN_GRIP) return null;
       // Hanging stretched out (feet far below) loads the arms more. Kept moderate: a
       // long body with straight arms is how climbers rest, so the hold and the angle
@@ -497,7 +535,7 @@ class Context {
         (1 - 0.75 * stem);
 
       const target = np[limb];
-      let ext = this.handSpan(p[other], target);
+      let ext = this.spanOf(l, p, other, target);
       for (const f of onFeet) ext = Math.max(ext, this.dist(p[f], target) / BODY.reach);
       if (ext > BODY.dynoLimit) return null;
       const dynamic = ext > 1;
@@ -554,9 +592,18 @@ class Context {
 
     // Foot move: both hands hold the load the moving foot gave up.
     const stay = limb === 2 ? 3 : 2;
-    const load = handLoad(handsAngle, [this.footQ(l[stay], p[stay]), 0]);
+    // Mantle: the foot comes up onto the shelf the hands are pressing out. The arms press
+    // most of the body up (MANTLE_LOAD) on palms, which care how wide the shelf is, not
+    // how incut (see mantleable).
+    const mantle = to >= 0 && this.mantleFoot(next, limb as 2 | 3, np) && !this.hookOf(next, limb as 2 | 3, np);
+    const minLoad = mantle ? MANTLE_LOAD : 0;
+    const load = Math.max(minLoad, handLoad(handsAngle, [this.footQ(l[stay], p[stay]), 0]));
     const c = { u: (p[0].u + p[1].u + p[stay].u) / 3, v: (p[0].v + p[1].v + p[stay].v * 2) / 4 };
-    const g = handGrip(this.holds[l[0]], c, this.wall) + handGrip(this.holds[l[1]], c, this.wall);
+    const handG = (i: 0 | 1) => {
+      const pull = handGrip(this.holds[l[i]], c, this.wall);
+      return mantle && this.pressing(next, np, i) ? Math.max(pull, pressQuality(this.holds[l[i]])) : pull;
+    };
+    const g = handG(0) + handG(1);
     if (g < MIN_GRIP) return null;
     // Feet share a hold only when there's nothing better nearby.
     const match = to >= 0 && to === l[stay] ? 0.12 : 0;
@@ -580,6 +627,7 @@ class Context {
       feetQ: [this.footQ(l[stay], p[stay]), 0],
       g,
       match,
+      minLoad,
       hookK: hook === 'heel' ? 0.3 : hook === 'toe' ? 0.2 : 0,
       highK: load > 0 ? (high * g) / load : 0,
     });
@@ -621,7 +669,8 @@ class Context {
         if (limb <= 1) {
           const o = h[l[1 - limb]];
           const t = h[to];
-          if (Math.hypot((t.u - o.u) / BODY.span, (t.v - o.v) / BODY.lockoff) > BODY.dynoLimit * 1.05) continue;
+          const lockoff = this.mantle[l[1 - limb]] ? MANTLE_REACH : BODY.lockoff;
+          if (Math.hypot((t.u - o.u) / BODY.span, (t.v - o.v) / lockoff) > BODY.dynoLimit * 1.05) continue;
         } else if (to >= 0) {
           const t = h[to];
           const hi = Math.max(h[l[0]].v, h[l[1]].v);

@@ -405,6 +405,66 @@ export function footQuality(hold: Hold): number {
   return Math.min(1, spec.foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) * facing + tilt);
 }
 
+/**
+ * Mantle: getting established on a shelf with nothing above it to pull on. The hands stop
+ * pulling and press down on it (palms flat, elbows up, the triceps pushing the body up past
+ * it, "like getting out of a swimming pool"), a foot comes up onto it beside them, and the
+ * climber rocks over onto that foot and stands up on the shelf.
+ * Coaching material: Friction Labs, "How it works: the mantle" (press with the triceps, high
+ * feet close to the hands); Climbing.com, "Climbing Techniques: How to Mantel" (straighten
+ * the arms, a foot on the shelf level with the hands, rock over it); Earth Treks, "What is a
+ * mantle in climbing" (the difficulty is proportional to the width of the hold: a wide
+ * shelf is much easier to mantle than a crimp rail).
+ *
+ * Something to press on and then stand on: a shelf facing up, wide enough for both palms and
+ * a shoe side by side, on ground no steeper than MANTLE_STEEP, where the body can come up over
+ * the hands. That's a ledge's lip or the bare top of a volume. A bolt-on hold, even a big jug,
+ * has room for a hand and a foot but not a mantle: climbers step up past it instead.
+ */
+export function mantleable(hold: Hold, wall: Wall): boolean {
+  if (angleAt(wall, hold.v) > MANTLE_STEEP || Math.cos(hold.rot) < 0.8) return false;
+  if (hold.id.startsWith('lip:')) return hasShelf(wall);
+  if (hold.id.startsWith('arete:') || hold.type !== 'volume') return false;
+  return footQuality(hold) >= 0.5;
+}
+
+/**
+ * Whether a foot on a mantle shelf is up beside the hands pressing it out: about level with
+ * a hand on a shelf (`shelf[i]`), just under it at most, beside it rather than out to the
+ * side, and with both hands up at the shelf or above it (a mantle presses with both, never
+ * with one hand on the shelf and the other still down by the knees). Shared by the solver
+ * and the climber's pose.
+ */
+export function mantleStep(hands: [Point, Point], shelf: [boolean, boolean], foot: Point): boolean {
+  if (Math.min(hands[0].v, hands[1].v) < foot.v - 30) return false;
+  return [0, 1].some((i) => shelf[i] && foot.v <= hands[i].v + 10 && foot.v >= hands[i].v - 30 && Math.abs(foot.u - hands[i].u) <= 70);
+}
+
+/** Steepest wall (degrees) a climber can mantle on: past this the body hangs below the shelf. */
+export const MANTLE_STEEP = 15;
+
+/**
+ * Share of body weight on the arms while pressing out a mantle. Climbing normally keeps
+ * most of the weight on the feet; a mantle press is a dip, the arms lifting nearly all of
+ * it until the foot on the shelf can take over.
+ */
+export const MANTLE_LOAD = 0.7;
+
+/**
+ * How far up (cm) the other hand reaches from a palm still pressing on a mantle shelf: half
+ * stood up on the shelf, the palm at the thigh. Standing straight, the palm has to come off.
+ */
+export const MANTLE_REACH = 150;
+
+/**
+ * How well a palm presses on a mantle shelf: what a shoe gets from it (how positive it is),
+ * scaled by its width, not its incut (a flat palm doesn't curl over a lip). A small volume's
+ * top is a narrow shelf for two palms and a foot.
+ */
+export function pressQuality(hold: Hold): number {
+  return footQuality(hold) * (hold.size === 'l' || hold.id.startsWith('lip:') ? 1 : 0.8);
+}
+
 export type FootTechnique = 'heel' | 'toe' | 'drop-knee' | null;
 
 /** How far out to the side (cm from between the hands) a hooked foot stops being a heel and becomes a toe hook. */

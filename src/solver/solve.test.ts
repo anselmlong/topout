@@ -313,6 +313,31 @@ describe('solver', () => {
     expect(lipV(overlap)).toBe(245);
   });
 
+  it('mantles onto a volume top: presses it out, a foot comes up beside the hands, stands up and reaches', () => {
+    const holds: Hold[] = [
+      { id: 'e', type: 'edge', size: 'm', u: 230, v: 200, rot: 0, seed: 1 },
+      { id: 'f0', type: 'foot', size: 'm', u: 185, v: 60, rot: 0 },
+      { id: 'f1', type: 'foot', size: 'm', u: 215, v: 95, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 185, v: 130, rot: 0 },
+      { id: 'f3', type: 'foot', size: 'm', u: 220, v: 165, rot: 0 },
+      { id: 'f4', type: 'foot', size: 'm', u: 175, v: 195, rot: 0 },
+    ];
+    const volumes: Volume[] = [{ id: 'v', shape: 'wedge', size: 'l', u: 200, v: 260, rot: 0 }];
+    // Nothing between the volume and the finish 135 cm above it: only a mantle gets there.
+    const mantles = (w: Wall) => {
+      const r = solve(w, start, finishAt(395), holds, { volumes });
+      if (!r.ok) return null;
+      const top = start.length + 1 + holds.length;
+      return r.moves.some((m) => m.limb >= 2 && m.to.limbs[m.limb] === top && m.to.limbs[0] === top && m.to.limbs[1] === top);
+    };
+    expect(mantles(wall(0))).toBe(true);
+    // A big jug in the same spot has room for a hand and a foot, not a mantle.
+    const jug: Hold = { id: 'j', type: 'jug', size: 'l', u: 200, v: 255, rot: 0 };
+    expect(solve(wall(0), start, finishAt(395), [...holds, jug]).ok).toBe(false);
+    // On a 25° overhang the body hangs below the volume and can't get up over it.
+    expect(mantles(wall(25))).not.toBe(true);
+  });
+
   it('an arête helps but is not climbable bare', () => {
     const arete: Wall = { ...wall(0), fold: { u: 200, angle: -70 } };
     // Bare: impossible.

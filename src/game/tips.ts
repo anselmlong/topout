@@ -133,7 +133,8 @@ export function gradeDrivers(day: Day, test: TestRun): Driver[] {
     add('barn', 'Barn door: nothing to brace the swing', gain({ ...m, barnK: 0 }));
   } else {
     add('hold', 'Hanging on while a foot moves', gain({ ...m, g: Math.max(m.g, 2) }));
-    add('high', m.hookK ? 'Getting a heel or toe hook up' : 'A high step', gain({ ...m, hookK: 0, highK: 0 }));
+    const high = m.minLoad ? 'A mantle: pressing out the shelf' : m.hookK ? 'Getting a heel or toe hook up' : 'A high step';
+    add('high', high, gain({ ...m, hookK: 0, highK: 0, minLoad: 0 }));
   }
   // The pump: what the hard moves in a row add on top of the crux.
   add('pump', 'Pump: hard moves in a row, no rest', r.grade - toGrade(r.crux, 0));

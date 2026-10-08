@@ -4,6 +4,14 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-09
+
+**Climber**
+- Mantles mid-wall: with nothing to pull on above a ledge or the top of a volume, the climber
+  presses down on it with both palms, gets a foot up beside the hands, stands up on it and reaches
+  from there. Finishes that used to be out of reach above a ledge or a big volume now go, and a
+  mantle grades harder on a narrow or sloping top than on a wide one.
+
 ## 2026-10-08
 
 **Climber**
