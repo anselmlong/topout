@@ -181,6 +181,24 @@ describe('solver', () => {
     expect(stances.some((s) => s.limbs[2] >= firstFace || s.limbs[3] >= firstFace)).toBe(true);
   });
 
+  it('stands on a foot chip bolted to a volume rather than the bare face', () => {
+    const hands = ladder('edge', 45).filter((h) => h.type !== 'foot');
+    const pyramid: Volume = { id: 'vol', shape: 'pyramid', size: 'l', u: 200, v: 75, rot: 0 };
+    // Two chips on the up-facing face, either side of the centre line.
+    const chips: Hold[] = [
+      { id: 'c1', type: 'foot', size: 'm', u: 188, v: 91, rot: 0 },
+      { id: 'c2', type: 'foot', size: 'm', u: 212, v: 91, rot: 0 },
+    ];
+    const placed = [...hands, ...chips];
+    const r = solve(wall(0), start, finishAt(380), placed, { volumes: [pyramid] });
+    if (!r.ok) throw new Error(r.message);
+    const firstFace = start.length + 1 + placed.length;
+    const feet = [r.start, ...r.moves.map((m) => m.to)].flatMap((s) => [s.limbs[2], s.limbs[3]]);
+    const chipIdx = [firstFace - 2, firstFace - 1];
+    expect(feet.some((f) => chipIdx.includes(f))).toBe(true);
+    expect(feet.some((f) => f >= firstFace)).toBe(false);
+  });
+
   it('holds on an up-facing volume face act less steep', () => {
     const steep = wall(30);
     const crimps = ladder('crimp', 45);

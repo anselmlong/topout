@@ -114,10 +114,26 @@ function faces(vol: Volume): Face[] {
   ];
 }
 
-/** One contact per face, as solver holds. */
-export function volumeContacts(volumes: Volume[] | undefined, wall: Wall): Hold[] {
+/** Which of `faces(vol)` the wall point (u, v) is on, or -1 if it's off the volume. */
+function faceIndex(vol: Volume, u: number, v: number): number {
+  const d = volumeDims(vol);
+  const { x, y } = toLocal(vol, u, v);
+  if (vol.shape === 'pyramid') {
+    if (Math.max(Math.abs(x), Math.abs(y)) >= d.a) return -1;
+    return Math.abs(x) > Math.abs(y) ? (x > 0 ? 2 : 3) : y > 0 ? 0 : 1;
+  }
+  if (Math.abs(x) >= d.a || Math.abs(y) >= d.b) return -1;
+  return y > 0 ? 0 : 1;
+}
+
+/**
+ * One contact per face, as solver holds. A face with a hold bolted onto it is mostly
+ * taken up by that hold: climbers use the hold, so the bare face is worth much less.
+ */
+export function volumeContacts(volumes: Volume[] | undefined, wall: Wall, placed: Hold[] = []): Hold[] {
   const out: Hold[] = [];
   for (const vol of volumes ?? []) {
+    const taken = new Set(placed.map((h) => faceIndex(vol, h.u, h.v)));
     faces(vol).forEach((f, i) => {
       const p = toWall(vol, f.x, f.y);
       const s = surfaceAt([vol], p.u, p.v);
@@ -127,11 +143,14 @@ export function volumeContacts(volumes: Volume[] | undefined, wall: Wall): Hold[
       const angle = faceAngle(angleAt(wall, p.v), n);
       // Pull away from where the face points: an up-facing face is pulled down, like a ledge.
       const rot = Math.atan2(n.u / (inPlane || 1), n.v / (inPlane || 1));
+      // A bare face is smooth fibreglass: palmed or smeared, never as good as a hold bolted
+      // onto it (climbers use the holds on a volume, and the volume when there's nothing else).
       // How much the face stands proud of the wall decides how positive it is.
-      const grip = 0.3 + 0.35 * inPlane;
-      // Feet love a face that points up in the real world; one facing the floor is useless.
+      const grip = 0.22 + 0.25 * inPlane;
+      // Feet like a face that points up in the real world; one facing the floor is useless.
       const worldUp = Math.max(0, -Math.sin((angle * Math.PI) / 180));
-      const foot = angle > 55 ? 0 : 0.3 + 0.55 * worldUp + (angle < 10 ? 0.15 : 0);
+      const foot = angle > 55 ? 0 : 0.2 + 0.4 * worldUp + (angle < 10 ? 0.1 : 0);
+      const bare = taken.has(i) ? 0.55 : 1;
       out.push({
         id: `${vol.id}:f${i}`,
         type: 'volume',
@@ -139,8 +158,8 @@ export function volumeContacts(volumes: Volume[] | undefined, wall: Wall): Hold[
         u: p.u,
         v: p.v,
         rot,
-        grip,
-        foot,
+        grip: grip * bare,
+        foot: foot * bare,
         angle,
       });
     });
@@ -162,7 +181,7 @@ export function onVolumes(holds: Hold[], volumes: Volume[] | undefined, wall: Wa
  * then each volume's face contacts. Solver, climber, beta and crux text all use this.
  */
 export function contactList(start: Hold[], finish: Hold, placed: Hold[], volumes: Volume[] | undefined, wall: Wall) {
-  return [...start, finish, ...onVolumes(placed, volumes, wall), ...volumeContacts(volumes, wall), ...areteContacts(wall), ...lipContacts(wall)];
+  return [...start, finish, ...onVolumes(placed, volumes, wall), ...volumeContacts(volumes, wall, placed), ...areteContacts(wall), ...lipContacts(wall)];
 }
 
 /**
