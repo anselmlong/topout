@@ -104,7 +104,10 @@ export function VolumeMesh({ vol, wall, frames, fixed }: { vol: Volume; wall: Wa
             rightDown.current = { x: e.clientX, y: e.clientY };
             return;
           }
-          if (e.button === 0 && !s.draggingId && s.hoverHoldId === vol.id) s.startDrag(vol.id);
+          if (e.button !== 0 || s.draggingId) return;
+          // A mouse must hover first (so a press that missed the volume still orbits). A finger
+          // never hovers before it presses, and one finger doesn't orbit, so touch drags straight away.
+          if (s.hoverHoldId === vol.id || e.pointerType !== 'mouse') s.startDrag(vol.id);
         }}
         onPointerUp={(e) => {
           e.stopPropagation();
