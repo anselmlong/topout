@@ -299,7 +299,7 @@ function SpotPicker({ id }: { id: string }) {
             ↻
           </button>
           <button onClick={() => remove(id)} className="danger">
-            Clear
+            Remove
           </button>
         </div>
       )}
@@ -334,6 +334,8 @@ export function SelectionBar() {
 
 export function ActionBar() {
   const s = useGame();
+  /** When the Clear confirmation opened (0 = closed). */
+  const [confirm, setConfirm] = useState(0);
   const day = s.day!;
   if (s.viewing) return null;
   const practice = s.mode === 'practice';
@@ -341,6 +343,30 @@ export function ActionBar() {
   // Practice has unlimited tests: show the latest three.
   const shown = practice ? s.tests.slice(-MAX_TESTS) : s.tests;
   const busy = s.phase === 'solving' || s.phase === 'climbing';
+  const count = s.placed.length + s.volumes.length;
+  if (confirm && !s.done && count > 0)
+    return (
+      <footer className="actionbar confirm" role="alertdialog" aria-label="Clear the wall?">
+        <span className="confirm-text">
+          {count === 1 ? 'Remove your 1 hold?' : `Remove all ${count} holds?`}
+        </span>
+        <button className="btn ghost" onClick={() => setConfirm(0)} autoFocus>
+          Keep
+        </button>
+        <button
+          className="btn danger"
+          onClick={() => {
+            // A double-tap on Clear lands here too: ignore taps right after it opened.
+            if (performance.now() - confirm < 400) return;
+            setConfirm(0);
+            s.clear();
+            s.showToast('Wall cleared. Undo brings it back.');
+          }}
+        >
+          Clear wall
+        </button>
+      </footer>
+    );
   return (
     <footer className="actionbar">
       <div className="pips" aria-label={practice ? 'Recent tests' : `${left} test climbs left`}>
@@ -397,8 +423,8 @@ export function ActionBar() {
               </svg>
             </button>
           )}
-          {s.placed.length + s.volumes.length > 0 && (
-            <button className="btn ghost" onClick={() => s.clear()} disabled={busy}>
+          {count > 0 && (
+            <button className="btn ghost" onClick={() => setConfirm(performance.now())} disabled={busy} title="Remove every hold">
               Clear
             </button>
           )}
