@@ -1,6 +1,7 @@
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
+import { holdVariant } from '../solver/model';
 import type { Day, Hold, HoldSize, HoldType, Volume, VolumeShape } from '../solver/types';
-import { SQUARE, bestTest, holds as nHolds, type TestRun } from './rules';
+import { SQUARE, TRAY_SEEDS, bestTest, holds as nHolds, type TestRun } from './rules';
 import type { SpotHold } from './spots';
 
 export function shareText(day: Day, tests: TestRun[]): string {
@@ -16,7 +17,9 @@ export function shareText(day: Day, tests: TestRun[]): string {
   return `${head}\n${squares}  ${line}`;
 }
 
-// Compact route encoding for share links: day|type size u v rotDeg;...
+// Compact route encoding for share links: day|type size u v rotDeg [seed];...
+// The seed (which build of the hold it is, so its incut) is optional: older links
+// without it keep the shared holds' default builds.
 // Append only: indices are baked into shared links.
 const TYPES: HoldType[] = ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'edge', 'jib'];
 const SIZES: HoldSize[] = ['s', 'm', 'l'];
@@ -31,7 +34,9 @@ const deg = (r: number) => Math.round((r * 180) / Math.PI);
 
 export function encodeRoute(day: number, holds: Hold[], volumes: Volume[] = [], spots: SpotHold[] = []): string {
   const body = holds
-    .map((h) => [TYPES.indexOf(h.type), SIZES.indexOf(h.size), Math.round(h.u), Math.round(h.v), deg(h.rot)].join('.'))
+    .map((h) =>
+      [TYPES.indexOf(h.type), SIZES.indexOf(h.size), Math.round(h.u), Math.round(h.v), deg(h.rot), holdVariant(h) % TRAY_SEEDS].join('.'),
+    )
     .join('_');
   const vols = volumes
     .map((v) => [SHAPES.indexOf(v.shape), VSIZES.indexOf(v.size), Math.round(v.u), Math.round(v.v), deg(v.rot)].join('.'))
@@ -47,9 +52,11 @@ export function decodeRoute(
   if (!m) return null;
   const holds: Hold[] = [];
   for (const [i, part] of m[2].split('_').filter(Boolean).entries()) {
-    const [t, s, u, v, rot] = part.split('.').map(Number);
+    const [t, s, u, v, rot, seed] = part.split('.').map(Number);
     if (!TYPES[t] || !SIZES[s] || [u, v, rot].some((x) => !Number.isFinite(x))) return null;
-    holds.push({ id: `shared-${i}`, type: TYPES[t], size: SIZES[s], u, v, rot: (rot * Math.PI) / 180 });
+    const hold: Hold = { id: `shared-${i}`, type: TYPES[t], size: SIZES[s], u, v, rot: (rot * Math.PI) / 180 };
+    if (Number.isInteger(seed) && seed >= 0) hold.seed = seed;
+    holds.push(hold);
   }
   const volumes: Volume[] = [];
   for (const [i, part] of (m[3] ?? '').split('_').filter(Boolean).entries()) {

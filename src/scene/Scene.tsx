@@ -3,12 +3,13 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { nextTraySeed } from '../game/rules';
 import { defaultSpots, spotsOf } from '../game/spots';
-import { bestPull, lipV, wallHeight } from '../solver/model';
+import { bestPull, holdVariant, lipV, wallHeight } from '../solver/model';
 import type { Day, Hold, Volume, Wall } from '../solver/types';
 import { surfaceAt } from '../solver/volumes';
 import { climberFocus, useClimb } from '../state/climb';
-import { useGame } from '../state/store';
+import { slotCount, useGame } from '../state/store';
 import { Climber } from './Climber';
 import { holdGeometry, holdMesh } from './holdGeometry';
 import { PALETTE, routeColor } from './palette';
@@ -493,12 +494,6 @@ function placeOnWall(wall: Wall, frames: PanelFrame[], u: number, v: number, rot
   return { position, quaternion: base.multiply(tilt).multiply(spin) };
 }
 
-function variantOf(id: string) {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0;
-  return Math.abs(h);
-}
-
 function HoldMesh({
   hold,
   wall,
@@ -520,7 +515,7 @@ function HoldMesh({
   const startDrag = useGame((s) => s.startDrag);
   const remove = useGame((s) => s.remove);
   const rightDown = useRef<{ x: number; y: number } | null>(null);
-  const { geometry, bolt, boltTilt = 0, screw } = holdMesh(hold.type, hold.size, variantOf(hold.id));
+  const { geometry, bolt, boltTilt = 0, screw } = holdMesh(hold.type, hold.size, holdVariant(hold));
   const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot, volumes);
   // Used holds get chalky.
@@ -695,7 +690,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * u
 
 /** Outline ring plus an arrow showing the direction the hold wants to be pulled. */
 function Selection({ hold }: { hold: Hold }) {
-  const geometry = holdGeometry(hold.type, hold.size, variantOf(hold.id));
+  const geometry = holdGeometry(hold.type, hold.size, holdVariant(hold));
   const pull = bestPull(0);
   return (
     <group>
@@ -730,6 +725,10 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
   const rot = useGame((s) => s.ghostRot);
   const dragging = useGame((s) => s.draggingId);
   const volumes = useGame((s) => s.volumes);
+  // The ghost is the very hold the tray hands over next, so its shape (and incut) shows before it goes on.
+  const seed = useGame((s) =>
+    s.armed && s.day ? nextTraySeed(s.day.number, s.placed, s.armed.type, s.armed.size, slotCount(s.day, s.armed)) : 0,
+  );
   if (!ghost || (!armed && !dragging)) return null;
   if (armed?.type === 'volume') return <GhostVolume wall={wall} frames={frames} armed={armed} ghost={ghost} rot={rot} />;
   if (dragging) {
@@ -747,7 +746,7 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
   const color = ghost.valid ? PALETTE.ghostOk : PALETTE.ghostBad;
   return (
     <group position={t.position} quaternion={t.quaternion}>
-      <mesh geometry={holdGeometry(armed!.type, armed!.size, 0)} raycast={() => null}>
+      <mesh geometry={holdGeometry(armed!.type, armed!.size, seed)} raycast={() => null}>
         <meshStandardMaterial color={color} transparent opacity={0.6} flatShading depthWrite={false} />
       </mesh>
       <PullArrow dir={bestPull(0)} color={color} />

@@ -13,6 +13,13 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Uses the holds bolted onto a volume (a foot chip on a pyramid, say) before the bare volume, and
   only stands on or palms the volume itself when there's nothing better within reach.
 
+**Holds**
+- Every hand hold has its own incut: how far the lip wraps over. You can see it (a deep edge or
+  crimp has a hooked lip over a dark shelf, a flat one has a top that rolls off; pockets have
+  deeper or shallower hoods), and the climber feels it: a deep incut crimp is easier than a flat
+  one, most of all on overhangs. Each tray hold is a particular hold, and the next one shows as
+  you place it, so the four crimps in a slot run from flat to deep. Share links keep each hold.
+
 **Game**
 - Clear asks first ("Remove all 9 holds?") so a stray tap doesn't wipe the wall, and says that
   Undo brings the holds back.

@@ -4,12 +4,15 @@
 // Edges, crimps and ledge jugs are side profiles lofted across their width;
 // other jugs, horns, slopers, pinches, pockets, foot chips and jibs are built
 // in rings around their outline. Jugs come in families (see JUG_FAMILIES).
-// Each is jittered per variant so no two look quite alike. Per-face colour grain is baked in as vertex colours
+// Each is jittered per variant so no two look quite alike, and each variant
+// draws its incut (solver/model.ts incutOf): how far the lip wraps over, which is
+// how hard the hold grips, so a player can read it. Per-face colour grain is baked in as vertex colours
 // (multiplied with the material colour). A per-vertex `grip` attribute marks
 // the surfaces hands and shoes actually use, so chalk builds up there and
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
+import { incutOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -149,16 +152,44 @@ const PROFILES: Partial<Record<HoldType | 'ledge', Profile>> = {
 };
 
 /**
+ * A profile's top side reshaped for its incut (0 flat .. 1 deep; the drawn profiles
+ * are about 0.5). Past the nose, a deeper one's lip rises and leans back over the
+ * shelf while the shelf behind it sinks, a hook the fingers curl into. A flatter one's
+ * top straightens out into a rounded slope from the wall down to the nose, a hold that
+ * rolls off outward.
+ */
+function incutProfile(pts: [number, number][], incut: number): [number, number][] {
+  const d = incut - 0.5;
+  const outMax = Math.max(...pts.map(([x]) => x));
+  const nose = pts.findIndex(([x]) => x === outMax);
+  const ys = pts.map(([, y]) => y);
+  const h = Math.max(...ys) - Math.min(...ys);
+  const [, back] = pts[pts.length - 1];
+  const [, tip] = pts[nose];
+  return pts.map(([x, y], i) => {
+    if (i <= nose) return [x, y];
+    const xn = x / outMax;
+    if (d < 0) {
+      const slope = back + (tip - back) * xn ** 1.6;
+      return [x, y + (slope - y) * Math.min(1, -d / 0.4) * smooth(0.05, 0.3, xn)];
+    }
+    const lip = smooth(0.55, 0.85, xn);
+    const shelf = smooth(0.12, 0.35, xn) * (1 - lip);
+    return [x - d * 0.3 * outMax * lip, y + h * d * (0.36 * lip - 0.18 * shelf)];
+  });
+}
+
+/**
  * An edge or crimp: the side profile swept across the hold's width as one
  * closed shell. Toward each end the profile shrinks out of the wall and down
  * in height along a superellipse, so the hold finishes in a rounded nose that
  * melts into the wall instead of a cut-off end. Columns bunch up toward the
  * ends where the shape turns fastest. Returns the bolt square to the face.
  */
-function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>) {
+function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5) {
   const M = 14;
   const NU = 18;
-  const spline = new THREE.SplineCurve(pr.pts.map(([a, b]) => new THREE.Vector2(a * scale * (0.92 + 0.16 * k), b * scale)));
+  const spline = new THREE.SplineCurve(incutProfile(pr.pts, incut).map(([a, b]) => new THREE.Vector2(a * scale * (0.92 + 0.16 * k), b * scale)));
   const prof = spline.getSpacedPoints(M - 1);
   // Pin the ends to the wall exactly.
   prof[0].x = 0;
@@ -201,8 +232,8 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
       const inner = m > 0 && m < M - 1 && Math.abs(u) < 0.999;
       const jit = pr.jitter ?? 0.05;
       pos.push(...at(u, p, inner ? r.range(1 - jit, 1 + jit) : 1));
-      // The incut shelf behind the lip sits in its own shadow.
-      const shelf = p.y > mid && p.x < outMax * 0.75 ? 0.9 : 1;
+      // The incut shelf behind the lip sits in its own shadow, darker the deeper it is.
+      const shelf = p.y > mid && p.x < outMax * 0.75 ? 1.02 - 0.42 * incut : 1;
       shade.push(shelf);
     }
     if (i === 0) continue;
@@ -237,7 +268,7 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
  * makes a good pocket incut. Large pockets take three fingers, small ones two.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5) {
   const N = 28;
   const W = 0.066 * (0.94 + 0.1 * k);
   const H = 0.056 * (1.04 - 0.08 * k);
@@ -247,7 +278,8 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   const b = 0.012;
   const Z = 0.028;
   const floorZ = 0.008;
-  const undercut = 0.009;
+  // How far the cavity runs up behind the lip: a deep hood wraps over the fingers.
+  const undercut = 0.002 + 0.015 * incut;
   // Each ring: (θ) => [x, y, z] in unscaled metres, plus its colour shade.
   type Ring = { at: (c: number, s: number, j: number) => [number, number, number]; shade: number; jitter: number };
   // Low-frequency lumps in the outline, so it's hand-shaped, not lathe-turned.
@@ -262,8 +294,8 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
     return [W * sgnpow(c, e) * (1 - 0.06 * s) * wobble[j], H * sgnpow(s, e) * (s < 0 ? 1.06 : 0.96) * wobble[j]];
   };
   const hole = (c: number, s: number, m: number): [number, number] => [a * c * m, hy + b * s * m];
-  // The hood above the hole stands proud of the bottom lip.
-  const rimZ = (s: number) => Z * (1 + 0.1 * s);
+  // The hood above the hole stands proud of the bottom lip, more so on a deep one.
+  const rimZ = (s: number) => Z * (1 + (0.02 + 0.16 * incut) * s);
   const rings: Ring[] = [];
   const RIM = 1.45;
   for (const t of [0, 0.18, 0.4, 0.62, 0.82]) {
@@ -633,7 +665,7 @@ function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
  * outline is a hand-shaped lozenge, sometimes narrower at the top like a pear.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.15) {
   const N = 32;
   const W = 0.1 * (0.9 + 0.2 * k);
   const H = 0.078;
@@ -643,7 +675,9 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   const cy = -H * (0.25 + 0.15 * k);
   const e = 0.72 + 0.18 * k;
   const pear = r.range(0, 0.2);
-  const dish = r.range(0, 0.1);
+  // Its incut is the dish the palm sits in (a flat dome rolls off, a dished one holds).
+  r.range(0, 0.1);
+  const dish = 0.35 * incut;
   const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
   const wobble = Array.from({ length: N }, (_, j) => {
     const th = (j / N) * Math.PI * 2;
@@ -717,7 +751,7 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
  * dimple for the thumb pad. The outline is a lozenge, fuller at the bottom.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5) {
   const N = 40;
   const W = 0.031 * (0.9 + 0.2 * k);
   const H = 0.081;
@@ -731,7 +765,9 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   const fingers = r.chance(0.5) ? -1 : 1;
   const ribs = 2.5 + 1.5 * k;
   const ribPhase = r.range(0, 6.3);
-  const ribDepth = r.range(0.1, 0.15);
+  // Its incut is how deep the fingertip ribs are cut into the flank.
+  r.range(0.1, 0.15);
+  const ribDepth = 0.05 + 0.15 * incut;
   const thumbY = r.range(-0.25, 0.1);
   const p1 = r.range(0, 6.3), p2 = r.range(0, 6.3);
   const wobble = Array.from({ length: N }, (_, j) => {
@@ -1093,7 +1129,7 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
     const rj = rng(hash(3, 0x6a, family.length, size.charCodeAt(0), variant % (2 * JUG_FAMILIES.length)));
     const p =
       family === 'ledge'
-        ? { ...profileGeometry(PROFILES.ledge!, SIZE[size], kj, rj), grip: PROFILES.ledge!.grip! }
+        ? { ...profileGeometry(PROFILES.ledge!, SIZE[size], kj, rj, incutOf('jug', size, variant)), grip: PROFILES.ledge!.grip! }
         : family === 'horn'
           ? hornGeometry(SIZE[size], kj, rj)
           : jugGeometry(SIZE[size], kj, rj, { bucket: BUCKET, pinch: PINCH_JUG, slopey: SLOPEY_JUG }[family]);
@@ -1112,7 +1148,7 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   const k = v / (VARIANTS - 1);
   if (type === 'pocket' || type === 'sloper' || type === 'pinch') {
     const build = { pocket: pocketGeometry, sloper: sloperGeometry, pinch: pinchGeometry }[type];
-    const p = build(SIZE[size], k, r);
+    const p = build(SIZE[size], k, r, incutOf(type, size, v));
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;
@@ -1126,7 +1162,7 @@ export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshD
   }
   const profile = PROFILES[type];
   if (profile) {
-    const p = profileGeometry(profile, SIZE[size], k, r);
+    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v));
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), profile.grip ?? spec.grip ?? TOP_GRIP);
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;

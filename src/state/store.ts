@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { dayNumber, generateDay, withVolumes } from '../gen/day';
-import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, verdictOf, type TestRun } from '../game/rules';
+import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, nextTraySeed, verdictOf, type TestRun } from '../game/rules';
 import { findExample } from '../game/examples';
 import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
@@ -138,10 +138,13 @@ const isVolumeId = (id: string) => id.startsWith('v');
 /** Practice has no test limit. */
 export const testLimit = (mode: Mode) => (mode === 'practice' ? Infinity : MAX_TESTS);
 
+/** How many holds a tray slot starts with. */
+export const slotCount = (day: Day, slot: Armed) =>
+  day.tray.find((s) => s.type === slot.type && s.size === slot.size && s.shape === slot.shape)?.count ?? 0;
+
 /** How many of a tray slot are still unplaced. */
 export const remaining = (day: Day, placed: Hold[], volumes: Volume[], slot: Armed) => {
-  const total =
-    day.tray.find((s) => s.type === slot.type && s.size === slot.size && s.shape === slot.shape)?.count ?? 0;
+  const total = slotCount(day, slot);
   const used =
     slot.type === 'volume'
       ? volumes.filter((v) => v.shape === slot.shape && v.size === slot.size).length
@@ -352,7 +355,8 @@ export const useGame = create<GameState>((set, get) => {
         const size = s.armed.size === 'l' ? 'l' : 's';
         volumes = [...volumes, { id: `v${nextId++}`, shape: s.armed.shape!, size, u, v, rot: s.ghostRot }];
       } else {
-        placed = [...placed, { id: `p${nextId++}`, type: s.armed.type, size: s.armed.size, u, v, rot: s.ghostRot }];
+        const seed = nextTraySeed(s.day!.number, placed, s.armed.type, s.armed.size, slotCount(s.day!, s.armed));
+        placed = [...placed, { id: `p${nextId++}`, type: s.armed.type, size: s.armed.size, u, v, rot: s.ghostRot, seed }];
       }
       const left = remaining(s.day!, placed, volumes, s.armed);
       remember();

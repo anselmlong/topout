@@ -1,5 +1,6 @@
 // Placement and scoring rules shared by the game UI and the curation script.
-import { angleAt, lipV, PAD, SHELF_ANGLE, vAtHeight, wallHeight } from '../solver/model';
+import { hash } from '../gen/rng';
+import { angleAt, holdVariant, JUG_INCUT, lipV, PAD, SHELF_ANGLE, vAtHeight, wallHeight } from '../solver/model';
 import type { Hold, HoldSize, HoldType, SolveResult, Volume, Wall } from '../solver/types';
 import { volumeRadius } from '../solver/volumes';
 import type { Spots } from './spots';
@@ -17,6 +18,30 @@ const BASE_RADIUS: Record<HoldType, number> = {
   volume: 0,
 };
 const SIZE_SCALE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25 };
+
+/**
+ * Distinct hold builds (seeds mod this): two of every jug family, which also covers the
+ * four builds of every other type. Share links carry a hold's seed mod this.
+ */
+export const TRAY_SEEDS = 2 * JUG_INCUT.length;
+
+/**
+ * The tray's holds are physical: the k-th hold of a type and size on day n is always the
+ * same build (its seed, so its shape and its incut), in the curated reference route and
+ * in every player's hands. A slot's holds step through the builds one after another, so
+ * four edges come as a flat one, a deep one and two in between.
+ */
+export function traySeed(day: number, type: HoldType, size: HoldSize, k: number): number {
+  return (hash(day, type.charCodeAt(0), type.charCodeAt(1), size.charCodeAt(0)) + k) % TRAY_SEEDS;
+}
+
+/** The build of the next hold taken from a tray slot: the first of its holds not on the wall yet. */
+export function nextTraySeed(day: number, placed: Hold[], type: HoldType, size: HoldSize, count: number): number {
+  const same = placed.filter((h) => h.type === type && h.size === size);
+  const used = new Set(same.map((h) => holdVariant(h) % TRAY_SEEDS));
+  for (let k = 0; k < count; k++) if (!used.has(traySeed(day, type, size, k))) return traySeed(day, type, size, k);
+  return traySeed(day, type, size, same.length);
+}
 
 export const holdRadius = (h: Pick<Hold, 'type' | 'size'>) => BASE_RADIUS[h.type] * SIZE_SCALE[h.size];
 

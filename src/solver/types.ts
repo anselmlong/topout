@@ -37,6 +37,13 @@ export interface Hold {
   angle?: number;
   /** Orientation tolerance override (arête contacts can be pulled almost any way). */
   tol?: number;
+  /**
+   * Which physical hold this is (its mesh build, and so its incut); defaults to a hash of
+   * the id. Share links carry it, since a shared route's holds get new ids.
+   */
+  seed?: number;
+  /** Incut override, 0 (flat) .. 1 (deep); otherwise read off the seed (see holdIncut). */
+  incut?: number;
 }
 
 export interface Panel {

@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateDay } from '../src/gen/day';
 import { hash, rng, type Rng } from '../src/gen/rng';
-import { canPlace, canPlaceVolume } from '../src/game/rules';
+import { canPlace, canPlaceVolume, traySeed } from '../src/game/rules';
 import { solve } from '../src/solver/solve';
 import type { Day, Hold, HoldType, TraySlot, Volume } from '../src/solver/types';
 
@@ -42,7 +42,8 @@ const onTarget = (g: number | null, target: number) => g !== null && Math.round(
 function randomRoute(day: DayDraft, r: Rng): Route {
   const pool = day.tray
     .filter((s) => s.type !== 'volume')
-    .flatMap((s: TraySlot) => Array.from({ length: s.count }, () => ({ type: s.type, size: s.size })));
+    // Each tray hold is a particular build (traySeed), the same one a player gets.
+    .flatMap((s: TraySlot) => Array.from({ length: s.count }, (_, k) => ({ type: s.type, size: s.size, seed: traySeed(day.number, s.type, s.size, k) })));
   const isFoot = (t: HoldType) => t === 'foot' || t === 'jib';
   const hands = pool.filter((p) => !isFoot(p.type));
   const feet = pool.filter((p) => isFoot(p.type));
@@ -87,6 +88,7 @@ function randomRoute(day: DayDraft, r: Rng): Route {
       u: su + (fu - su) * t + side * lateral + r.range(-12, 12),
       v: sv + (fv - sv) * t + r.range(-10, 10),
       rot: spec.type === 'pinch' ? side * r.range(0.6, 1.3) : r.range(-0.35, 0.35),
+      seed: spec.seed,
     });
   }
   const handPts = [...day.start, ...placed];
@@ -101,6 +103,7 @@ function randomRoute(day: DayDraft, r: Rng): Route {
       u: anchor.u + r.range(-30, 30),
       v: anchor.v - r.range(85, 135),
       rot: 0,
+      seed: spec.seed,
     });
   }
   return { holds: placed, volumes };

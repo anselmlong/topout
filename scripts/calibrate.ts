@@ -6,6 +6,7 @@
 //   40° edges ≈ V6, 40° crimps ≈ V8, slab crimps + smears ≈ V2-3,
 //   vertical gaston edges ≈ V4-5, vertical sidepull edges ≈ V3,
 //   vertical undercling edges ≈ V4.
+import { typicalIncut } from '../src/solver/model';
 import { solve } from '../src/solver/solve';
 import type { Hold, HoldSize, HoldType, Wall } from '../src/solver/types';
 
@@ -148,10 +149,10 @@ export const ANCHORS: Anchor[] = [
 const TOP = 400;
 /** Every reference problem's start and finish. */
 export const ANCHOR_START: Hold[] = [
-  { id: 's1', type: 'jug', size: 'l', u: 180, v: 150, rot: 0, role: 'start' },
-  { id: 's2', type: 'jug', size: 'l', u: 220, v: 150, rot: 0, role: 'start' },
+  { id: 's1', type: 'jug', size: 'l', u: 180, v: 150, rot: 0, role: 'start', incut: typicalIncut('jug') },
+  { id: 's2', type: 'jug', size: 'l', u: 220, v: 150, rot: 0, role: 'start', incut: typicalIncut('jug') },
 ];
-export const ANCHOR_FINISH: Hold = { id: 'f', type: 'jug', size: 'l', u: 200, v: TOP - 20, rot: 0, role: 'finish' };
+export const ANCHOR_FINISH: Hold = { id: 'f', type: 'jug', size: 'l', u: 200, v: TOP - 20, rot: 0, role: 'finish', incut: typicalIncut('jug') };
 
 /** A reference problem's finish: ANCHOR_FINISH, moved up on a taller wall. */
 export function anchorFinish(a: Anchor): Hold {
@@ -173,7 +174,8 @@ export function anchorRoute(a: Anchor) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot });
+    // A typical build of the type throughout (neither a flat nor a deep incut one).
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: typicalIncut(a.type) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < top - 120; v += 38, j++)

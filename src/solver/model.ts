@@ -73,6 +73,83 @@ export const GRIP: Record<HoldType, GripSpec> = {
 
 export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15 };
 
+/**
+ * Which mesh a hold is drawn with (and so which physical hold it is): its seed, else a
+ * hash of its id. The scene picks the shape from this and the solver reads the incut
+ * off the same number, so what a hold looks like is what it climbs like.
+ */
+export function holdVariant(hold: Pick<Hold, 'id' | 'seed'>): number {
+  if (hold.seed !== undefined) return hold.seed;
+  let h = 0;
+  for (const c of hold.id) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return Math.abs(h);
+}
+
+/** Mesh builds per hold type (src/scene/holdGeometry.ts VARIANTS); jugs cycle JUG_INCUT. */
+export const HOLD_VARIANTS = 4;
+
+/**
+ * Jug families in mesh order (holdGeometry JUG_FAMILIES: bucket, ledge, bucket, horn,
+ * pinch, slopey) and how far each one's lip wraps over: a bucket's rolled lip closes
+ * right over the scoop, a slopey jug is a big rounded handful.
+ */
+export const JUG_INCUT = [0.95, 0.7, 0.95, 0.8, 0.6, 0.35];
+
+/**
+ * The range of incut (0 flat .. 1 the lip wraps right over) a type comes in. Edges and
+ * crimps run from a flat or slightly rounded top to a deep hooked lip, the difference
+ * between a hold you can hang and one you have to crimp hard; a pocket's hood can be
+ * shallow or wrap right over the fingers; a sloper is at most dished; a pinch's flanks
+ * are more or less sculpted for the fingertips.
+ */
+const INCUT_RANGE: Partial<Record<HoldType, [number, number]>> = {
+  edge: [0.15, 0.95],
+  crimp: [0.05, 0.9],
+  pocket: [0.2, 0.9],
+  sloper: [0, 0.3],
+  pinch: [0.2, 0.8],
+};
+
+/**
+ * How incut a hold is, 0 (flat) .. 1 (deep), from its seed and size. Each size steps the
+ * four builds through the levels differently, so a small and a large edge from the same
+ * seed don't share a lip. Foot chips, jibs and volume faces have none (0).
+ */
+export function incutOf(type: HoldType, size: HoldSize, variant: number): number {
+  if (type === 'jug') return JUG_INCUT[variant % JUG_INCUT.length];
+  const range = INCUT_RANGE[type];
+  if (!range) return 0;
+  const level = (variant + { s: 0, m: 1, l: 2 }[size]) % HOLD_VARIANTS;
+  return range[0] + ((range[1] - range[0]) * level) / (HOLD_VARIANTS - 1);
+}
+
+export function holdIncut(hold: Hold): number {
+  return hold.incut ?? incutOf(hold.type, hold.size, holdVariant(hold));
+}
+
+/**
+ * What incut does to a hand hold, against the type's middling build (its GRIP entry):
+ * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
+ * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
+ * holds as long as the forearm stays under it, so it opens up there.
+ */
+export const INCUT_GRIP = 0.36;
+export const INCUT_STEEP = 0.9;
+
+/** A typical build's incut: the middle of what the type comes in (no effect on grip). */
+export function typicalIncut(type: HoldType): number {
+  if (type === 'jug') return JUG_INCUT.reduce((a, b) => a + b) / JUG_INCUT.length;
+  const range = INCUT_RANGE[type];
+  return range ? (range[0] + range[1]) / 2 : 0;
+}
+
+/** The grip and steepLoss multipliers a hold's incut gives it (1, 1 for a typical one). */
+export function incutFactors(hold: Hold): { grip: number; steep: number } {
+  if (hold.grip !== undefined || (!INCUT_RANGE[hold.type] && hold.type !== 'jug')) return { grip: 1, steep: 1 };
+  const d = holdIncut(hold) - typicalIncut(hold.type);
+  return { grip: 1 + INCUT_GRIP * d, steep: Math.max(0, 1 - INCUT_STEEP * d) };
+}
+
 export const SMEAR_QUALITY = { slab: 0.62, vertical: 0.38 };
 
 /** Wall angle (degrees, + overhang) at height v. */
@@ -274,8 +351,9 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const orient = Math.max(pull, gaston);
   // Holds on a volume use that face's angle rather than the panel's.
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v)))) + areteYaw(hold, pullTo, wall);
-  const steepFactor = 1 - spec.steepLoss * steep;
-  const base = hold.grip ?? spec.grip * SIZE_GRIP[hold.size];
+  const incut = incutFactors(hold);
+  const steepFactor = 1 - spec.steepLoss * incut.steep * steep;
+  const base = hold.grip ?? spec.grip * SIZE_GRIP[hold.size] * incut.grip;
   return base * orient * steepFactor;
 }
 

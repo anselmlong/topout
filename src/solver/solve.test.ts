@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade } from './model';
+import { flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade, typicalIncut } from './model';
 import { lipContacts } from './volumes';
 import type { Hold, HoldType, Point, Volume, Wall } from './types';
 
@@ -17,7 +17,8 @@ function ladder(type: HoldType, spacing: number, top = 380, rot = 0): Hold[] {
   const holds: Hold[] = [];
   let i = 0;
   for (let v = 150 + spacing; v < top - spacing / 2; v += spacing, i++) {
-    holds.push({ id: `h${i}`, type, size: 'm', u: i % 2 ? 225 : 175, v, rot });
+    // One seed throughout: the same hold (and incut) repeated up the line.
+    holds.push({ id: `h${i}`, type, size: 'm', u: i % 2 ? 225 : 175, v, rot, seed: 0 });
   }
   // Feet start just above the crash pad (v = 30).
   for (let v = 42, j = 0; v < top - 110; v += 35, j++) {
@@ -55,6 +56,27 @@ describe('solver', () => {
 
   it('crimps are harder than jugs', () => {
     expect(grade(wall(15), ladder('crimp', 45))).toBeGreaterThan(grade(wall(15), ladder('jug', 45)));
+  });
+
+  it('a deep incut grades easier than a flat one of the same type and size', () => {
+    const withIncut = (holds: Hold[], incut: number) => holds.map((h) => (h.type === 'crimp' ? { ...h, incut } : h));
+    for (const angle of [0, 30]) {
+      const flat = grade(wall(angle), withIncut(ladder('crimp', 45), 0.1));
+      const deep = grade(wall(angle), withIncut(ladder('crimp', 45), 0.85));
+      expect(deep).toBeLessThan(flat - 0.3);
+    }
+    // And incut matters more where the pull swings out: steep ground opens a flat crimp up.
+    const crimp: Hold = { id: 'c', type: 'crimp', size: 'm', u: 200, v: 200, rot: 0 };
+    const body = { u: 200, v: 150 };
+    const ratio = (angle: number) =>
+      handGrip({ ...crimp, incut: 0.85 }, body, wall(angle)) / handGrip({ ...crimp, incut: 0.1 }, body, wall(angle));
+    expect(ratio(40)).toBeGreaterThan(ratio(0));
+  });
+
+  it('reads the incut off the hold seed, so a share link (new ids, same seed) climbs the same', () => {
+    const a = ladder('edge', 50).map((h, i) => ({ ...h, seed: i * 7 }));
+    const b = a.map((h, i) => ({ ...h, id: `shared-${i}` }));
+    expect(grade(wall(20), b)).toBeCloseTo(grade(wall(20), a), 6);
   });
 
   it('slopers suffer more on steep walls than on vertical', () => {
@@ -304,7 +326,7 @@ describe('solver', () => {
       { id: 'a', type: 'edge', size: 'm', u: 185, v: 215 },
       { id: 'b', type: 'edge', size: 'm', u: 215, v: 275 },
       { id: 'c', type: 'edge', size: 'm', u: 190, v: 330 },
-    ].map((h) => ({ ...h, type: 'edge' as const, size: 'm' as const, rot: 0 }));
+    ].map((h) => ({ ...h, type: 'edge' as const, size: 'm' as const, rot: 0, incut: typicalIncut('edge') }));
     const feet: Hold[] = [
       { id: 'f1', type: 'foot', size: 'm', u: 180, v: 70, rot: 0 },
       { id: 'f2', type: 'foot', size: 'm', u: 222, v: 95, rot: 0 },
@@ -326,7 +348,7 @@ describe('solver', () => {
       { id: 'a', u: 185, v: 215 },
       { id: 'b', u: 215, v: 275 },
       { id: 'c', u: 190, v: 330 },
-    ].map((h) => ({ ...h, type: 'edge' as const, size: 'm' as const, rot: 0 }));
+    ].map((h) => ({ ...h, type: 'edge' as const, size: 'm' as const, rot: 0, incut: typicalIncut('edge') }));
     const feet: Hold[] = [
       { id: 'f1', type: 'foot', size: 'm', u: 180, v: 70, rot: 0 },
       { id: 'f2', type: 'foot', size: 'm', u: 222, v: 95, rot: 0 },
@@ -340,7 +362,7 @@ describe('solver', () => {
         ([2, 3] as const).some((f) => s.limbs[f] === toeIdx && footTechnique(steep, [s.points[0], s.points[1]], s.points[f]) === 'toe'),
       );
     // An edge 90 cm out, turned so its lip faces away from the climber: the toe hooks behind it.
-    const away: Hold = { id: 'tk', type: 'edge', size: 'm', u: 290, v: 235, rot: -Math.PI / 2 };
+    const away: Hold = { id: 'tk', type: 'edge', size: 'm', u: 290, v: 235, rot: -Math.PI / 2, incut: typicalIncut('edge') };
     const without = solve(steep, start, finishAt(380), [...hands, ...feet]);
     const withToe = solve(steep, start, finishAt(380), [...hands, ...feet, away]);
     if (!withToe.ok) throw new Error(withToe.message);
@@ -379,7 +401,7 @@ describe('solver', () => {
       const holds: Hold[] = [];
       for (let v = 195, i = 0; v < 498; v += 45, i++) {
         const jug = rest && i === 3;
-        holds.push({ id: `h${i}`, type: jug ? 'jug' : 'edge', size: jug ? 'l' : 'm', u: i % 2 ? 225 : 175, v, rot: 0 });
+        holds.push({ id: `h${i}`, type: jug ? 'jug' : 'edge', size: jug ? 'l' : 'm', u: i % 2 ? 225 : 175, v, rot: 0, seed: 0 });
       }
       for (let v = 42, j = 0; v < 410; v += 35, j++) holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 215 : 185, v, rot: 0 });
       const r = solve(steep, start, finishAt(520), holds);
@@ -397,7 +419,7 @@ describe('solver', () => {
     // A vertical edge line where the only footholds are edges: upright, then flipped.
     const feet = (rot: number) => {
       const holds = ladder('edge', 45).filter((h) => h.type !== 'foot');
-      for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `e${j}`, type: 'edge', size: 'm', u: j % 2 ? 215 : 185, v, rot });
+      for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `e${j}`, type: 'edge', size: 'm', u: j % 2 ? 215 : 185, v, rot, seed: 0 });
       return grade(wall(0), holds);
     };
     const upright = feet(0);

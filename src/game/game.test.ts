@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_STYLES, generateDay, wallStyleOf } from '../gen/day';
-import { wallHeight, wallPoint } from '../solver/model';
+import { holdIncut, wallHeight, wallPoint } from '../solver/model';
 import type { Hold, SolveResult } from '../solver/types';
 import { frameAt, panelFrames, uvToWorld, worldToUv } from '../scene/wallGeometry';
-import { bestTest, canPlace, holdNear, verdictOf, type TestRun } from './rules';
+import { bestTest, canPlace, holdNear, nextTraySeed, traySeed, verdictOf, type TestRun } from './rules';
 import { decodeRoute, encodeRoute, shareText } from './share';
 import { defaultSpots, spotsFilled, withSpots } from './spots';
 
@@ -50,11 +50,29 @@ describe('placement', () => {
   });
 });
 
+describe('tray holds', () => {
+  it('hands out the same builds the curated route used, first free one first', () => {
+    const at = (k: number) => traySeed(10, 'edge', 'l', k);
+    const seeds = [0, 1, 2, 3].map(at);
+    // A slot steps through every build, so four edges span flat to deep.
+    expect(new Set(seeds.map((seed) => holdIncut({ id: 'x', type: 'edge', size: 'l', u: 0, v: 0, rot: 0, seed }))).size).toBe(4);
+    const placed: Hold[] = [];
+    for (let i = 0; i < 3; i++) {
+      const seed = nextTraySeed(10, placed, 'edge', 'l', 4);
+      placed.push({ id: `p${i}`, type: 'edge', size: 'l', u: 0, v: 0, rot: 0, seed });
+    }
+    expect(placed.map((h) => h.seed)).toEqual(seeds.slice(0, 3));
+    // Take the first one back off the wall: it's the next one handed out again.
+    expect(nextTraySeed(10, placed.slice(1), 'edge', 'l', 4)).toBe(seeds[0]);
+  });
+});
+
 describe('sharing', () => {
   it('round-trips a route through the URL encoding', () => {
     const holds: Hold[] = [
       { id: 'a', type: 'jug', size: 'l', u: 120, v: 240, rot: 0 },
       { id: 'b', type: 'foot', size: 'm', u: 90, v: 60, rot: -Math.PI / 4 },
+      { id: 'h17', type: 'edge', size: 's', u: 150, v: 300, rot: 0 },
     ];
     const decoded = decodeRoute('#' + encodeRoute(7, holds))!;
     expect(decoded.day).toBe(7);
@@ -62,6 +80,10 @@ describe('sharing', () => {
       holds.map(({ type, size, u, v }) => ({ type, size, u, v })),
     );
     expect(decoded.holds[1].rot).toBeCloseTo(-Math.PI / 4, 1);
+    // Same build of each hold, so the same incut: the shared route climbs the same.
+    expect(decoded.holds.map(holdIncut)).toEqual(holds.map(holdIncut));
+    // Links from before seeds were carried still load.
+    expect(decodeRoute('#r=7-0.2.120.240.0')!.holds[0].seed).toBeUndefined();
   });
 
   it('carries start/finish spot holds, and old links mean the default jugs', () => {

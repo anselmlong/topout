@@ -2,6 +2,7 @@
 // Each one is a whole wall and route, independent of the daily archive, so it
 // exists on day 1 and spoils nothing:  ?example=<id>
 import { dateOf, dayNumber, generateDay } from '../gen/day';
+import { incutOf, typicalIncut } from '../solver/model';
 import type { Day, Hold, HoldSize, HoldType } from '../solver/types';
 import { canPlace } from './rules';
 import { spotsOf } from './spots';
@@ -52,14 +53,25 @@ interface Ladder {
   feet: boolean;
 }
 
+/**
+ * The two builds of a hold whose lips sit either side of the type's typical incut, so an
+ * example climbs on fair, middling holds rather than whatever its ids happen to pick.
+ */
+function middling(type: HoldType, size: HoldSize): [number, number] {
+  const off = (seed: number) => Math.abs(incutOf(type, size, seed) - typicalIncut(type));
+  const [a, b] = [0, 1, 2, 3].sort((x, y) => off(x) - off(y));
+  return [a, b];
+}
+
 /** Hand holds zig-zagging from Start to Finish, with foot chips stepping up under them. */
 function ladder(l: Ladder, day: Day): Hold[] {
   const holds: Hold[] = [];
   const mid = WIDTH / 2;
+  const seeds = middling(l.type, l.size);
   let i = 0;
   for (let v = START_V + l.spacing; v < FINISH_V - l.spacing / 2; v += l.spacing, i++) {
     const side = i % 2 ? 1 : -1;
-    holds.push({ id: `p${i + 1}`, type: l.type, size: l.size, u: mid + side * l.swing, v, rot: 0 });
+    holds.push({ id: `p${i + 1}`, type: l.type, size: l.size, u: mid + side * l.swing, v, rot: 0, seed: seeds[i % 2] });
   }
   if (l.feet)
     for (let v = 55, j = 0; v < FINISH_V - 120; v += 38, j++) {
