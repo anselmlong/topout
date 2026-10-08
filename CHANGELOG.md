@@ -12,6 +12,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   dropping off. Finishes well below the top, like traverses, still end with the drop.
 - Uses the holds bolted onto a volume (a foot chip on a pyramid, say) before the bare volume, and
   only stands on or palms the volume itself when there's nothing better within reach.
+- In corners, steps up onto footholds instead of stemming smears past them: a stem still takes
+  weight off the arms, but a real foothold in a corner now beats smearing the bare wall.
 
 **Holds**
 - Every hand hold has its own incut: how far the lip wraps over. You can see it (a deep edge or

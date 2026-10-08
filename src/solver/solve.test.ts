@@ -244,6 +244,27 @@ describe('solver', () => {
     expect(smearing).toBe(true);
   });
 
+  it('in a corner, steps up onto the jugs rather than stemming smears past them', () => {
+    // Day 30's slab corner, as curated: start jugs either side of the crease, a jug and a
+    // big edge above them, then crimps out left to the finish.
+    const corner: Wall = { width: 380, panels: [{ length: 478, angle: -4 }], seed: 1, fold: { u: 160, angle: 90 } };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 131, v: 141, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 173, v: 140, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'jug', size: 'm', u: 164, v: 235, rot: -0.1 },
+      { id: 'h3', type: 'crimp', size: 's', u: 108, v: 295, rot: 0.26 },
+      { id: 'h4', type: 'edge', size: 'l', u: 163, v: 335, rot: -0.03 },
+      { id: 'h5', type: 'edge', size: 'm', u: 88, v: 388, rot: 0.24 },
+    ];
+    const r = solve(corner, jugs, { id: 'finish', type: 'jug', size: 'l', u: 114, v: 447, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    // The reach to the big edge goes from both feet on the start jugs, not from two smears.
+    const toEdge = r.moves.find((m) => m.limb <= 1 && m.to.limbs[m.limb] === 5)!;
+    expect(toEdge.from.limbs.slice(2).sort()).toEqual([0, 1]);
+  });
+
   it('a rollover lip is a hold that gets you over onto the slab', () => {
     const roll: Wall = { width: 400, panels: [{ length: 320, angle: 25 }, { length: 110, angle: -15 }], seed: 1, lip: true };
     const holds: Hold[] = [

@@ -312,9 +312,11 @@ class Context {
     for (const f of [2, 3] as const)
       if (l[f] >= 0 && footTechnique(this.wall, [p[0], p[1]], p[f]) === 'drop-knee') q[f - 2] = Math.min(1, q[f - 2] + 0.12);
     if (stay !== undefined) q[stay === 2 ? 1 : 0] = 0;
+    // The stem closes that share of each foot's shortfall, so a foothold in a corner still
+    // beats a smear: pressing out on a hold, the foot can stand down on it as well.
     if (l[2] !== OFF && l[3] !== OFF && stay === undefined) {
       const bonus = stemBonus(this.wall, [p[2].u, p[3].u]);
-      if (bonus) return [Math.min(1, q[0] + bonus), Math.min(1, q[1] + bonus)];
+      if (bonus) return [q[0] + bonus * (1 - q[0]), q[1] + bonus * (1 - q[1])];
     }
     return q;
   }
