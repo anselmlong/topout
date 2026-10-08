@@ -213,3 +213,29 @@ export function backingGeometry(frame: PanelFrame, rail: number) {
   g.computeVertexNormals();
   return g;
 }
+
+/** How far the deck on top of the wall runs back from the lip (m). */
+export const DECK_DEPTH = 1.1;
+
+/**
+ * The top of the wall at u: the lip point (world metres) and the horizontal direction
+ * back over the deck, away from the room. The climber tops out along it.
+ */
+export function lipAt(wall: Wall, frames: PanelFrame[], u: number) {
+  const top = frames.reduce((h, f) => Math.max(h, f.v1), 0);
+  const f = frameAt(frames, Math.max(0, Math.min(wall.width - 1e-3, u)), top - 1e-3);
+  const lip = uvToWorld(wall, frames, u, top);
+  const back = new THREE.Vector3(-f.normal.x, 0, -f.normal.z);
+  if (back.lengthSq() < 1e-6) back.set(0, 0, -1);
+  return { lip, back: back.normalize(), up: f.up.clone(), normal: f.normal.clone() };
+}
+
+/** Flat deck outline (world x, z) behind the top edge, and its height. Follows a fold. */
+export function deckOutline(wall: Wall, frames: PanelFrame[]) {
+  const us = [0, ...(wall.fold ? [wall.fold.u] : []), wall.width];
+  const edge = us.map((u) => uvToWorld(wall, frames, u, frames.reduce((h, f) => Math.max(h, f.v1), 0)));
+  const y = Math.max(...edge.map((p) => p.y));
+  const backZ = Math.min(...edge.map((p) => p.z)) - DECK_DEPTH;
+  const pts = [...edge.map((p) => new THREE.Vector2(p.x, p.z)), new THREE.Vector2(edge[edge.length - 1].x, backZ), new THREE.Vector2(edge[0].x, backZ)];
+  return { y, pts };
+}

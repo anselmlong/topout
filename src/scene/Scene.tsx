@@ -17,7 +17,7 @@ import { ChalkDust } from './Chalk';
 import { Gym } from './Gym';
 import { ReachGuide } from './ReachGuide';
 import { GhostVolume, VolumeMesh } from './Volumes';
-import { backingGeometry, frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
+import { backingGeometry, deckOutline, frameAt, holdQuaternion, padBox, panelFrames, panelGeometry, uvToWorld, worldToUv, type PanelFrame } from './wallGeometry';
 import { useWallPointer } from './wallPointer';
 
 export function Scene() {
@@ -251,7 +251,7 @@ function CameraRig({ wall }: { wall: Wall }) {
     const homeY = home.current.y;
     // Track the climber; once they're off the wall, drift back to the home framing.
     const want = climberFocus.active
-      ? Math.max(homeY - 0.4, Math.min(Math.max(homeY, b.height - 0.9), climberFocus.pos.y - 0.2))
+      ? Math.max(homeY - 0.4, Math.min(Math.max(homeY, b.height + (climberFocus.top ? 0.4 : -0.9)), climberFocus.pos.y - 0.2))
       : homeY;
     if (Math.abs(want - c.target.y) < 1e-4) return;
     const dy = (want - c.target.y) * (1 - Math.pow(0.97, dt * 60)) * free;
@@ -370,6 +370,7 @@ function WallView({ day }: { day: Day }) {
         <PanelMesh key={f.index} wall={day.wall} frame={f} />
       ))}
       <Bolts wall={day.wall} frames={frames} />
+      <Deck wall={day.wall} frames={frames} />
       {day.wall.lip && <Lip wall={day.wall} frames={frames} />}
       {volumes.map((v) => (
         <VolumeMesh key={v.id} vol={v} wall={day.wall} frames={frames} fixed={!!viewing} />
@@ -430,6 +431,21 @@ function Lip({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
     <mesh position={position} quaternion={quaternion} castShadow receiveShadow raycast={() => null}>
       <cylinderGeometry args={[0.04, 0.04, wall.width / 100, 8]} />
       <meshStandardMaterial color={PALETTE.ply} roughness={0.9} flatShading />
+    </mesh>
+  );
+}
+
+/** The flat top of the wall the climber mantles onto and stands on to celebrate. */
+function Deck({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
+  const { geometry, y } = useMemo(() => {
+    const { y, pts } = deckOutline(wall, frames);
+    // Shape space (x, -z), turned flat below; extruded upward by the board's thickness.
+    const shape = new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.y)));
+    return { geometry: new THREE.ExtrudeGeometry(shape, { depth: 0.06, bevelEnabled: false }), y };
+  }, [wall, frames]);
+  return (
+    <mesh geometry={geometry} position={[0, y - 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow raycast={() => null}>
+      <meshStandardMaterial color={PALETTE.plyDark} roughness={0.95} flatShading />
     </mesh>
   );
 }

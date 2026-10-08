@@ -3,9 +3,10 @@
 // outside the renderer (scripts/pacing.ts).
 import { verdictOf } from '../game/rules';
 import { moveGrade } from '../game/tips';
-import { handGrip } from '../solver/model';
+import { handGrip, wallHeight } from '../solver/model';
 import type { Day, Hold, Point, SolveResult, Stance, Wall } from '../solver/types';
 import { OFF } from '../solver/types';
+import { STANDING_AT } from './topout';
 
 export type Contacts = { hands: [Point, Point]; feet: [Point | null, Point | null] };
 
@@ -44,6 +45,8 @@ export interface Timeline {
   ending: 'top' | 'fall' | 'shrug';
   /** Topped out on the brief (a send) rather than off it (a near miss). */
   send?: boolean;
+  /** The finish is near the top: mantle over onto the deck instead of dropping off (see topout.ts). */
+  over?: boolean;
   total: number;
   /** Extra time after the last frame for the ending to play out. */
   tail: number;
@@ -95,6 +98,9 @@ export function windupSink(k: number): number {
  * let go. After landing: absorb in a squat and stand, turn round to face the room, then
  * celebrate (arms up and two claps) or, topped out off the brief, shrug at the route.
  */
+/** Finishes this close (cm) to the top of the wall are topped out over the lip; lower ones (traverses) are dropped off. */
+export const TOPOUT_REACH = 80;
+
 export const SEND = { hold: 0.35, release: 0.75, absorb: 0.5, turn: 0.3, turnFor: 0.45, cheer: 0.55, claps: [0.95, 1.2], end: 1.75, shrugEnd: 1.5 };
 
 /**
@@ -164,9 +170,10 @@ export function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Tim
         f.travel! *= tempo;
       }
     // The top-out (see topOut) sets the real end once the climber lands; this is a backstop.
-    const tail = SEND.release + 3.5;
+    const over = wallHeight(day.wall) - day.finish.v <= TOPOUT_REACH;
+    const tail = over ? SEND.hold + STANDING_AT + SEND.end + 1 : SEND.release + 3.5;
     const send = verdictOf(result, day.targetGrade) !== 'fail';
-    return { frames, ending: 'top', send, total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
+    return { frames, ending: 'top', send, over, total: frames.reduce((s, f) => s + f.duration, 0) + tail, tail };
   }
   if (!result.highPoint) return { frames: [], ending: 'shrug', total: 1.6, tail: 1.6 };
   const hp = contactsOf(result.highPoint);

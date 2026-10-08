@@ -12,50 +12,18 @@ import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
+import { ARM, LEG, TORSO, V, ik, type Pose } from './pose';
 import { J, JOINTS, Ragdoll } from './ragdoll';
 import { buildTimeline, CRUX_SLOWMO, SEND, SHAKE_SCRIPT, REST, windupSink, type Keyframe, type Timeline } from './timeline';
-import { frameAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
+import { STANDING_AT, standHip, topoutPose, type Lip } from './topout';
+import { frameAt, lipAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
-const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-
-const ARM = [0.3, 0.29];
-const LEG = [0.43, 0.42];
-const TORSO = 0.5;
 const PAD_TOP = 0.3;
 /** A hand on a hold less than this far (cm) above the feet is down by the hips: it presses. */
 const PRESS_ABOVE_FEET = 60;
 
 /** The solver's hand techniques, plus a press: palm down on a hold at waist height (a mantle). */
 type ArmTechnique = HandTechnique | 'press';
-
-interface Pose {
-  hip: THREE.Vector3;
-  chest: THREE.Vector3;
-  head: THREE.Vector3;
-  shoulders: [THREE.Vector3, THREE.Vector3];
-  elbows: [THREE.Vector3, THREE.Vector3];
-  hands: [THREE.Vector3, THREE.Vector3];
-  pelvis: [THREE.Vector3, THREE.Vector3];
-  knees: [THREE.Vector3, THREE.Vector3];
-  feet: [THREE.Vector3, THREE.Vector3];
-  /** World direction the fingers point for each hand on a hold (wrapping the incut). */
-  grips?: [THREE.Vector3 | null, THREE.Vector3 | null];
-  /** Where the climber is looking (a hold), or undefined to face straight ahead. */
-  look?: THREE.Vector3 | null;
-}
-
-function ik(root: THREE.Vector3, target: THREE.Vector3, [a, b]: number[], pole: THREE.Vector3) {
-  const dir = target.clone().sub(root);
-  const d = Math.min(dir.length(), a + b - 1e-4);
-  dir.normalize();
-  const cosA = Math.max(-1, Math.min(1, (a * a + d * d - b * b) / (2 * a * d)));
-  const perp = pole.clone().sub(dir.clone().multiplyScalar(pole.dot(dir)));
-  if (perp.lengthSq() < 1e-8) perp.set(0, 0, 1);
-  perp.normalize();
-  const joint = root.clone().addScaledVector(dir, a * cosA).addScaledVector(perp, a * Math.sqrt(1 - cosA * cosA));
-  const end = root.clone().addScaledVector(dir, d);
-  return { joint, end };
-}
 
 /** Build a full-body pose from 3D contact points (feet may be null = dangling). */
 function poseFrom(
@@ -400,7 +368,7 @@ interface Run {
   twist: number;
   lastThud: number;
   /** The top-out after a send or near miss (see topOut). */
-  out: { t0: number; released: boolean; landed: number; face: THREE.Vector3; turned: number; claps: number; floor: number } | null;
+  out: { t0: number; released: boolean; landed: number; face: THREE.Vector3; turned: number; claps: number; floor: number; mantle: { from: Pose; lip: Lip } | null } | null;
 }
 
 export function Climber({ day }: { day: Day }) {
@@ -455,6 +423,7 @@ export function Climber({ day }: { day: Day }) {
     const init = poseToArray(poseFrom(frames, hands, feet, Math.max(0, (first.hands[0].v + first.hands[1].v) / 2 - 80)));
     const pad = padBox(day.wall);
     const vols = pb.volumes;
+    climberFocus.top = false;
     const sim = new Ragdoll(
       init,
       frames,
@@ -681,6 +650,15 @@ export function Climber({ day }: { day: Day }) {
       // Hold the finish, then look down at the landing; once down, face the room, or
       // glance back up at the route that didn't come out on the brief.
       if (k < SEND.hold) return toWorld(day.finish, 0);
+      if (out.mantle) {
+        // Eyes over the lip onto the deck, then out at the room (or back down at the finish).
+        const { lip, back } = out.mantle.lip;
+        const s = k - SEND.hold;
+        if (s < STANDING_AT - 0.4) return lip.clone().addScaledVector(back, 0.6);
+        const hip = standHip(out.mantle.lip);
+        if (!r.timeline.send && s - STANDING_AT + SEND.cheer > SEND.cheer - 0.1) return toWorld(day.finish, 0);
+        return hip.addScaledVector(back, -3).setY(hip.y + (r.timeline.send ? 1.2 : 0.7));
+      }
       const hip = r.sim.pos[J.pelvis];
       if (out.landed < 0) return hip.clone().addScaledVector(out.face, -0.9).setY(pad.top);
       const t = r.t - out.landed;
@@ -705,11 +683,12 @@ export function Climber({ day }: { day: Day }) {
   const endRun = (r: Run) => {
     const { sim, timeline } = r;
     if (timeline.ending === 'top') {
-      // Matched the finish. Hold it a beat, look down, then drop off (see topOut).
+      // Matched the finish. Hold it a beat, then mantle over the top, or (a finish well
+      // below the top) look down and drop off (see topOut).
       const n = frameAt(frames, day.finish.u, day.finish.v).normal;
       const face = V(-n.x, 0, -n.z);
       if (face.lengthSq() < 0.01) face.set(0, 0, -1);
-      r.out = { t0: r.t, released: false, landed: -1, face: face.normalize(), turned: 0, claps: 0, floor: 0 };
+      r.out = { t0: r.t, released: false, landed: -1, face: face.normalize(), turned: 0, claps: 0, floor: 0, mantle: null };
       sim.tone = 1;
       puff(toWorld(day.finish, 0.05), n, timeline.send ? 24 : 10, 0.7);
       if (timeline.send) sfx.topout();
@@ -745,6 +724,22 @@ export function Climber({ day }: { day: Day }) {
       const x = Math.max(0, Math.min(1, (k - a) / (b - a)));
       return x * x * (3 - 2 * x);
     };
+    if (r.timeline.over) {
+      if (k < SEND.hold) return null;
+      if (!out.mantle) {
+        // Off the finish and over the lip: choreography from here, not physics.
+        out.mantle = { from: arrayToPose(sim.pos.map((p) => p.clone())), lip: lipAt(day.wall, frames, day.finish.u) };
+        r.grip = [-1, -1];
+        climberFocus.top = true;
+        useClimb.setState({ label: 'Mantling over the top' });
+      }
+      const s = k - SEND.hold;
+      if (s < STANDING_AT) return poseToArray(topoutPose(out.mantle.lip, out.mantle.from, s));
+      // Standing on top facing the room: celebrate as if just turned round after a drop.
+      const t = s - STANDING_AT + SEND.cheer;
+      const { arms, ak } = celebrate(r, t);
+      return poseToArray(dropPose(standHip(out.mantle.lip), out.mantle.lip.back.clone().negate(), 0, arms, ak));
+    }
     if (!out.released) {
       if (k < SEND.release) return null;
       out.released = true;
@@ -793,6 +788,21 @@ export function Climber({ day }: { day: Day }) {
         sim.drive(n, at, out.face.clone().multiplyScalar(sd).add(V(0, 0.6, 0)).normalize(), SEND.turnFor, 0.07);
       });
     }
+    const { arms, ak } = celebrate(r, t);
+    return poseToArray(dropPose(stand, face, squat, arms, ak));
+  };
+  /**
+   * Standing and facing the room, `t` seconds after landing (or the equivalent after a
+   * mantle): a send gets arms up and two claps, a near miss a shrug back at the route.
+   * Plays the sounds and ticker, and ends the climb when it's done.
+   */
+  const celebrate = (r: Run, t: number): { arms: Celebrate; ak: number } => {
+    const out = r.out!;
+    const { sim } = r;
+    const easeT = (a: number, b: number) => {
+      const x = Math.max(0, Math.min(1, (t - a) / (b - a)));
+      return x * x * (3 - 2 * x);
+    };
     const send = r.timeline.send;
     let arms: Celebrate = 'cheer';
     let ak = 0;
@@ -809,7 +819,7 @@ export function Climber({ day }: { day: Day }) {
       // Then the arms come down and the climber stands there, pleased.
       if (t >= SEND.end - 0.25) {
         arms = 'cheer';
-        ak = 1 - ease(out.landed - out.t0 + SEND.end - 0.25, out.landed - out.t0 + SEND.end + 0.35);
+        ak = 1 - easeT(SEND.end - 0.25, SEND.end + 0.35);
       }
       if (out.claps < SEND.claps.length && t >= SEND.claps[out.claps]) {
         out.claps++;
@@ -832,7 +842,7 @@ export function Climber({ day }: { day: Day }) {
       useClimb.setState({ status: 'idle' });
       useGame.getState().climbFinished();
     }
-    return poseToArray(dropPose(stand, face, squat, arms, ak));
+    return { arms, ak };
   };
   useFrame((_, dt) => {
     if (!rig.current) return;
@@ -840,6 +850,7 @@ export function Climber({ day }: { day: Day }) {
       run.current = null;
       climberFocus.active = false;
       climberFocus.hold = false;
+      climberFocus.top = false;
       const it = idle.current;
       it.t += Math.min(dt, 0.05);
       const cycle = it.t % 7;
@@ -923,6 +934,11 @@ export function Climber({ day }: { day: Day }) {
         : kf && kf.prep && kf.limb < 2 && t < kf.prep
           ? 0.3 * Math.sin((Math.PI * t) / kf.prep)
           : 0;
+      if (r.out?.mantle && outPose) {
+        // The mantle is posed outright: the body goes where the choreography says.
+        outPose.forEach((p, i) => (sim.pos[i].copy(p), sim.prev[i].copy(p)));
+        continue;
+      }
       sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagAway, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist, r.winding)));
     }
     // Thuds when the body hits the pad.

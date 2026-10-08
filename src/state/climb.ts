@@ -80,5 +80,6 @@ export function cycleSpeed() {
  * while a move plays (its wind-up and the limb travelling, or a dyno's pumps): the camera
  * keeps still then and reframes in the settle after it, so it never moves under a move.
  * `free` once the climb is over (topping out, falling), when it follows continuously.
+ * `top` once they've mantled over the top and stand on the deck, above the wall.
  */
-export const climberFocus = { pos: new THREE.Vector3(), active: false, shake: 0, hold: false, free: false };
+export const climberFocus = { pos: new THREE.Vector3(), active: false, shake: 0, hold: false, free: false, top: false };
