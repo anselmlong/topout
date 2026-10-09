@@ -56,6 +56,17 @@ const RADIUS = 0.07;
 const FREE_FOOT_PULL = 0.06;
 const FREE_FOOT_DAMP = 0.3;
 const FREE_FOOT_SPEED = 2.5;
+/**
+ * Top speed (m/s) the body's own drive (gravity, momentum, muscles) gives the torso, knees and
+ * elbows while a hand holds on. A low foot pinned under a high step holds the hips down while
+ * the pose wants them stood up; when that foot lets go, the muscles would fire the hips up
+ * 0.75 m in a twelfth of a second and bounce. Climbers stand up into a move over half a
+ * second or so. A dyno's launch (see impulse) isn't held back, nor is a fall or a drop.
+ */
+const BODY_SPEED = 1.5;
+const BODY = [J.head, J.chest, J.pelvis, J.shoulderL, J.shoulderR, J.hipL, J.hipR, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
+/** How long (s) after an impulse the body moves unchecked. */
+const BURST = 0.35;
 
 export class Ragdoll {
   pos: THREE.Vector3[] = [];
@@ -66,6 +77,8 @@ export class Ragdoll {
   tone = 1;
   /** Per-step velocity kept, overriding the tone's default (a controlled drop: little air drag, posture held). */
   drag: number | null = null;
+  /** Seconds left of an impulse's launch, while the body speed limit is off. */
+  private burst = 0;
 
   /** Seconds since the last ground contact that counted as an impact (for thud sounds). */
   impacts: number[] = [];
@@ -163,6 +176,7 @@ export class Ragdoll {
   impulse(v: THREE.Vector3, dt: number, only?: number[]) {
     const idx = only ?? this.pos.map((_, i) => i);
     for (const i of idx) this.prev[i].addScaledVector(v, -dt);
+    this.burst = BURST;
   }
 
   step(dt: number, posture: THREE.Vector3[] | null) {
@@ -189,9 +203,17 @@ export class Ragdoll {
         const k = (freeKnee ? 0.16 : soft ? 0.05 : 0.11) * this.tone;
         pos[i].lerp(posture[i], k);
       }
+      // A weight shift is something the body does, not a cut: cap how fast it carries itself.
+      const hanging = this.ends[0].mode !== 'free' || this.ends[1].mode !== 'free';
+      if (hanging && this.drag === null && this.burst <= 0) {
+        const max = BODY_SPEED * dt;
+        for (const i of BODY) {
+          const v = this.tmp.subVectors(pos[i], prev[i]);
+          if (v.lengthSq() > max * max) pos[i].copy(prev[i]).addScaledVector(v, max / v.length());
+        }
+      }
       // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat;
       // free hands (only ever let go on purpose, dropping off the top) are held too.
-      const hanging = this.ends[0].mode !== 'free' || this.ends[1].mode !== 'free';
       const hips = this.tmp.subVectors(pos[J.pelvis], prev[J.pelvis]);
       this.ends.forEach((e, n) => {
         if (e.mode !== 'free') return;
@@ -211,6 +233,7 @@ export class Ragdoll {
         pos[j].copy(prev[j]).add(hips).add(rel);
       });
     }
+    this.burst = Math.max(0, this.burst - dt);
     // 3. Advance kinematic ends.
     for (const e of this.ends) {
       if (e.mode !== 'moving') continue;

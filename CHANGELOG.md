@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-10
+
+**Climber**
+- Stands up into a move instead of popping: when a low foot lets go under a high step, the hips
+  rise onto the high foot over about half a second instead of shooting up most of a metre in a
+  blink and bouncing, and weight shifts between holds no longer jolt the body.
+
 ## 2026-10-09
 
 **Climber**

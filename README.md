@@ -104,6 +104,10 @@ standing leg (a back flag) while the reaching hip turns in and the standing foot
 Between reaches a flag stays put, and switching sides the leg sweeps
 across behind the standing leg over about half a second. A free foot (flagging, or cut loose on
 a campus move) is swung by the leg: it moves with the hips, damped, at no more than ~2.5 m/s. The ticker labels these "(flag)" and "(back flag)".
+While a hand holds on, the body carries itself at no more than ~1.5 m/s (`BODY_SPEED` in
+`src/scene/ragdoll.ts`): a low foot letting go under a high step stands the climber up onto it
+over about half a second instead of firing the hips up; a dyno's launch, a fall and the drop off
+the top aren't held back.
 Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
 hips sinking down and back over bent knees, eyes on the target, then launches from the
 low point. Before the crux, if one hand is on a good hold with a foot on, the climber hangs
