@@ -16,6 +16,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   from there. Finishes that used to be out of reach above a ledge or a big volume now go, and a
   mantle grades harder on a narrow or sloping top than on a wide one.
 
+**Grades**
+- Three new reference climbs from the Kilter Board check that the incut on a crimp counts:
+  flat crimps grade harder and deep incut crimps and edges easier, the way they do on a real
+  board. Eight upcoming days whose setter's route had drifted off its grade were set again.
+
 ## 2026-10-08
 
 **Climber**

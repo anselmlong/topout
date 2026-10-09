@@ -29,6 +29,8 @@ export interface Anchor {
   sidepull?: boolean;
   /** Turn the hand holds upside down, lip facing the floor (underclings). */
   undercling?: boolean;
+  /** Every hand hold's incut (0 flat .. 1 deep); default the type's typical build. */
+  incut?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -144,6 +146,19 @@ export const ANCHORS: Anchor[] = [
     // board grades win; not a constant to nudge here.
     miss: 'pinches climb ~0.5 grade too steeply from 20° to 40°: V6.6',
   },
+  // Incut decides how hard a crimp is (holdGeometry/model incut). Kilter Board Original
+  // per-angle consensus grades on boardsesh.com (checked 2026-10-09), two problems by the
+  // same setter (tomgeorgevits): "Heinous Crimps" (1,682 ascents) and "Friendly Crimps"
+  // (97). The names say which crimps they use; Kilter publishes no incut per hold.
+  // Flat crimps on a near-vertical board: Heinous Crimps is V4 at 15°, the angle it was set
+  // at (V3 at 0° and 10°, V4 at 5° and 20-30°).
+  { name: '15° flat crimps', angle: 15, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 4, incut: 0.05 },
+  // Deep incut crimps on a 40° board: Friendly Crimps is V5 at 40° and V6 at 45°, a grade
+  // under Heinous Crimps (V6 at 40°, V7 at 45°). So a grade under the typical 40° crimps.
+  { name: '40° deep incut crimps', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 7, incut: 0.9 },
+  // Positive edges, the kind an intro problem is set on: Kilter's "Intro to Crimps" is V1
+  // at 15° (V3 at 40°, V4 at 45-50°). Deep incut edges, a size up from crimps.
+  { name: '15° deep incut edges', angle: 15, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 1, incut: 0.95 },
 ];
 
 const TOP = 400;
@@ -174,8 +189,9 @@ export function anchorRoute(a: Anchor) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
-    // A typical build of the type throughout (neither a flat nor a deep incut one).
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: typicalIncut(a.type) });
+    // A typical build of the type throughout (neither a flat nor a deep incut one), unless
+    // the problem is about incut.
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < top - 120; v += 38, j++)
