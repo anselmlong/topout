@@ -19,6 +19,7 @@ import {
   handGrip,
   handMatchable,
   handLoad,
+  isBig,
   hasShelf,
   heightAt,
   highStep,
@@ -370,14 +371,14 @@ class Context {
     const out = Math.abs(fp.u - midU);
     const angle = angleAt(this.wall, fp.v);
     if (out < TOE_HOOK_OUT) {
-      const hookable = h.type === 'jug' || h.type === 'volume' || ((h.type === 'edge' || h.type === 'sloper') && h.size === 'l');
+      const hookable = h.type === 'jug' || h.type === 'volume' || ((h.type === 'edge' || h.type === 'sloper') && isBig(h.size));
       return angle >= 12 && hookable && out >= 25;
     }
     const toeable =
       h.type === 'jug' ||
       h.type === 'volume' ||
       ((h.type === 'edge' || h.type === 'pinch') && h.size !== 's') ||
-      (h.type === 'sloper' && h.size === 'l');
+      (h.type === 'sloper' && isBig(h.size));
     if (angle < 20 || !toeable) return false;
     // The toe pulls the hold sideways, toward the body.
     const best = bestPull(h.rot);

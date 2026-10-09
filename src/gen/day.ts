@@ -309,7 +309,19 @@ export function withVolumes(day: Day): Day {
   return { ...day, tray: [...volumeSlots(rng(hash(day.number, 0x7011))), ...day.tray] };
 }
 
-function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TraySlot[] {
+/**
+ * Some days hand out a spray-wall tray, like the board in the corner of a gym: many small
+ * holds of every type and a few macros. From V2 up (a V0 wants a ladder of big holds) and
+ * never on a traverse. `lean` decides it, and whether a plain day gets one macro, from its
+ * own stream so a plain day without one draws the tray it always did.
+ */
+function trayLean(lean: Rng, grade: number, twist?: Twist): { spray: boolean; macros: number } {
+  const spray = grade >= 2 && twist !== 'traverse' && lean.chance(0.25);
+  const macros = spray ? lean.int(2, 3) : lean.chance(0.35) ? 1 : 0;
+  return { spray, macros };
+}
+
+function makeTray(r: Rng, style: WallStyle, grade: number, twist: Twist | undefined, lean: Rng, spray: boolean, macros: number): TraySlot[] {
   // Easier days and steeper walls get kinder holds.
   const steep = style === 'steep' || style === 'kicker' || style === 'headwall' || style === 'bulge' || style === 'cave' || style === 'prow' || style === 'dihedral' || style === 'scoop' || style === 'rollover' || style === 'belly' || style === 'roof' || style === 'leaningcorner' || style === 'leaningarete' || style === 'nose';
   // Jugs are a treat, not the default: a few on easy or steep days, a couple otherwise.
@@ -322,9 +334,15 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
     pocket: 1.2,
   };
   if (twist === 'no-jugs') weights.jug = 0;
+  // A spray wall is a bit of everything: the mix evens out toward one of each type.
+  if (spray) {
+    const types = Object.keys(weights) as (keyof typeof weights)[];
+    const mean = types.reduce((s, t) => s + weights[t], 0) / types.length;
+    for (const t of types) if (weights[t] > 0) weights[t] = (weights[t] + mean) / 2;
+  }
 
-  // A highball is half as long again: the extra moves need more holds.
-  const handCount = r.int(12, 15) + (style === 'highball' ? 5 : 0);
+  // A highball is half as long again: the extra moves need more holds; a spray wall has plenty.
+  const handCount = r.int(12, 15) + (style === 'highball' ? 5 : 0) + (spray ? 5 : 0);
   const counts = new Map<string, TraySlot>();
   const types = Object.keys(weights) as (keyof typeof weights)[];
   const total = types.reduce((s, t) => s + weights[t], 0);
@@ -339,7 +357,8 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
       }
     }
     // Big holds read well on a phone and are what new setters reach for: L as often as M.
-    const size: HoldSize = r.pick(['s', 'm', 'l', 'l']);
+    // A spray wall's holds run small: mostly S and M.
+    const size: HoldSize = spray ? r.pick(['s', 's', 'm', 'm', 'l']) : r.pick(['s', 'm', 'l', 'l']);
     const key = `${type}:${size}`;
     const slot = counts.get(key) ?? { type, size, count: 0 };
     slot.count++;
@@ -356,10 +375,18 @@ function makeTray(r: Rng, style: WallStyle, grade: number, twist?: Twist): TrayS
     slot.count++;
     counts.set(key, slot);
   }
-  const feet = (twist === 'no-smear' ? r.int(8, 10) : r.int(5, 7)) + (style === 'highball' ? 3 : 0);
+  // Macros: a sloper is no gift on a steep wall, so steep days lean to ledges and blocks.
+  for (let i = 0; i < macros; i++) {
+    const type = lean.pick(steep ? (['edge', 'pinch', 'pinch', 'sloper'] as const) : (['sloper', 'sloper', 'edge', 'pinch'] as const));
+    const key = `${type}:xl`;
+    const slot = counts.get(key) ?? { type, size: 'xl', count: 0 };
+    slot.count++;
+    counts.set(key, slot);
+  }
+  const feet = (twist === 'no-smear' ? r.int(8, 10) : r.int(5, 7)) + (style === 'highball' ? 3 : 0) + (spray ? 2 : 0);
   const jibs = r.int(3, 5);
   const order: HoldType[] = ['jug', 'edge', 'pocket', 'pinch', 'sloper', 'crimp'];
-  const sizes: HoldSize[] = ['l', 'm', 's'];
+  const sizes: HoldSize[] = ['xl', 'l', 'm', 's'];
   const slots = [...counts.values()].sort(
     (a, b) => order.indexOf(a.type) - order.indexOf(b.type) || sizes.indexOf(a.size) - sizes.indexOf(b.size),
   );
@@ -419,6 +446,9 @@ function practiceTray(twist?: Twist): TraySlot[] {
     { type: 'crimp', size: 'l', count: 2 },
     { type: 'crimp', size: 'm', count: 3 },
     { type: 'crimp', size: 's', count: 2 },
+    { type: 'sloper', size: 'xl', count: 1 },
+    { type: 'edge', size: 'xl', count: 1 },
+    { type: 'pinch', size: 'xl', count: 1 },
     { type: 'foot', size: 'm', count: 10 },
     { type: 'jib', size: 'm', count: 6 },
   ];
@@ -446,6 +476,9 @@ export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<
   if (style === 'rollover' || style === 'belly' || style === 'overlap' || style === 'ledge' || style === 'leaningcorner') targetGrade = Math.max(2, targetGrade);
   if (style === 'leaningarete' || style === 'nose') targetGrade = Math.max(3, targetGrade);
   if (o.grade !== undefined) targetGrade = o.grade;
+
+  const lean = rng(hash(n, variant, 0x5b7a));
+  const tl = trayLean(lean, targetGrade, twist);
 
   const margin = 50;
   let start: Hold[];
@@ -490,9 +523,10 @@ export function generateDay(n: number, variant = 0, o: DayOverrides = {}): Omit<
     wall,
     start,
     finish,
-    tray: o.tray === 'practice' ? practiceTray(twist) : makeTray(r, style, targetGrade, twist),
+    tray: o.tray === 'practice' ? practiceTray(twist) : makeTray(r, style, targetGrade, twist, lean, tl.spray, tl.macros),
     targetGrade,
     twist,
+    ...(tl.spray && o.tray !== 'practice' ? { spray: true } : {}),
     par: 0,
   };
 }

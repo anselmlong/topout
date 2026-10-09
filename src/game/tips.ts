@@ -69,7 +69,7 @@ function holdName(h: Hold | undefined): string {
   if (h.role) return `the ${h.role} ${NAME[h.type] ?? 'hold'}`;
   if (h.type === 'volume') return 'the volume';
   const turned = Math.cos(h.rot) < -0.5 ? ' (upside down)' : Math.abs(Math.sin(h.rot)) > 0.7 ? ' (turned sideways)' : '';
-  return `the ${h.size === 's' ? 'small ' : h.size === 'l' ? 'big ' : ''}${NAME[h.type] ?? 'hold'}${turned}`;
+  return `the ${{ s: 'small ', m: '', l: 'big ', xl: 'macro ' }[h.size]}${NAME[h.type] ?? 'hold'}${turned}`;
 }
 
 export type DriverKey = 'hold' | 'catch' | 'reach' | 'steep' | 'feet' | 'barn' | 'high' | 'pump';
@@ -197,7 +197,7 @@ export function setterTip(day: Day, test: TestRun): string | null {
   if (Math.abs(gap) < 0.5) return null;
   const used = handHolds(day, test);
   if (gap < 0) {
-    const jugs = used.filter((h) => h.type === 'jug' || (h.type === 'edge' && h.size === 'l'));
+    const jugs = used.filter((h) => h.type === 'jug' || (h.type === 'edge' && (h.size === 'l' || h.size === 'xl')));
     if (jugs.length >= 2)
       return `Too soft: ${jugs.length} big holds in the beta. Swap one for a crimp or sloper, or turn it so it pulls sideways.`;
     if (used.length >= 5)

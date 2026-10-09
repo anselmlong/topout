@@ -7,7 +7,8 @@ import { GRADE_GUIDE, guideRange } from '../game/guide';
 import { encodeRoute, shareText } from '../game/share';
 import { spotsOf, withSpots } from '../game/spots';
 import { gapLabel, gradeDrivers, setterTip, type Driver } from '../game/tips';
-import { HOLD_HINT, HOLD_NAME } from '../scene/palette';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME } from '../scene/palette';
+import { MACRO_TYPES } from '../solver/model';
 import type { Day, HoldType, Twist } from '../solver/types';
 import { contactList } from '../solver/volumes';
 import { loadDay, loadStats, markHelpSeen } from '../state/persist';
@@ -91,6 +92,15 @@ export function HelpModal() {
               <div>
                 <b>{HOLD_NAME[t]}</b>
                 <span>{HOLD_HINT[t]}</span>
+              </div>
+            </li>
+          ))}
+          {MACRO_TYPES.map((t) => (
+            <li key={`${t}-xl`}>
+              <HoldIcon type={t} size="xl" />
+              <div>
+                <b>{MACRO_NAME[t]}</b>
+                <span>{MACRO_HINT[t]}</span>
               </div>
             </li>
           ))}

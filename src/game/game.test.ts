@@ -166,3 +166,24 @@ describe('wall styles', () => {
       }
   });
 });
+
+describe('trays', () => {
+  it('some days are spray walls: more, smaller hand holds and a few macros', () => {
+    const days = Array.from({ length: 120 }, (_, i) => generateDay(i + 1));
+    const hands = (d: (typeof days)[number]) =>
+      d.tray.filter((s) => !['foot', 'jib', 'volume'].includes(s.type)).flatMap((s) => Array(s.count).fill(s.size));
+    const spray = days.filter((d) => d.spray);
+    const plain = days.filter((d) => !d.spray);
+    expect(spray.length).toBeGreaterThan(10);
+    expect(spray.length).toBeLessThan(50);
+    for (const d of spray) {
+      expect(d.targetGrade).toBeGreaterThanOrEqual(2);
+      expect(hands(d).filter((z) => z === 'xl').length).toBeGreaterThanOrEqual(2);
+    }
+    const share = (ds: typeof days, size: string) => ds.flatMap(hands).filter((z) => z === size).length / ds.flatMap(hands).length;
+    expect(share(spray, 's')).toBeGreaterThan(share(plain, 's'));
+    expect(plain.some((d) => d.tray.some((s) => s.size === 'xl'))).toBe(true);
+    // Only slopers, edges and pinches come as macros.
+    for (const d of days) for (const s of d.tray) if (s.size === 'xl') expect(['sloper', 'edge', 'pinch']).toContain(s.type);
+  });
+});

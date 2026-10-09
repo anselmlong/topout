@@ -1098,7 +1098,18 @@ const SHAPES: Record<HoldType, Shape> = {
 };
 
 // Drawn ~20% larger than life so holds read at game zoom. Keep in step with holdRadius.
-const SIZE: Record<HoldSize, number> = { s: 0.95, m: 1.2, l: 1.5 };
+// A macro is built at medium scale and then stretched to its own proportions (MACRO_STRETCH).
+const SIZE: Record<HoldSize, number> = { s: 0.95, m: 1.2, l: 1.5, xl: 1.2 };
+/**
+ * How a macro (size 'xl') stretches its type's medium build, [across, up, out of the wall]:
+ * a dual-texture sloper ~50 cm wide, a ledge ~45 cm long with a shelf a hand deep, a pinch
+ * block ~20 cm wide and a hand's span thick. Keep in step with rules.ts MACRO_RADIUS.
+ */
+const MACRO_STRETCH: Partial<Record<HoldType, [number, number, number]>> = {
+  sloper: [2.05, 1.6, 1.55],
+  edge: [2.5, 1.55, 1.75],
+  pinch: [2.6, 1.25, 1.7],
+};
 const VARIANTS = 4;
 /**
  * Jug families, picked by variant: deep buckets most often, then a flat-topped
@@ -1119,6 +1130,42 @@ export interface HoldMeshData {
 const cache = new Map<string, HoldMeshData>();
 
 export function holdMesh(type: HoldType, size: HoldSize, variant = 0): HoldMeshData {
+  return size === 'xl' ? macroMesh(type, variant) : baseMesh(type, size, variant);
+}
+
+/**
+ * A macro: its type's build stretched big, and dual-texture like the real thing. The faces a
+ * hand or shoe uses (the build's grip zone: a sloper's upper dome, a ledge's shelf and lip, a
+ * pinch block's flanks) keep the cast-in grit; the rest is cast smooth and glossy, so it
+ * gives nothing to hand or shoe and steers where the body goes. A `tex` attribute carries
+ * which is which to the hold material.
+ */
+function macroMesh(type: HoldType, variant: number): HoldMeshData {
+  const key = `macro:${type}:${variant % VARIANTS}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const base = baseMesh(type, 'xl', variant);
+  const [sx, sy, sz] = MACRO_STRETCH[type] ?? [2, 2, 1.6];
+  const g = base.geometry.clone();
+  g.scale(sx, sy, sz);
+  const grip = g.attributes.grip as THREE.BufferAttribute;
+  const tex = new Float32Array(grip.count);
+  for (let i = 0; i < grip.count; i++) tex[i] = grip.getX(i) > 0.3 ? 1 : 0;
+  g.setAttribute('tex', new THREE.BufferAttribute(tex, 1));
+  g.computeVertexNormals();
+  g.computeBoundingBox();
+  // The bolt rides the stretched surface; a normal under a non-uniform scale turns by the inverse.
+  const t = base.boltTilt ?? 0;
+  const data: HoldMeshData = {
+    geometry: g,
+    bolt: base.bolt ? base.bolt.clone().multiply(new THREE.Vector3(sx, sy, sz)) : null,
+    boltTilt: Math.atan2(Math.sin(t) / sy, Math.cos(t) / sz),
+  };
+  cache.set(key, data);
+  return data;
+}
+
+function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData {
   if (type === 'jug') {
     // Jugs come in families, so a wall of them doesn't look cloned.
     const family = JUG_FAMILIES[variant % JUG_FAMILIES.length];
@@ -1234,6 +1281,8 @@ function finish(
   }
   g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   g.setAttribute('grip', new THREE.BufferAttribute(grip, 1));
+  // Textured all over (macros mark their smooth faces; see macroMesh).
+  g.setAttribute('tex', new THREE.BufferAttribute(new Float32Array(pos.count).fill(1), 1));
   g.computeVertexNormals();
   g.computeBoundingBox();
   const bb = g.boundingBox!;

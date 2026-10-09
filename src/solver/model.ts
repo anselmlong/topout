@@ -71,7 +71,28 @@ export const GRIP: Record<HoldType, GripSpec> = {
   volume: { grip: 0.5, tolerance: 0.35, steepLoss: 0.4, hand: true, foot: 0.5, footFacing: 0 },
 };
 
-export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15 };
+export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15, xl: 1.15 };
+
+/** The hold types that come as macros (size 'xl'). */
+export const MACRO_TYPES: HoldType[] = ['sloper', 'edge', 'pinch'];
+
+/**
+ * A macro's grip against a medium hold of its type (in place of SIZE_GRIP), from what a big
+ * hold gives the hand. A dual-texture macro sloper takes the whole palm and the heel of the
+ * hand on its rough side, far more friction than a fist-sized dome (still a sloper on an
+ * overhang: steepLoss is untouched). A macro ledge is a shelf a full hand deep, nearly a jug.
+ * A pinch block is a wide pinch: more to squeeze, but the thumb sits at the end of a long
+ * span, so it's only a little better than a medium pinch.
+ */
+export const MACRO_GRIP: Partial<Record<HoldType, number>> = { sloper: 1.3, edge: 1.2, pinch: 1.06 };
+
+/** Size multiplier on a hold's grip: SIZE_GRIP, or its type's MACRO_GRIP for a macro. */
+export function sizeGrip(type: HoldType, size: HoldSize): number {
+  return size === 'xl' ? (MACRO_GRIP[type] ?? SIZE_GRIP.xl) : SIZE_GRIP[size];
+}
+
+/** L or bigger: room for a full hand (or both), a heel or a toe. */
+export const isBig = (size: HoldSize) => size === 'l' || size === 'xl';
 
 /**
  * Which mesh a hold is drawn with (and so which physical hold it is): its seed, else a
@@ -119,7 +140,7 @@ export function incutOf(type: HoldType, size: HoldSize, variant: number): number
   if (type === 'jug') return JUG_INCUT[variant % JUG_INCUT.length];
   const range = INCUT_RANGE[type];
   if (!range) return 0;
-  const level = (variant + { s: 0, m: 1, l: 2 }[size]) % HOLD_VARIANTS;
+  const level = (variant + { s: 0, m: 1, l: 2, xl: 3 }[size]) % HOLD_VARIANTS;
   return range[0] + ((range[1] - range[0]) * level) / (HOLD_VARIANTS - 1);
 }
 
@@ -353,7 +374,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v)))) + areteYaw(hold, pullTo, wall);
   const incut = incutFactors(hold);
   const steepFactor = 1 - spec.steepLoss * incut.steep * steep;
-  const base = hold.grip ?? spec.grip * SIZE_GRIP[hold.size] * incut.grip;
+  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip;
   return base * orient * steepFactor;
 }
 
@@ -381,15 +402,15 @@ export function handTechnique(hold: Hold, pullTo: { u: number; v: number }): Han
 export function handMatchable(hold: Hold): boolean {
   if (hold.role || hold.type === 'volume') return true;
   if (hold.type === 'jug') return true;
-  if (hold.type === 'edge' || hold.type === 'sloper') return hold.size === 'l';
-  return false;
+  if (hold.type === 'edge' || hold.type === 'sloper') return isBig(hold.size);
+  return hold.size === 'xl';
 }
 
 /** Room for both feet on it? Only big holds; foot chips and jibs are one-toe affairs. */
 export function footMatchable(hold: Hold): boolean {
   if (hold.id.startsWith('arete:')) return false;
   if (hold.type === 'volume') return true;
-  return (hold.type === 'jug' && hold.size !== 's') || (hold.type === 'edge' && hold.size === 'l');
+  return (hold.type === 'jug' && hold.size !== 's') || (hold.type === 'edge' && isBig(hold.size)) || hold.size === 'xl';
 }
 
 export function footQuality(hold: Hold): number {
@@ -402,7 +423,7 @@ export function footQuality(hold: Hold): number {
   // only the corner of the sole bites, and upside down it's a smear on the hold's back.
   const up = (1 + Math.cos(hold.rot)) / 2;
   const facing = 1 - spec.footFacing * (1 - up);
-  return Math.min(1, spec.foot * (hold.size === 's' ? 0.85 : hold.size === 'l' ? 1.05 : 1) * facing + tilt);
+  return Math.min(1, spec.foot * { s: 0.85, m: 1, l: 1.05, xl: 1.12 }[hold.size] * facing + tilt);
 }
 
 /**
@@ -462,7 +483,7 @@ export const MANTLE_REACH = 150;
  * top is a narrow shelf for two palms and a foot.
  */
 export function pressQuality(hold: Hold): number {
-  return footQuality(hold) * (hold.size === 'l' || hold.id.startsWith('lip:') ? 1 : 0.8);
+  return footQuality(hold) * (isBig(hold.size) || hold.id.startsWith('lip:') ? 1 : 0.8);
 }
 
 export type FootTechnique = 'heel' | 'toe' | 'drop-knee' | null;

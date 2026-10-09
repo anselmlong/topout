@@ -17,7 +17,9 @@ const BASE_RADIUS: Record<HoldType, number> = {
   jib: 2.5,
   volume: 0,
 };
-const SIZE_SCALE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25 };
+const SIZE_SCALE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25, xl: 2 };
+/** Macros are drawn to their own proportions (holdGeometry MACRO_STRETCH): about this half-width. */
+const MACRO_RADIUS: Partial<Record<HoldType, number>> = { sloper: 21, edge: 21, pinch: 12 };
 
 /**
  * Distinct hold builds (seeds mod this): two of every jug family, which also covers the
@@ -43,7 +45,8 @@ export function nextTraySeed(day: number, placed: Hold[], type: HoldType, size: 
   return traySeed(day, type, size, same.length);
 }
 
-export const holdRadius = (h: Pick<Hold, 'type' | 'size'>) => BASE_RADIUS[h.type] * SIZE_SCALE[h.size];
+export const holdRadius = (h: Pick<Hold, 'type' | 'size'>) =>
+  (h.size === 'xl' ? MACRO_RADIUS[h.type] : undefined) ?? BASE_RADIUS[h.type] * SIZE_SCALE[h.size];
 
 /**
  * The hold a touch at (u, v) means: the one whose edge is nearest, if the touch lands on it

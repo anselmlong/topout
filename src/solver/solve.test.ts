@@ -73,6 +73,19 @@ describe('solver', () => {
     expect(ratio(40)).toBeGreaterThan(ratio(0));
   });
 
+  it('a macro sloper or ledge grades easier than a medium one, and a sloper macro still rolls off steep', () => {
+    const macro = (holds: Hold[]) => holds.map((h) => (h.type === 'foot' ? h : { ...h, size: 'xl' as const }));
+    for (const type of ['sloper', 'edge'] as const) {
+      expect(grade(wall(10), macro(ladder(type, 50)))).toBeLessThan(grade(wall(10), ladder(type, 50)) - 0.3);
+    }
+    const sloper: Hold = { id: 'm', type: 'sloper', size: 'xl', u: 200, v: 200, rot: 0, seed: 0 };
+    const ledge: Hold = { ...sloper, type: 'edge' };
+    const body = { u: 200, v: 150 };
+    expect(handGrip(sloper, body, wall(40)) / handGrip(sloper, body, wall(0))).toBeLessThan(
+      handGrip(ledge, body, wall(40)) / handGrip(ledge, body, wall(0)),
+    );
+  });
+
   it('reads the incut off the hold seed, so a share link (new ids, same seed) climbs the same', () => {
     const a = ladder('edge', 50).map((h, i) => ({ ...h, seed: i * 7 }));
     const b = a.map((h, i) => ({ ...h, id: `shared-${i}` }));

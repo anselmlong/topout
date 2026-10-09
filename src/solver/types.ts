@@ -16,7 +16,11 @@ export interface Volume {
   /** Radians about the wall normal. */
   rot: number;
 }
-export type HoldSize = 's' | 'm' | 'l';
+/**
+ * 'xl' is a macro: a big bolt-on (a dual-texture sloper, a ledge, a pinch block) that's
+ * still a hold, not a volume. Only slopers, edges and pinches come that big (MACRO_TYPES).
+ */
+export type HoldSize = 's' | 'm' | 'l' | 'xl';
 
 export interface Hold {
   id: string;
@@ -92,6 +96,8 @@ export interface Day {
   tray: TraySlot[];
   targetGrade: number;
   twist?: Twist;
+  /** A spray-wall tray: lots of small mixed holds and a few macros. */
+  spray?: boolean;
   par: number;
   /** A curated reference route (the one par came from), revealed after the day is done. */
   reference?: Hold[];

@@ -639,9 +639,9 @@ function chalkShader(amount: { value: number }, rubber: { value: number }) {
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
-        '#include <common>\nattribute float grip;\nvarying float vGrip;\nvarying vec3 vHoldPos;',
+        '#include <common>\nattribute float grip;\nattribute float tex;\nvarying float vGrip;\nvarying float vTex;\nvarying vec3 vHoldPos;',
       )
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrip = grip;\nvHoldPos = position;');
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrip = grip;\nvTex = tex;\nvHoldPos = position;');
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
@@ -649,6 +649,7 @@ function chalkShader(amount: { value: number }, rubber: { value: number }) {
 uniform float uChalk;
 uniform float uRubber;
 varying float vGrip;
+varying float vTex;
 varying vec3 vHoldPos;
 float gritHash(vec3 p) {
   p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -674,7 +675,8 @@ float gritNoise(vec3 p) {
   float perPixel = length(fwidth(gp));
   float grain = (gritHash(floor(gp)) - 0.5) * (1.0 - smoothstep(0.35, 1.1, perPixel));
   float mottle = gritNoise(vHoldPos * 55.0) - 0.5;
-  diffuseColor.rgb *= 1.0 + 0.24 * grain + 0.16 * mottle;
+  // A macro's smooth faces (vTex 0) are cast glossy: no grit, a faint mottle, a touch lighter.
+  diffuseColor.rgb *= 1.0 + (0.24 * grain + 0.16 * mottle) * (0.25 + 0.75 * vTex) + 0.06 * (1.0 - vTex);
 }
 if (uRubber > 0.0) {
   // Scuffs ~1 cm across, stretched up and down the hold, with a faint wider smudge between them.
@@ -684,7 +686,8 @@ if (uRubber > 0.0) {
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.11, 0.105, 0.1), r);
 }
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * uChalk, 0.0, 0.85));`,
-      );
+      )
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.42, roughnessFactor, vTex);');
   };
 }
 

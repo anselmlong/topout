@@ -67,5 +67,14 @@ export const HOLD_HINT: Record<HoldType, string> = {
   volume: 'Changes the wall angle. Stand on its top, pull its sides.',
 };
 
+/** Macros (size 'xl') go by their own names. */
+export const MACRO_NAME: Partial<Record<HoldType, string>> = { sloper: 'Macro', edge: 'Ledge', pinch: 'Block' };
+
+export const MACRO_HINT: Partial<Record<HoldType, string>> = {
+  sloper: 'Macro sloper: palm the rough side. Big and friendly until it gets steep.',
+  edge: 'Macro ledge: a shelf a hand deep. Match it, stand on it.',
+  pinch: 'Pinch block: wide squeeze. Good on steep ground, a stretch for the thumb.',
+};
+
 /** Volumes are fibreglass shells: one neutral colour whatever the route. */
 export const VOLUME_COLOR = '#8d959e';

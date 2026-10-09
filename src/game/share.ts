@@ -22,7 +22,7 @@ export function shareText(day: Day, tests: TestRun[]): string {
 // without it keep the shared holds' default builds.
 // Append only: indices are baked into shared links.
 const TYPES: HoldType[] = ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'foot', 'edge', 'jib'];
-const SIZES: HoldSize[] = ['s', 'm', 'l'];
+const SIZES: HoldSize[] = ['s', 'm', 'l', 'xl'];
 
 // Volumes follow after a '~': shape.size.u.v.rotDeg (append-only too).
 const SHAPES: VolumeShape[] = ['pyramid', 'wedge'];

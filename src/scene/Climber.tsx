@@ -40,6 +40,10 @@ const FLAG_SWING = 4;
  */
 type LegTechnique = FootTechnique | 'mantle' | 'shelf';
 
+/** How much further out (m) a hand or shoe sits on a macro: on its dome or shelf, ~8-10 cm proud. */
+const MACRO_OUT = 0.035;
+const MACRO_WORD: Partial<Record<Hold['type'], string>> = { sloper: 'macro sloper', edge: 'ledge', pinch: 'pinch block' };
+
 /** Build a full-body pose from 3D contact points (feet may be null = dangling). */
 function poseFrom(
   frames: PanelFrame[],
@@ -417,10 +421,12 @@ export function Climber({ day }: { day: Day }) {
   const rig = useRef<RigHandle>(null);
 
   const volumes = playback?.volumes ?? [];
-  /** A contact point in the world, standing out by any volume's surface there. */
+  const macros = (playback?.holds ?? []).filter((h) => h.size === 'xl');
+  /** A contact point in the world, standing out by any volume's surface there (and a macro's bulk). */
   const toWorld = (p: Point, out: number) => {
     const f = frameAt(frames, p.u, p.v);
-    const relief = (surfaceAt(volumes, p.u, p.v)?.height ?? 0) / 100;
+    const macro = macros.some((h) => Math.abs(h.u - p.u) < 1 && Math.abs(h.v - p.v) < 1) ? MACRO_OUT : 0;
+    const relief = (surfaceAt(volumes, p.u, p.v)?.height ?? 0) / 100 + macro;
     return uvToWorld(day.wall, frames, p.u, p.v).addScaledVector(f.normal, out + relief);
   };
   const normalAt = (p: Point) => frameAt(frames, p.u, p.v).normal;
@@ -604,7 +610,7 @@ export function Climber({ day }: { day: Day }) {
       const m = f.limb;
       const hold = f.holds[m];
       const h = hold >= 0 ? r.holds[hold] : undefined;
-      const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.id.startsWith('lip:') ? 'lip' : h.type) : hold === -1 ? 'smear' : 'off';
+      const what = h ? (h.id.startsWith('arete:') ? 'arête' : h.id.startsWith('lip:') ? 'lip' : h.size === 'xl' ? (MACRO_WORD[h.type] ?? h.type) : h.type) : hold === -1 ? 'smear' : 'off';
       const foot = m >= 2 ? f.to.feet[m - 2] : null;
       const across = m >= 2 ? f.to.feet[3 - m] : null;
       const tech = !h ? null : m >= 2 ? r.legs[m - 2] : r.arms[m];

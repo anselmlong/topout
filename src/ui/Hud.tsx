@@ -3,7 +3,7 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, holds as nHolds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '../scene/palette';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '../scene/palette';
 import type { HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -11,10 +11,10 @@ import { cycleSpeed, useClimb, usePlaySpeed } from '../state/climb';
 import { seenHelp } from '../state/persist';
 import { remaining, testLimit, useGame } from '../state/store';
 
-const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L' };
+const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L', xl: 'XL' };
 
 export function HoldIcon({ type, size = 'm', color = NEUTRAL_HOLD }: { type: HoldType; size?: HoldSize; color?: string }) {
-  const s = size === 's' ? 0.8 : size === 'l' ? 1.15 : 1;
+  const s = { s: 0.8, m: 1, l: 1.15, xl: 1.3 }[size];
   const paths: Record<HoldType, string> = {
     jug: 'M4 14c0-5 4-9 8-9s8 4 8 9c-2-2-5-3-8-3s-6 1-8 3z',
     crimp: 'M3 13h18l-2 3H5z',
@@ -197,7 +197,7 @@ export function Tray() {
   return (
     <section ref={ref} className={`card tray ${locked ? 'locked' : ''}`} aria-label="Hold tray" data-tour="tray">
       <div className="eyebrow">
-        Hold set <span className="mono dim">{placed.length + volumes.length} placed</span>
+        {day.spray ? 'Spray wall set' : 'Hold set'} <span className="mono dim">{placed.length + volumes.length} placed</span>
       </div>
       <ul>
         {day.tray.map((slot) => {
@@ -221,11 +221,11 @@ export function Tray() {
                   if (wasActive.current) arm(null);
                   else if (!active) arm(pick);
                 }}
-                title={HOLD_HINT[slot.type]}
+                title={(slot.size === 'xl' && MACRO_HINT[slot.type]) || HOLD_HINT[slot.type]}
               >
                 <HoldIcon type={slot.type} size={slot.size} color={isVolume ? VOLUME_COLOR : routeColor(day).hex} />
                 <span className="slot-name">
-                  <span className="nm">{isVolume ? (slot.shape === 'wedge' ? 'Wedge' : 'Pyramid') : HOLD_NAME[slot.type]}</span>
+                  <span className="nm">{isVolume ? (slot.shape === 'wedge' ? 'Wedge' : 'Pyramid') : (slot.size === 'xl' && MACRO_NAME[slot.type]) || HOLD_NAME[slot.type]}</span>
                   {slot.type !== 'foot' && slot.type !== 'jib' && <span className="size">{SIZE_LABEL[slot.size]}</span>}
                 </span>
                 <span className="count mono">
