@@ -479,13 +479,13 @@ describe('solver', () => {
   });
 
   it('a rest jug mid-route clears the pump', () => {
-    // A long 40° edge line, then the same line with one edge swapped for a big jug.
+    // A long 40° crimp line, then the same line with one crimp swapped for a big jug.
     const steep: Wall = { width: 400, panels: [{ length: 560, angle: 40 }], seed: 1 };
     const line = (rest: boolean) => {
       const holds: Hold[] = [];
       for (let v = 195, i = 0; v < 498; v += 45, i++) {
         const jug = rest && i === 3;
-        holds.push({ id: `h${i}`, type: jug ? 'jug' : 'edge', size: jug ? 'l' : 'm', u: i % 2 ? 225 : 175, v, rot: 0, seed: 0 });
+        holds.push({ id: `h${i}`, type: jug ? 'jug' : 'crimp', size: jug ? 'l' : 'm', u: i % 2 ? 225 : 175, v, rot: 0, seed: 0 });
       }
       for (let v = 42, j = 0; v < 410; v += 35, j++) holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 215 : 185, v, rot: 0 });
       const r = solve(steep, start, finishAt(520), holds);

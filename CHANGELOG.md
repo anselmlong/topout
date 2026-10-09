@@ -29,6 +29,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   and two or three macros. Practice trays carry one of each macro.
 
 **Grades**
+- Steep walls grade fairer: the climb gets harder slowly on gentle overhangs and quickly once the
+  wall gets steep, the way Kilter Board grades do. 40° boards come down one or two grades (crimps
+  and slopers V6 rather than V8), the grade guide follows, the 40° edges example replaces the 30°
+  one, and the upcoming days whose setter's route moved off its grade were set again.
 - Three new reference climbs from the Kilter Board check that the incut on a crimp counts:
   flat crimps grade harder and deep incut crimps and edges easier, the way they do on a real
   board. Eight upcoming days whose setter's route had drifted off its grade were set again.

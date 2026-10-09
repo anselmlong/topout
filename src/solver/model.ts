@@ -577,16 +577,26 @@ export function highStep(hands: [Point, Point], foot: Point): number {
 }
 
 /**
+ * How the arms' share of body weight grows with an overhang (handLoad): STEEP_LOAD ·
+ * (e^(STEEP_RAMP · sin angle) − 1) on top of vertical's 0.3. +0.03 at 20°, +0.13 at 40°,
+ * +0.52 at 60°. Fitted to the board-benchmarked reference problems in scripts/calibrate.ts.
+ */
+export const STEEP_LOAD = 0.0045;
+export const STEEP_RAMP = 5.5;
+
+/**
  * Share of body weight hanging on the hands (≈0.3 on vertical with good feet,
  * → 1+ on steep walls with feet off).
  */
 export function handLoad(angle: number, footQ: [number, number]): number {
   const a = Math.max(-35, Math.min(60, angle));
   // On a gentle overhang body tension still keeps most of the weight on the feet; it
-  // shifts to the arms faster as the wall steepens (grows with sin², not linearly).
-  // Slabs shed load linearly as before.
+  // shifts to the arms exponentially as the wall steepens: a 20° wall barely loads them
+  // more than vertical, a 40° board noticeably, a 60° cave a lot. Board grades move the
+  // same way: Kilter's "Heinous Crimps" is V3-V4 from 0° to 30°, then V6 at 40° and V7 at
+  // 45° (boardsesh.com). Slabs shed load linearly as before.
   const s = Math.sin(rad(a));
-  const base = 0.3 + (s > 0 ? 0.9 * s * s : 0.5 * s);
+  const base = 0.3 + (s > 0 ? STEEP_LOAD * Math.expm1(STEEP_RAMP * s) : 0.5 * s);
   const steepness = 0.5 + Math.max(0, Math.sin(rad(a)));
   const footDeficit = (2 - footQ[0] - footQ[1]) / 2;
   const load = base + footDeficit * 0.45 * steepness;
@@ -601,7 +611,7 @@ export function handLoad(angle: number, footQ: [number, number]): number {
  * Map crux difficulty + sustained-ness to a continuous V grade.
  * Logarithmic, like real grades: each doubling of crux difficulty adds ~3 grades.
  * Fitted to the reference problems in scripts/calibrate.ts (vertical jug ladder V0
- * … 40° board crimps V8); mean error ~0.36 grades.
+ * … 40° board crimps V6); mean error ~0.38 grades.
  */
 export function toGrade(crux: number, hardStreak: number): number {
   const base = 2.0 + 4.07 * Math.log(Math.max(crux, 1e-3));

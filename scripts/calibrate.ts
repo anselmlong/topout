@@ -2,10 +2,12 @@
 //   npx tsx scripts/calibrate.ts
 // Anchors (commonly accepted gym/board grades; each ±1):
 //   vertical jug ladder ≈ V0, vertical edges ≈ V1-2, vertical crimps ≈ V3,
-//   20° jugs ≈ V1-2, 20° edges ≈ V4, 40° board jugs ≈ V3-4 (MoonBoard floor is V4),
-//   40° edges ≈ V6, 40° crimps ≈ V8, slab crimps + smears ≈ V2-3,
+//   20° jugs ≈ V1-2, slab crimps + smears ≈ V2-3,
 //   vertical gaston edges ≈ V4-5, vertical sidepull edges ≈ V3,
 //   vertical undercling edges ≈ V4.
+// The 40° board anchors and the 30° pinches were intuition grades (40° jugs V4, edges V6,
+// crimps V8, slopers V8; 30° pinches V5) until 2026-10-09; they now take Kilter Board
+// Original consensus grades (boardsesh.com), cited on each, which run 1-2 grades lower.
 import { typicalIncut } from '../src/solver/model';
 import { solve } from '../src/solver/solve';
 import type { Hold, HoldSize, HoldType, Wall } from '../src/solver/types';
@@ -47,12 +49,22 @@ export const ANCHORS: Anchor[] = [
   { name: 'slab crimps, smears', angle: -15, type: 'crimp', size: 'm', spacing: 50, feet: false, expect: 3 },
   { name: 'slab jugs', angle: -15, type: 'jug', size: 'm', spacing: 50, feet: true, expect: 0 },
   { name: '20° jugs', angle: 20, type: 'jug', size: 'm', spacing: 50, feet: true, expect: 1 },
-  { name: '20° edges', angle: 20, type: 'edge', size: 'm', spacing: 55, feet: true, expect: 4 },
-  { name: '40° jugs', angle: 40, type: 'jug', size: 'm', spacing: 55, feet: true, expect: 4 },
-  { name: '40° edges', angle: 40, type: 'edge', size: 'm', spacing: 60, feet: true, expect: 6 },
-  { name: '40° crimps', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 8 },
-  { name: '40° slopers', angle: 40, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 8 },
-  { name: '30° pinches', angle: 30, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 5 },
+  // Was V4 by intuition. Kilter's flat "Heinous Crimps" is V4 at 15-20° (below), and edges
+  // are a step bigger than crimps (vertical edges V2, vertical crimps V3): V3.
+  { name: '20° edges', angle: 20, type: 'edge', size: 'm', spacing: 55, feet: true, expect: 3 },
+  // Kilter's "Jug Skin" (30,401 ascents) is V3 at 40° (was V4, the MoonBoard's floor).
+  { name: '40° jugs', angle: 40, type: 'jug', size: 'm', spacing: 55, feet: true, expect: 3 },
+  // "Loose around the edges" (46 ascents) is V5 at 40° (was V6 by intuition).
+  { name: '40° edges', angle: 40, type: 'edge', size: 'm', spacing: 60, feet: true, expect: 5 },
+  // Between "Friendly Crimps" (V5 at 40°) and "Heinous Crimps" (1,682 ascents, V6 at 40°),
+  // with the well-climbed one setting the grade (was V8 by intuition).
+  { name: '40° crimps', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 6 },
+  // "Super Sloper Slam Fest" (2,219 ascents) V6, "Sloper Season" V5, "slopers traing" V7
+  // at 40° (was V8 by intuition).
+  { name: '40° slopers', angle: 40, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 6 },
+  // "Pinché Pinch!", "quad pinch" and "Pinch N Crimp" (4,841 ascents) are all V4 at 30°
+  // (was V5 by intuition).
+  { name: '30° pinches', angle: 30, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 4 },
   // Wall shapes: corners climb easier than faces (stemming); arêtes are technical.
   { name: 'vertical corner crimps', angle: 0, type: 'crimp', size: 'm', spacing: 50, feet: false, expect: 2, fold: 90 },
   // Judgement call: no footholds at all, smearing a steep corner — hard for the grade of its holds.
@@ -74,6 +86,9 @@ export const ANCHORS: Anchor[] = [
   // Small crimps on vertical: "crimp+" (8,971 ascents) is V4 at 0-15°; "Pinch N Crimp"
   // (4,841) is V3 at 0°. A size down from the vertical crimps above.
   { name: 'vertical small crimps', angle: 0, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4 },
+  // The same problem on a 40° board: crimp+ is V6 at 40° (V8 at 60°), two grades over
+  // its grade near vertical.
+  { name: '40° small crimps', angle: 40, type: 'crimp', size: 's', spacing: 60, feet: true, expect: 6 },
   // The jump on a gentle overhang: "DYNOmite" is V3 at 20° (V2 at 15°), "Stooopid Dyno" V3
   // at 10-20°, "dyno power" V4 at 15-25°. Up to 20° a dyno climbs about as on vertical.
   { name: '20° jug dyno', angle: 20, type: 'jug', size: 'l', spacing: 125, feet: true, expect: 4, column: true },
@@ -95,9 +110,9 @@ export const ANCHORS: Anchor[] = [
   },
   // Sustained: a long jug haul on a 40° highball. Kilter's "bakken rondje easy endurance"
   // (a jug circuit) is V3 at 40°, the same grade as the short "Jug Skin" (30,401 ascents,
-  // V3 at 40°): on jugs, length pumps you but barely moves the grade. Graded with the
-  // 40° jugs above.
-  { name: '40° jug haul, highball', angle: 40, type: 'jug', size: 'm', spacing: 55, feet: true, expect: 4, top: 600 },
+  // V3 at 40°): on jugs, length pumps you but barely moves the grade. V3, like the 40°
+  // jugs above (was V4 to match their old MoonBoard-floor grade).
+  { name: '40° jug haul, highball', angle: 40, type: 'jug', size: 'm', spacing: 55, feet: true, expect: 3, top: 600 },
   // Pinches and slopers off vertical, from the same Kilter Board Original per-angle grades
   // on boardsesh.com (checked 2026-10-04). Before these, pinches were anchored only at 30°
   // and slopers only at 40°, both by intuition.
@@ -117,12 +132,8 @@ export const ANCHORS: Anchor[] = [
     spacing: 55,
     feet: true,
     expect: 5,
-    // Grades V6.0 (2026-10-04). Slopers lose grip as the wall steepens (GRIP.sloper.steepLoss
-    // 0.7) and the model adds ~1.6 grades per 10° (20° V4.4, 30° V6.0, 40° V7.6); Kilter adds
-    // ~1 (Super Sloper Slam Fest V4 / V5 / V6 at 20° / 30° / 40°). Easing steepLoss would fix
-    // this but pull the 40° slopers well under their V8, an intuition anchor Kilter puts at
-    // V5-V7 (Slam Fest V6, Sloper Season V5, slopers traing V7). Needs a call on that anchor first.
-    miss: 'slopers climb ~0.6 grade per 10° too steeply: V6.0',
+    // A known miss at V6.0 until 2026-10-09: the model added ~1.6 grades per 10°, Kilter ~1.
+    // The arms' load now grows exponentially with the angle (model.ts STEEP_RAMP): V5.0.
   },
   // Pinches on a 40° board: Pinché Pinch! V5, "Easy pinch" (408 ascents) V4, Pinch N Crimp
   // V6 at 40°. One to three grades over their 20° grades.
@@ -134,14 +145,8 @@ export const ANCHORS: Anchor[] = [
     spacing: 55,
     feet: true,
     expect: 5,
-    // Grades V6.6 (2026-10-04). Every hand move hangs off a 0.61-grip pinch, so the crux
-    // (2.98) is the plain reach between pinches, not one bad move; the 20° pinches hit
-    // within 0.6, so it's the climb from 20° to 40° (model +2.0, Kilter +1 to +3, ~+1.5)
-    // plus the 20° offset. The 30° pinches (V5 by intuition, V5.6 here) sit on the model's
-    // side, while Kilter puts the same three problems at V4 at 30°. Closing this means
-    // deciding whether the intuition anchors at 30-40° (pinches V5, slopers V8) or the
-    // board grades win; not a constant to nudge here.
-    miss: 'pinches climb ~0.5 grade too steeply from 20° to 40°: V6.6',
+    // A known miss at V6.6 until 2026-10-09, climbing too steeply from 20° to 40°. Fixed with
+    // the 30° slopers by the exponential load (model.ts STEEP_RAMP): V5.2.
   },
   // Incut decides how hard a crimp is (holdGeometry/model incut). Kilter Board Original
   // per-angle consensus grades on boardsesh.com (checked 2026-10-09), two problems by the
@@ -151,8 +156,8 @@ export const ANCHORS: Anchor[] = [
   // at (V3 at 0° and 10°, V4 at 5° and 20-30°).
   { name: '15° flat crimps', angle: 15, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 4, incut: 0.05 },
   // Deep incut crimps on a 40° board: Friendly Crimps is V5 at 40° and V6 at 45°, a grade
-  // under Heinous Crimps (V6 at 40°, V7 at 45°). So a grade under the typical 40° crimps.
-  { name: '40° deep incut crimps', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 7, incut: 0.9 },
+  // under Heinous Crimps (V6 at 40°, V7 at 45°). (V7 when the 40° crimps were V8.)
+  { name: '40° deep incut crimps', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 5, incut: 0.9 },
   // Positive edges, the kind an intro problem is set on: Kilter's "Intro to Crimps" is V1
   // at 15° (V3 at 40°, V4 at 45-50°). Deep incut edges, a size up from crimps.
   { name: '15° deep incut edges', angle: 15, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 1, incut: 0.95 },

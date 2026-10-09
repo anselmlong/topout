@@ -109,9 +109,9 @@ export const EXAMPLES: Example[] = [
   {
     id: 'overhang-edges',
     grade: 5,
-    title: '30° overhang edges',
-    note: 'Medium edges on a 30° overhang: the wall leans on your arms and the feet want to cut.',
-    ...route(wallDay(30, 5), { type: 'edge', size: 'm', spacing: 55, swing: 28, feet: true }),
+    title: '40° board edges',
+    note: 'Medium edges on a 40° board: the wall leans on your arms and the feet want to cut.',
+    ...route(wallDay(40, 5), { type: 'edge', size: 'm', spacing: 55, swing: 28, feet: true }),
   },
 ];
 
