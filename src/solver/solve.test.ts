@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade, typicalIncut } from './model';
-import { lipContacts } from './volumes';
+import { PALM_ALONE, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
+import { lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Point, type Volume, type Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
@@ -374,6 +374,44 @@ describe('solver', () => {
     expect(solve(wall(0), start, finishAt(395), [...holds, jug]).ok).toBe(false);
     // On a 25° overhang the body hangs below the volume and can't get up over it.
     expect(mantles(wall(25))).not.toBe(true);
+  });
+
+  it('palms a bare volume face that points at the body, on slabs and vertical but not steep ground', () => {
+    const pyramid: Volume = { id: 'v', shape: 'pyramid', size: 'l', u: 140, v: 250, rot: 0 };
+    // Its right face points at a body to its right: a hand there pushes, it doesn't pull.
+    const right = volumeContacts([pyramid], wall(0)).find((h) => h.id === 'v:f2')!;
+    expect(handTechnique(right, { u: 200, v: 200 })).toBe('palm');
+    const top = volumeContacts([pyramid], wall(0)).find((h) => h.id === 'v:f0')!;
+    expect(handTechnique(top, { u: 140, v: 180 })).not.toBe('palm');
+    // A push needs weight over the feet: full on vertical, gone on a 35° overhang, and only
+    // PALM_ALONE of it without the other hand pushing the body back onto it.
+    expect(palmFactor(wall(0), right, true, 2)).toBe(1);
+    expect(palmFactor(wall(0), right, false, 2)).toBe(PALM_ALONE);
+    expect(palmFactor(wall(20), right, true, 2)).toBeLessThan(0.75);
+    expect(palmFactor(wall(35), right, true, 2)).toBe(0);
+    expect(palmFactor(wall(0), right, true, 0)).toBe(0);
+    // The palm shoves the body right: a hold out left pulled toward it pushes back, one out right doesn't.
+    const jug = (u: number): Hold => ({ id: 'j', type: 'jug', size: 'l', u, v: 260, rot: 0 });
+    expect(palmOpposed(right, jug(110), { u: 200, v: 200 })).toBe(true);
+    expect(palmOpposed(right, jug(260), { u: 200, v: 200 })).toBe(false);
+
+    // On vertical the climber palms the face on the way to the finish; on a 30° overhang it
+    // hangs off the volume's underside instead.
+    const holds: Hold[] = [
+      { id: 'c', type: 'crimp', size: 's', u: 245, v: 250, rot: 0, seed: 0 },
+      { id: 'f0', type: 'foot', size: 'm', u: 185, v: 60, rot: 0 },
+      { id: 'f1', type: 'foot', size: 'm', u: 215, v: 95, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 195, v: 130, rot: 0 },
+      { id: 'f3', type: 'foot', size: 'm', u: 225, v: 160, rot: 0 },
+    ];
+    const palms = (w: Wall) => {
+      const r = solve(w, start, finishAt(360), holds, { volumes: [pyramid] });
+      if (!r.ok) throw new Error(r.message);
+      const face = start.length + 1 + holds.length + 2;
+      return r.moves.some((m) => m.limb <= 1 && m.to.limbs[m.limb] === face);
+    };
+    expect(palms(wall(0))).toBe(true);
+    expect(palms(wall(30))).toBe(false);
   });
 
   it('an arête helps but is not climbable bare', () => {

@@ -20,6 +20,8 @@ export interface Pose {
   feet: [THREE.Vector3, THREE.Vector3];
   /** World direction the fingers point for each hand on a hold (wrapping the incut). */
   grips?: [THREE.Vector3 | null, THREE.Vector3 | null];
+  /** Per hand: the face a palm lies flat on (its normal), or null for a grip. */
+  palms?: [THREE.Vector3 | null, THREE.Vector3 | null];
   /** Where the climber is looking (a hold), or undefined to face straight ahead. */
   look?: THREE.Vector3 | null;
 }

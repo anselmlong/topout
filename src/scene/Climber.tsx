@@ -59,7 +59,7 @@ function poseFrom(
   legs: [LegTechnique, LegTechnique] = [null, null],
   /** Feet in flight carry no weight: the hips shift over the standing foot first. */
   lifting: [boolean, boolean] = [false, false],
-  /** Sidepull / gaston / undercling / press per hand (see handTechnique), decided once per move. */
+  /** Palm / sidepull / gaston / undercling / press per hand (see handTechnique), decided once per move. */
   arms: [ArmTechnique, ArmTechnique] = [null, null],
   /** A hand off the wall shaking out: the body hangs straight-armed under the other one. */
   resting: 0 | 1 | null = null,
@@ -122,11 +122,12 @@ function poseFrom(
         .addScaledVector(bodyDir, -chestDrop + press * (chestDrop + 0.3) - 0.2 * load)
         .addScaledVector(normal, 0.14 + 0.12 * lean + 0.16 * steep + 0.06 * press + 0.06 * load);
   // Opposition shifts the body sideways: lean away from a sidepull (laying back off it),
-  // and in toward a gaston (the hand pushes the hold apart from the body).
+  // and in toward a gaston or a palm (the hand pushes the hold apart from the body).
   const across = V().crossVectors(bodyDir, normal).normalize();
   for (const i of [0, 1] as const) {
     // A lone pressing hand gets the shoulder over it.
-    const shift = arms[i] === 'sidepull' ? -0.07 : arms[i] === 'gaston' || (arms[i] === 'press' && press < 1) ? 0.05 : 0;
+    // A palm gets the shoulder in behind the push.
+    const shift = arms[i] === 'sidepull' ? -0.07 : arms[i] === 'gaston' || arms[i] === 'palm' || (arms[i] === 'press' && press < 1) ? 0.05 : 0;
     const toHand = Math.sign(hands[i].clone().sub(handsMid).dot(across)) || (i === 0 ? -1 : 1);
     if (shift && across.lengthSq() > 0.5) chest.addScaledVector(across, shift * toHand);
   }
@@ -168,12 +169,17 @@ function poseFrom(
     // Elbows down and out by default. An undercling tucks the elbow down by the ribs,
     // palm up; a gaston flares the elbow out and up, thumb down; a sidepull keeps the
     // elbow low and the arm long, leaning off the hold. A press points the elbow up and
-    // back, over the hand, so the arm can straighten down onto it.
+    // back, over the hand, so the arm can straighten down onto it. A palm keeps it low
+    // behind the hand, pushing.
     const pole =
       resting === i
         ? normal.clone().multiplyScalar(0.6).addScaledVector(lateral, side * 0.5).addScaledVector(torsoDir, -0.3)
         : arms[i] === 'press'
         ? torsoDir.clone().multiplyScalar(0.7).addScaledVector(normal, 0.6).addScaledVector(lateral, side * 0.35)
+        : arms[i] === 'palm'
+        ? // Palming: the heel of the hand pushes into the face, the forearm square to it, so
+          // the elbow sits low behind the hand, in toward the body and out from the wall.
+          torsoDir.clone().multiplyScalar(-0.8).addScaledVector(normal, 0.55).addScaledVector(lateral, -out * 0.25)
         : arms[i] === 'undercling'
         ? torsoDir.clone().multiplyScalar(-1).addScaledVector(normal, 0.35).addScaledVector(lateral, side * 0.15)
         : arms[i] === 'gaston'
@@ -430,6 +436,13 @@ export function Climber({ day }: { day: Day }) {
     return uvToWorld(day.wall, frames, p.u, p.v).addScaledVector(f.normal, out + relief);
   };
   const normalAt = (p: Point) => frameAt(frames, p.u, p.v).normal;
+  /** The world normal of the volume face under a hold (a palm lies flat on it), if it's on one. */
+  const palmNormal = (hold: Hold): THREE.Vector3 | null => {
+    const n = surfaceAt(volumes, hold.u, hold.v)?.normal;
+    if (!n) return null;
+    const f = frameAt(frames, hold.u, hold.v);
+    return f.right.clone().multiplyScalar(n.u).addScaledVector(f.up, n.v).addScaledVector(f.normal, n.z).normalize();
+  };
 
   /** Posed skeleton for the ends' current positions (the "muscle" targets). */
   const postureFor = (
@@ -501,6 +514,13 @@ export function Climber({ day }: { day: Day }) {
       const other = r.sim.pos[hand === 0 ? J.handR : J.handL];
       const inward = Math.sign(other.clone().sub(r.sim.pos[hand === 0 ? J.handL : J.handR]).dot(face.right)) || (hand === 0 ? 1 : -1);
       return face.right.clone().multiplyScalar(0.8 * inward).addScaledVector(face.normal, -0.6).normalize();
+    }
+    // Palming: fingers up the face, splayed a little away from the body, flat on it.
+    if (r.arms[hand] === 'palm') {
+      const n = palmNormal(hold);
+      const away = -Math.sign(bestPull(hold.rot).u);
+      const fingers = up.clone().addScaledVector(face.right, 0.35 * away);
+      return n ? fingers.addScaledVector(n, -fingers.dot(n)).normalize() : fingers.normalize();
     }
     const pull = bestPull(hold.rot);
     // Fingers wrap over the incut, against the pull...
@@ -1025,6 +1045,7 @@ export function Climber({ day }: { day: Day }) {
     if (import.meta.env.DEV) (window as unknown as { __sim: Ragdoll }).__sim = sim;
     const pose = arrayToPose(sim.pos);
     pose.grips = [gripDir(r, 0), gripDir(r, 1)];
+    pose.palms = ([0, 1] as const).map((i) => (r.arms[i] === 'palm' && r.grip[i] >= 0 ? palmNormal(r.holds[r.grip[i]]) : null)) as Pose['palms'];
     let inFrame = r.t;
     for (let i = 0; i < r.frame; i++) inFrame -= timeline.frames[i].duration;
     pose.look = gazeFor(r, inFrame);
@@ -1162,7 +1183,8 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
         if (!m) return;
         m.position.copy(p.hands[i]);
         const fingers = p.grips?.[i] ?? p.hands[i].clone().sub(p.elbows[i]);
-        orient(m, fingers, fwd.clone().negate());
+        // A palm lies flat on its face, the back of the hand along the face's normal.
+        orient(m, fingers, p.palms?.[i] ?? fwd.clone().negate());
       });
       // Shoes: along the facing direction, sole square to the shin.
       [0, 1].forEach((i) => {

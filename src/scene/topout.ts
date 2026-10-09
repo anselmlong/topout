@@ -129,7 +129,7 @@ function stand(l: Lip, face: THREE.Vector3): Pose {
   return build(face, hip, chest, [hand(-1), hand(1)], feet, [face.clone(), face.clone()]);
 }
 
-const JOINTS: (keyof Omit<Pose, 'grips'>)[] = ['hip', 'chest', 'head', 'shoulders', 'elbows', 'hands', 'pelvis', 'knees', 'feet'];
+const JOINTS: (keyof Omit<Pose, 'grips' | 'palms'>)[] = ['hip', 'chest', 'head', 'shoulders', 'elbows', 'hands', 'pelvis', 'knees', 'feet'];
 
 function mapPose(p: Pose, f: (v: THREE.Vector3, key: string, i: number) => THREE.Vector3): Pose {
   const out = {} as Pose;

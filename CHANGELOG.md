@@ -19,6 +19,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   higher foot and lets the low one trail on its hold, instead of taking it off to flag. A foot
   placed under the hold you're reaching for is what makes a reach easy, and a big jump on a steep
   wall no longer has to be followed by a second jump to match.
+- Palms volumes: a bare volume face that points at the climber is pushed with an open hand,
+  flat on the face, fingers up, instead of being drawn as a sidepull. A palm works on slabs and
+  vertical walls with the feet on, is best when the other hand pulls the body back against it,
+  and stops working on steep overhangs, where the climber finds something to pull on instead.
 
 **Holds**
 - Macros: big bolt-on holds that aren't volumes. A dual-texture macro sloper (rough where the

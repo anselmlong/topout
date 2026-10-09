@@ -378,7 +378,62 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   return base * orient * steepFactor;
 }
 
-export type HandTechnique = 'sidepull' | 'gaston' | 'undercling' | null;
+/**
+ * Palming: an open hand pushed flat against a bare volume face that points toward the body,
+ * fingers up, the heel of the hand doing the work. It's the hand version of a smear: no edge
+ * to curl, only friction from pushing into the face, and the push shoves the body away, so it
+ * holds only while something pushes back (the other hand pulling the other way, the feet
+ * bridged across a corner) and while the weight is over the feet. On an overhang the body
+ * hangs out from the wall and a palm just slides.
+ * Coaching material: REI Expert Advice, "Climbing Techniques and Moves" (palming is the hand
+ * version of smearing; push with an open palm; counter-pressure, palming both sides of a
+ * corner, to stay in balance); Climbing.com, "How to Slab Climb" (palms keep the centre of
+ * gravity over the feet, "nose over toes", and hold balance while the feet move).
+ *
+ * In the solver a volume's side face is already only usable this way: its contact is pulled
+ * toward where the face points (see volumeContacts), so the hand on it is pushing.
+ */
+export function isPalm(hold: Hold, pullTo: { u: number; v: number }): boolean {
+  if (hold.type !== 'volume' || !/:f\d+$/.test(hold.id)) return false;
+  const best = bestPull(hold.rot);
+  return Math.abs(best.u) >= 0.6 && (pullTo.u - hold.u) * best.u > 0;
+}
+
+/** Steepest wall (degrees) a palm still holds anything on: past it the body hangs off the push. */
+export const PALM_STEEP = 35;
+
+/** How much of a palm's grip holds with nothing pushing back but the feet (see palmGrip). */
+export const PALM_ALONE = 0.8;
+
+/**
+ * What's left of a palm's grip (handGrip) once it's priced as a push: 1 on a slab or vertical
+ * wall, slipping slowly on a gentle overhang and quickly toward 0 at PALM_STEEP, times PALM_ALONE unless it's opposed. `opposed`:
+ * something else pushes the body back onto the palm (see palmOpposed, or a stem). A palm with
+ * no foot on the wall holds nothing: there's no weight over the feet to balance.
+ */
+export function palmFactor(wall: Wall, hold: Hold, opposed: boolean, feetOn: number): number {
+  if (!feetOn) return 0;
+  const steep = Math.max(0, Math.sin(rad(angleAt(wall, hold.v)))) / Math.sin(rad(PALM_STEEP));
+  return Math.max(0, 1 - steep * steep) * (opposed ? 1 : PALM_ALONE);
+}
+
+/**
+ * Whether the other hand, on `other`, pushes the body back toward a palm on `palm` (the
+ * opposition a palm needs): a hold out on the far side of the body pulled toward it (a
+ * sidepull to lean off), a hold on the palm's side gastoned or palmed away. A hold straight
+ * above the body, pulled straight down, doesn't push the body sideways either way.
+ */
+export function palmOpposed(palm: Hold, other: Hold, pullTo: { u: number; v: number }): boolean {
+  const push = Math.sign(bestPull(palm.rot).u);
+  const du = other.u - pullTo.u;
+  if (Math.abs(du) < 15) return false;
+  const pushes = isPalm(other, pullTo) || handTechnique(other, pullTo) === 'gaston';
+  // The force the other hand puts on the body, across the wall.
+  const force = pushes ? -Math.sign(du) : Math.sign(du);
+  return force === -push;
+}
+
+export type HandTechnique = 'palm' | 'sidepull' | 'gaston' | 'undercling' | null;
 
 /**
  * How a hand is holding a hold, from which way its lip faces relative to the body
@@ -387,10 +442,12 @@ export type HandTechnique = 'sidepull' | 'gaston' | 'undercling' | null;
  * - Sidepull: the lip faces sideways toward the body; lean off it, elbow low.
  * - Gaston: the lip faces away from the body; thumb down, elbow out, push it apart.
  * - Undercling: the lip faces down; palm up, elbow tucked, feet high.
+ * - Palm: a bare volume face pointing toward the body; open hand flat on it, pushing (isPalm).
  * Pinches are squeezed and arête slaps are laybacks, so neither gets a name here.
  */
 export function handTechnique(hold: Hold, pullTo: { u: number; v: number }): HandTechnique {
   if (!GRIP[hold.type].hand || hold.type === 'pinch' || hold.id.startsWith('arete:')) return null;
+  if (isPalm(hold, pullTo)) return 'palm';
   const { pull, gaston, best } = pullParts(hold, pullTo);
   if (gaston > pull) return 'gaston';
   if (best.v > 0.5) return 'undercling';

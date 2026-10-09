@@ -88,6 +88,11 @@ comes up onto it beside them, the knee up by the chest as in the topout's rockov
 climber stands up on it, palm still on the shelf, and reaches up from there. The solver prices
 the press as most of the body weight on the arms, on palms that care how wide the shelf is, not
 how incut; only up to ~15° overhanging, and never onto a bolt-on hold, however big.
+A bare volume face that points toward the body is palmed (`isPalm` in `src/solver/model.ts`):
+the open hand pushes flat against it, fingers up, the elbow low behind it. The solver prices a
+palm as friction that needs the weight over the feet: full on slabs and vertical, slipping on a
+gentle overhang and gone by ~35°, and at full strength only when the other hand (or a stem)
+pushes the body back onto it. The ticker labels it "(palm)".
 On a long static reach up vertical or steeper ground, the climber turns that hip in to the
 wall (a twist lock): hips side-on, the turned-in leg backstepping on the outside edge of
 its shoe, the reaching shoulder riding up while the other arm hangs straight (`hipTurn` in

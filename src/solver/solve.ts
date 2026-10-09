@@ -20,6 +20,9 @@ import {
   handMatchable,
   handLoad,
   isBig,
+  isPalm,
+  palmFactor,
+  palmOpposed,
   hasShelf,
   heightAt,
   highStep,
@@ -406,6 +409,18 @@ class Context {
   }
 
   /**
+   * A hand's grip on `hold` pulled toward `c` (handGrip), priced as a push when it's a palm on
+   * a bare volume face (isPalm): only with weight over the feet, not on an overhang, and at full
+   * strength only when something pushes back. `other` is the other hand's hold while it's on
+   * (null mid-move); `stem` the feet bridged across a corner, which oppose a palm too.
+   */
+  gripOf(hold: Hold, c: Point, other: Hold | null, feetOn: number, stem: boolean): number {
+    const g = handGrip(hold, c, this.wall);
+    if (!g || !isPalm(hold, c)) return g;
+    return g * palmFactor(this.wall, hold, stem || (!!other && palmOpposed(hold, other, c)), feetOn);
+  }
+
+  /**
    * How hard it is to hang off the better hand in this stance, feet on, so the other
    * hand can let go and shake out: the load on one arm over that hold's grip, on the
    * same scale as a move's hanging term. Infinity with both feet off.
@@ -416,7 +431,7 @@ class Context {
     if (!on.length) return Infinity;
     const feet = { u: on.reduce((s, f) => s + p[f].u, 0) / on.length, v: on.reduce((s, f) => s + p[f].v, 0) / on.length };
     const load = handLoad(angleAt(this.wall, (p[0].v + p[1].v) / 2), this.feetQ(l, p));
-    const g = Math.max(handGrip(this.holds[l[0]], feet, this.wall), handGrip(this.holds[l[1]], feet, this.wall));
+    const g = Math.max(this.gripOf(this.holds[l[0]], feet, null, on.length, false), this.gripOf(this.holds[l[1]], feet, null, on.length, false));
     return g < MIN_GRIP ? Infinity : (0.72 * load) / g;
   }
 
@@ -535,7 +550,7 @@ class Context {
     const load = Math.max(minLoad, handLoad(handsAngle, [this.footQ(l[stay], p[stay]), 0]));
     const c = { u: (p[0].u + p[1].u + p[stay].u) / 3, v: (p[0].v + p[1].v + p[stay].v * 2) / 4 };
     const handG = (i: 0 | 1) => {
-      const pull = handGrip(this.holds[l[i]], c, this.wall);
+      const pull = this.gripOf(this.holds[l[i]], c, this.holds[l[1 - i]], l[stay] !== OFF ? 1 : 0, false);
       return mantle && this.pressing(next, np, i) ? Math.max(pull, pressQuality(this.holds[l[i]])) : pull;
     };
     const g = handG(0) + handG(1);
@@ -592,16 +607,20 @@ class Context {
         }
       : { u: p[other].u, v: p[other].v - 140 };
     const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
-    // Stood up on a mantle shelf, the palm still pressing on it steadies the body.
-    const g = Math.max(handGrip(this.holds[l[other]], c, this.wall), this.pressing(l, p, other) ? pressQuality(this.holds[l[other]]) : 0);
+    // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
+    const stem = lw[2] !== OFF && lw[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
+    // Stood up on a mantle shelf, the palm still pressing on it steadies the body. A palm
+    // left on alone while the other hand moves has only the feet (a stem) to push back.
+    const g = Math.max(
+      this.gripOf(this.holds[l[other]], c, null, onFeet.length, stem > 0),
+      this.pressing(l, p, other) ? pressQuality(this.holds[l[other]]) : 0,
+    );
     if (g < MIN_GRIP) return null;
     // Hanging stretched out (feet far below) loads the arms more. Kept moderate: a
     // long body with straight arms is how climbers rest, so the hold and the angle
     // should drive the grade, not the stance alone.
     let stretch = 0;
     for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
-    // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
-    const stem = lw[2] !== OFF && lw[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
     const feetQ = this.feetQ(lw, p);
     const load =
       handLoad(handsAngle, feetQ) *
@@ -616,7 +635,8 @@ class Context {
     const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
 
     const nc = { u: (np[0].u + np[1].u + feetMid.u) / 3, v: (np[0].v + np[1].v + feetMid.v * 2) / 4 };
-    const gt = handGrip(this.holds[to], nc, this.wall);
+    // Caught as a palm, the hand that stays on can push the body back onto it.
+    const gt = this.gripOf(this.holds[to], nc, this.holds[l[other]], onFeet.length, stem > 0);
     if (gt < MIN_GRIP) return null;
     const hold = load / g;
     const catchHard = 0.12 * (1 / gt - 1) * (1 + r);
