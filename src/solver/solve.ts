@@ -28,6 +28,7 @@ import {
   highStep,
   MANTLE_LOAD,
   MANTLE_REACH,
+  MANTLE_STAND,
   mantleable,
   mantleStep,
   pressQuality,
@@ -640,8 +641,11 @@ class Context {
     if (gt < MIN_GRIP) return null;
     const hold = load / g;
     const catchHard = 0.12 * (1 / gt - 1) * (1 + r);
-    // Longer moves mean longer lock-offs, even well inside full reach.
-    const travel = this.dist(p[limb], target) / 100;
+    // Longer moves mean longer lock-offs, even well inside full reach. Off a mantle (the other
+    // palm pressing out a shelf with a foot up on it) the legs stand the body up the first
+    // MANTLE_STAND of it: only the reach past that is a lock-off.
+    const stand = this.pressing(l, p, other) ? MANTLE_STAND : 0;
+    const travel = Math.max(0, this.dist(p[limb], target) - stand) / 100;
     // Smears are modelled relative to the hands, so they "follow" a hand move;
     // charge for re-smearing that far.
     let resmear = 0;

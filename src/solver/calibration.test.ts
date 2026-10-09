@@ -11,6 +11,13 @@ describe('grade calibration', () => {
     expect(Math.abs(r.grade - expected)).toBeLessThanOrEqual(1.5);
   });
 
+  it('stands up off a mantle with the legs, not a lock-off', () => {
+    // Was V3.6 when the reach from the ledge to the finish counted as a lock-off all the way.
+    const r = results.find(({ a }) => a.name === 'vertical jugs to a mantle')!.r;
+    if (!r.ok) throw new Error(r.message);
+    expect(r.grade).toBeLessThan(3);
+  });
+
   it('is accurate on average', () => {
     const err =
       results.reduce((s, { a, r }) => s + (r.ok ? Math.abs(r.grade - a.expect) : 5), 0) / results.length;

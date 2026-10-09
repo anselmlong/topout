@@ -11,6 +11,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   rise onto the high foot over about half a second instead of shooting up most of a metre in a
   blink and bouncing, and weight shifts between holds no longer jolt the body.
 
+**Grades**
+- Mantles grade fairer: once you're up on a ledge or a volume top, standing up to the next hold is
+  your legs' work, not a long lock-off, so an easy mantle no longer grades like a V3-V4 on its
+  own. Three new reference problems check mantles against real outdoor mantle problems.
+
 ## 2026-10-09
 
 **Climber**

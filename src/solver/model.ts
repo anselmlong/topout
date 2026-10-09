@@ -529,6 +529,13 @@ export const MANTLE_STEEP = 15;
 export const MANTLE_LOAD = 0.7;
 
 /**
+ * How far (cm) standing up on a mantle shelf carries a hand: from crouched on the shelf, the
+ * foot level with the palms, to stood up on it, the hips rise about this much and the reaching
+ * hand rises with them. That part of a reach off a mantle is the legs' work, not a lock-off.
+ */
+export const MANTLE_STAND = 60;
+
+/**
  * How far up (cm) the other hand reaches from a palm still pressing on a mantle shelf: half
  * stood up on the shelf, the palm at the thigh. Standing straight, the palm has to come off.
  */

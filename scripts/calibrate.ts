@@ -36,6 +36,12 @@ export interface Anchor {
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
+   * A ledge (cm up the wall) to mantle: a shelf LEDGE_DEPTH deep, the wall carrying on above it
+   * at the same angle. The hand holds and footholds stop under it, so the climber gets
+   * established on it (lip contacts, see volumes.ts) and stands up to reach the finish.
+   */
+  ledge?: number;
+  /**
    * A known miss: the solver can't hit this one yet without overfitting. Says what it
    * grades now and why, so a later run can work on it. Still counts toward the mean.
    */
@@ -161,9 +167,38 @@ export const ANCHORS: Anchor[] = [
   // Positive edges, the kind an intro problem is set on: Kilter's "Intro to Crimps" is V1
   // at 15° (V3 at 40°, V4 at 45-50°). Deep incut edges, a size up from crimps.
   { name: '15° deep incut edges', angle: 15, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 1, incut: 0.95 },
+  // Mantles (mantleable, solve.ts pressing): up to a ledge, press it out, stand up on it and
+  // reach the finish. No board has ledges, so these come from short outdoor mantle problems
+  // graded on theCrag (checked 2026-10-09). Their mantles are top-outs onto a boulder's flat
+  // top, 3-4 m up; here the ledge is 28 cm deep at 3.2 m and the finish 1.1 m above it, so
+  // only standing up on the ledge reaches it.
+  // Poor slopers straight up to a mantle: Toohey Forest's "Mantle Boulder" (Brisbane) goes
+  // straight up on poor slopers and finishes with a mantle, V3 from standing and V4 from the
+  // sit start. Reference problems all start sitting (ANCHOR_START).
+  { name: 'vertical small slopers to a mantle', angle: 0, type: 'sloper', size: 's', spacing: 50, feet: true, expect: 4, ledge: 320, top: 480 },
+  // Low-angle face to a mantle: The You Yangs (granite, mostly short low-angled faces) has
+  // "Mental Mantle" (3 m) and "Awkward Mantle", both V3. Smeared like the slab crimps above.
+  { name: 'slab crimps, smears to a mantle', angle: -15, type: 'crimp', size: 'm', spacing: 50, feet: false, expect: 3, ledge: 320, top: 480 },
+  // Good holds to a mantle: Toohey Forest's "Mantle Any Way" (V1) is a sloper mantle with
+  // pockets on the way, "Sonic the Sendhog" (V1) an undercling and a jug sidepull to an
+  // angled mantle.
+  {
+    name: 'vertical jugs to a mantle',
+    angle: 0,
+    type: 'jug',
+    size: 'm',
+    spacing: 45,
+    feet: true,
+    expect: 1,
+    ledge: 320,
+    top: 480,
+    miss: 'V2.6 (V3.6 before standing up off a mantle stopped counting as a lock-off, model.ts MANTLE_STAND). Pulling onto the shelf and the foot up beside the hands at MANTLE_LOAD floor every mantle near V2.5, however good the holds under it. Those V1s are top-outs onto a flat boulder top with no reach after, so not tuned on this alone.',
+  },
 ];
 
 const TOP = 400;
+/** How deep a reference ledge's shelf is (cm): two palms and a shoe side by side. */
+const LEDGE_DEPTH = 28;
 /** Every reference problem's start and finish. */
 export const ANCHOR_START: Hold[] = [
   { id: 's1', type: 'jug', size: 'l', u: 180, v: 150, rot: 0, role: 'start', incut: typicalIncut('jug') },
@@ -181,13 +216,21 @@ export function anchorRoute(a: Anchor) {
   const top = a.top ?? TOP;
   const wall: Wall = {
     width: 400,
-    panels: [{ length: top + 20, angle: a.angle }],
+    panels: a.ledge
+      ? [
+          { length: a.ledge, angle: a.angle },
+          { length: LEDGE_DEPTH, angle: -75 },
+          { length: top + 20 - a.ledge - LEDGE_DEPTH, angle: a.angle },
+        ]
+      : [{ length: top + 20, angle: a.angle }],
     seed: 1,
     ...(a.fold ? { fold: { u: 200, angle: a.fold } } : {}),
+    ...(a.ledge ? { lip: true } : {}),
   };
   const holds: Hold[] = [];
   let i = 0;
-  for (let v = 150 + a.spacing; v < top - 20 - a.spacing / 2; v += a.spacing, i++) {
+  const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
+  for (let v = 150 + a.spacing; v < handTop; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
@@ -196,7 +239,7 @@ export function anchorRoute(a: Anchor) {
     holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type) });
   }
   if (a.feet)
-    for (let v = 55, j = 0; v < top - 120; v += 38, j++)
+    for (let v = 55, j = 0; v < (a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
       holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 214 : 186, v, rot: 0 });
   return { wall, holds, finish: anchorFinish(a) };
 }
