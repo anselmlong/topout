@@ -15,6 +15,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   presses down on it with both palms, gets a foot up beside the hands, stands up on it and reaches
   from there. Finishes that used to be out of reach above a ledge or a big volume now go, and a
   mantle grades harder on a narrow or sloping top than on a wide one.
+- Keeps both feet on: when one foot is well below the next hold, the climber stands up on the
+  higher foot and lets the low one trail on its hold, instead of taking it off to flag. A foot
+  placed under the hold you're reaching for is what makes a reach easy, and a big jump on a steep
+  wall no longer has to be followed by a second jump to match.
 
 **Holds**
 - Macros: big bolt-on holds that aren't volumes. A dual-texture macro sloper (rough where the

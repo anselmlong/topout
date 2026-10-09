@@ -507,88 +507,22 @@ class Context {
     const handsAngle = angleAt(this.wall, (np[0].v + np[1].v) / 2);
 
     if (limb <= 1) {
-      const other = 1 - limb;
       // No walking a hand up the arête: each slap on the edge must go back to a real hold.
       if (this.holds[l[limb]].id.startsWith('arete:') && this.holds[to].id.startsWith('arete:')) return null;
-      const onFeet = [2, 3].filter((f) => l[f] !== OFF);
-      // Centre of the three-point stance the climber hangs from mid-move.
-      const feetMid = onFeet.length
-        ? {
-            u: onFeet.reduce((s, f) => s + p[f].u, 0) / onFeet.length,
-            v: onFeet.reduce((s, f) => s + p[f].v, 0) / onFeet.length,
-          }
-        : { u: p[other].u, v: p[other].v - 140 };
-      const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
-      // Stood up on a mantle shelf, the palm still pressing on it steadies the body.
-      const g = Math.max(handGrip(this.holds[l[other]], c, this.wall), this.pressing(l, p, other) ? pressQuality(this.holds[l[other]]) : 0);
-      if (g < MIN_GRIP) return null;
-      // Hanging stretched out (feet far below) loads the arms more. Kept moderate: a
-      // long body with straight arms is how climbers rest, so the hold and the angle
-      // should drive the grade, not the stance alone.
-      let stretch = 0;
-      for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
-      // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
-      const stem = l[2] !== OFF && l[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
-      const feetQ = this.feetQ(l, p);
-      const load =
-        handLoad(handsAngle, feetQ) *
-        (1 + 1.5 * Math.max(0, stretch - 0.8)) *
-        (1 - 0.75 * stem);
-
-      const target = np[limb];
-      let ext = this.spanOf(l, p, other, target);
-      for (const f of onFeet) ext = Math.max(ext, this.dist(p[f], target) / BODY.reach);
-      if (ext > BODY.dynoLimit) return null;
-      const dynamic = ext > 1;
-      const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
-
-      const nc = { u: (np[0].u + np[1].u + feetMid.u) / 3, v: (np[0].v + np[1].v + feetMid.v * 2) / 4 };
-      const gt = handGrip(this.holds[to], nc, this.wall);
-      if (gt < MIN_GRIP) return null;
-      const hold = load / g;
-      const catchHard = 0.12 * (1 / gt - 1) * (1 + r);
-      // Longer moves mean longer lock-offs, even well inside full reach.
-      const travel = this.dist(p[limb], target) / 100;
-      // Smears are modelled relative to the hands, so they "follow" a hand move;
-      // charge for re-smearing that far.
-      let resmear = 0;
-      for (const f of [2, 3]) if (l[f] === SMEAR) resmear += this.dist(p[f], np[f]) / 100;
-      // Crossing through is awkward: allowed, but it costs.
-      const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
-      // Barn door: if the remaining hand and the feet line up vertically (the hinge),
-      // reaching out to the side swings you off. A free leg flagged the other way
-      // counterbalances most of it.
-      const supports = [p[other].u, ...onFeet.map((f) => p[f].u)];
-      const lo = Math.min(...supports);
-      const hi = Math.max(...supports);
-      const narrow = Math.max(0, 1 - (hi - lo) / 35);
-      const out = Math.max(0, target.u < lo ? lo - target.u : target.u - hi) - 15;
-      const flagging = onFeet.length === 1;
-      const steepness = 0.6 + Math.max(0, Math.sin((handsAngle * Math.PI) / 180));
-      const barnK = narrow * Math.max(0, out / 100) * 1.1 * (flagging ? 0.35 : 1);
-      const barn = barnK * load * steepness;
-      // Commitment: a deadpoint just past reach is nearly static; a real jump is not.
-      const commit = dynamic ? 0.4 * Math.min(1, (ext - 1) / BODY.deadpoint) : 0;
-      // Matching is a shuffle: fine on the finish, a small cost anywhere else.
-      const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
-      const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
-      parts?.push({
-        kind: 'hand',
-        angle: handsAngle,
-        feetQ,
-        loadMul: (1 + 1.5 * Math.max(0, stretch - 0.8)) * (1 - 0.75 * stem),
-        g,
-        gt,
-        ext,
-        travel,
-        r,
-        resmear,
-        cross,
-        barnK,
-        commit,
-        match,
-      });
-      return { d, dynamic };
+      // Feet under the reach: with a foot on each of two footholds, the climber can push off
+      // both, or stand up on the one nearer the hold being reached for and let the other
+      // trail, toe on its hold, doing what a flag does and no more. A lower second foot then
+      // never makes a reach longer or harder than flagging it would, so the climber keeps it
+      // on, and what makes a reach easy is a foot under it, not the foot nearest the hands.
+      const both = this.handMove(l, l, limb, to, p, np, handsAngle);
+      let best = both;
+      if (l[2] >= 0 && l[3] >= 0) {
+        const far = this.dist(p[2], np[limb]) > this.dist(p[3], np[limb]) ? 2 : 3;
+        const trailed = this.handMove(l, l.map((x, j) => (j === far ? OFF : x)) as Limbs, limb, to, p, np, handsAngle);
+        if (trailed && (!both || trailed.d < both.d)) best = trailed;
+      }
+      if (best) parts?.push(best.parts);
+      return best && { d: best.d, dynamic: best.dynamic };
     }
 
     // Foot move: both hands hold the load the moving foot gave up.
@@ -633,6 +567,104 @@ class Context {
       highK: load > 0 ? (high * g) / load : 0,
     });
     return { d: load / g + match + heelUp + high, dynamic: false };
+  }
+
+  /**
+   * A hand move's cost (see moveCost), with the feet as `lw` has them: stance `l`, or `l` with
+   * a trailing foot taken off.
+   */
+  private handMove(
+    l: Limbs,
+    lw: Limbs,
+    limb: number,
+    to: number,
+    p: Point[],
+    np: Point[],
+    handsAngle: number,
+  ): { d: number; dynamic: boolean; parts: MoveParts } | null {
+    const other = 1 - limb;
+    const onFeet = [2, 3].filter((f) => lw[f] !== OFF);
+    // Centre of the three-point stance the climber hangs from mid-move.
+    const feetMid = onFeet.length
+      ? {
+          u: onFeet.reduce((s, f) => s + p[f].u, 0) / onFeet.length,
+          v: onFeet.reduce((s, f) => s + p[f].v, 0) / onFeet.length,
+        }
+      : { u: p[other].u, v: p[other].v - 140 };
+    const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
+    // Stood up on a mantle shelf, the palm still pressing on it steadies the body.
+    const g = Math.max(handGrip(this.holds[l[other]], c, this.wall), this.pressing(l, p, other) ? pressQuality(this.holds[l[other]]) : 0);
+    if (g < MIN_GRIP) return null;
+    // Hanging stretched out (feet far below) loads the arms more. Kept moderate: a
+    // long body with straight arms is how climbers rest, so the hold and the angle
+    // should drive the grade, not the stance alone.
+    let stretch = 0;
+    for (const f of onFeet) stretch = Math.max(stretch, this.dist(p[f], p[other]) / BODY.reach);
+    // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
+    const stem = lw[2] !== OFF && lw[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
+    const feetQ = this.feetQ(lw, p);
+    const load =
+      handLoad(handsAngle, feetQ) *
+      (1 + 1.5 * Math.max(0, stretch - 0.8)) *
+      (1 - 0.75 * stem);
+
+    const target = np[limb];
+    let ext = this.spanOf(l, p, other, target);
+    for (const f of onFeet) ext = Math.max(ext, this.dist(p[f], target) / BODY.reach);
+    if (ext > BODY.dynoLimit) return null;
+    const dynamic = ext > 1;
+    const r = ext <= 0.55 ? 0 : dynamic ? 1 + ((ext - 1) / (BODY.dynoLimit - 1)) * 1.5 : (ext - 0.55) / 0.45;
+
+    const nc = { u: (np[0].u + np[1].u + feetMid.u) / 3, v: (np[0].v + np[1].v + feetMid.v * 2) / 4 };
+    const gt = handGrip(this.holds[to], nc, this.wall);
+    if (gt < MIN_GRIP) return null;
+    const hold = load / g;
+    const catchHard = 0.12 * (1 / gt - 1) * (1 + r);
+    // Longer moves mean longer lock-offs, even well inside full reach.
+    const travel = this.dist(p[limb], target) / 100;
+    // Smears are modelled relative to the hands, so they "follow" a hand move;
+    // charge for re-smearing that far.
+    let resmear = 0;
+    for (const f of [2, 3]) if (l[f] === SMEAR) resmear += this.dist(p[f], np[f]) / 100;
+    // Crossing through is awkward: allowed, but it costs.
+    const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
+    // Barn door: if the remaining hand and the feet line up vertically (the hinge),
+    // reaching out to the side swings you off. A free leg flagged the other way
+    // counterbalances most of it.
+    const supports = [p[other].u, ...onFeet.map((f) => p[f].u)];
+    const lo = Math.min(...supports);
+    const hi = Math.max(...supports);
+    const narrow = Math.max(0, 1 - (hi - lo) / 35);
+    const out = Math.max(0, target.u < lo ? lo - target.u : target.u - hi) - 15;
+    const flagging = onFeet.length === 1;
+    const steepness = 0.6 + Math.max(0, Math.sin((handsAngle * Math.PI) / 180));
+    const barnK = narrow * Math.max(0, out / 100) * 1.1 * (flagging ? 0.35 : 1);
+    const barn = barnK * load * steepness;
+    // Commitment: a deadpoint just past reach is nearly static; a real jump is not.
+    const commit = dynamic ? 0.4 * Math.min(1, (ext - 1) / BODY.deadpoint) : 0;
+    // Matching is a shuffle: fine on the finish, a small cost anywhere else.
+    const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
+    const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
+    return {
+      d,
+      dynamic,
+      parts: {
+        kind: 'hand',
+        angle: handsAngle,
+        feetQ,
+        loadMul: (1 + 1.5 * Math.max(0, stretch - 0.8)) * (1 - 0.75 * stem),
+        g,
+        gt,
+        ext,
+        travel,
+        r,
+        resmear,
+        cross,
+        barnK,
+        commit,
+        match,
+      },
+    };
   }
 
   neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {

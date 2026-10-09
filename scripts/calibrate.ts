@@ -88,13 +88,10 @@ export const ANCHORS: Anchor[] = [
     feet: true,
     expect: 6,
     column: true,
-    // Grades V7.5 (2026-10-04). The dyno itself scores like a V6 (2.90); the crux (3.83) is
-    // the match after it, forced into a second, two-footed dyno: with the low hand still on
-    // the start every foothold in between is within crouch range of it, and cutting a foot
-    // fails the free-foot hip check in solve.ts valid() (hips 73 cm up, it wants 75). With
-    // that check 5 cm looser this grades V6.2, but the check guards dabs everywhere, so
-    // changing it needs its own look at low starts on steep walls, not a calibration nudge.
-    miss: 'match after the dyno is a second dyno: V7.5',
+    // Was a known miss at V7.5 (2026-10-04): after the dyno the match was forced into a
+    // second, two-footed dyno, because the low foot made every reach longer and cutting it
+    // failed the free-foot hip check. Since 2026-10-09 the low foot trails (solve.ts
+    // handMove) and the match is a plain reach: V6.3.
   },
   // Sustained: a long jug haul on a 40° highball. Kilter's "bakken rondje easy endurance"
   // (a jug circuit) is V3 at 40°, the same grade as the short "Jug Skin" (30,401 ascents,

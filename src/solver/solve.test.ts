@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
 import { flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, toGrade, typicalIncut } from './model';
 import { lipContacts } from './volumes';
-import type { Hold, HoldType, Point, Volume, Wall } from './types';
+import { OFF, type Hold, type HoldType, type Point, type Volume, type Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
 
@@ -276,6 +276,31 @@ describe('solver', () => {
     // The reach to the big edge goes from both feet on the start jugs, not from two smears.
     const toEdge = r.moves.find((m) => m.limb <= 1 && m.to.limbs[m.limb] === 5)!;
     expect(toEdge.from.limbs.slice(2).sort()).toEqual([0, 1]);
+  });
+
+  it('keeps a low foot on for a reach instead of cutting it to flag', () => {
+    // Day 28's near-vertical wall, as curated: start jugs, a wedge volume under them, a
+    // jug, a sloper and a jug up the right, then the finish back left.
+    const face: Wall = { width: 380, panels: [{ length: 433, angle: 4 }], seed: 1 };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 221, v: 146, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 274, v: 152, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'jug', size: 'm', u: 280, v: 202, rot: -0.35 },
+      { id: 'h4', type: 'sloper', size: 'm', u: 272, v: 251, rot: -0.22 },
+      { id: 'h6', type: 'jug', size: 'm', u: 264, v: 308, rot: 0.27 },
+    ];
+    const volumes: Volume[] = [{ id: 'v0', shape: 'wedge', size: 's', u: 270, v: 93, rot: Math.PI / 4 }];
+    const r = solve(face, jugs, { id: 'finish', type: 'jug', size: 'l', u: 236, v: 390, rot: 0, role: 'finish' }, holds, { volumes });
+    if (!r.ok) throw new Error(r.message);
+    // A second foot lower down used to make the reach count as longer, so the climber took
+    // it off and flagged. Now it trails at worst: the reach to the finish goes from two
+    // footholds, and no foot is cut loose on the way up.
+    const toFinish = r.moves.find((m) => m.limb <= 1 && m.to.limbs[m.limb] === 2)!;
+    expect(toFinish.from.limbs[2]).toBeGreaterThanOrEqual(0);
+    expect(toFinish.from.limbs[3]).toBeGreaterThanOrEqual(0);
+    expect(r.moves.some((m) => m.limb > 1 && m.to.limbs[m.limb] === OFF)).toBe(false);
   });
 
   it('a rollover lip is a hold that gets you over onto the slab', () => {
