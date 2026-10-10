@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-11
+
+**Climber**
+- Knees bend the right way: on a sit start both knees come up toward the chest instead of one
+  lying on the mat bent backwards, on steep walls the knees point out and up rather than down,
+  and in corners a knee no longer stays stuck bent the wrong way for several moves.
+
 ## 2026-10-10
 
 **Climber**

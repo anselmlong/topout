@@ -108,6 +108,11 @@ While a hand holds on, the body carries itself at no more than ~1.5 m/s (`BODY_S
 `src/scene/ragdoll.ts`): a low foot letting go under a high step stands the climber up onto it
 over about half a second instead of firing the hips up; a dyno's launch, a fall and the drop off
 the top aren't held back.
+Knees bend the way the pose bends them: a standing leg's knee swings round the hip-foot line toward
+the pose's side at up to ~3.5 rad/s (`KNEE_SWING` in `src/scene/ragdoll.ts`), so it never sticks
+bent backwards. On an overhang a frog knee is aimed level or up across the leg, never down (the
+wall's "out" points down there), and a knee posed near the mat comes up, as on a sit start; only a
+drop knee and a bridged leg point the knee down (`kneeOff` in `src/scene/Climber.tsx`).
 Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
 hips sinking down and back over bent knees, eyes on the target, then launches from the
 low point. Before the crux, if one hand is on a good hold with a foot on, the climber hangs

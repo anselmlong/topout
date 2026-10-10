@@ -67,6 +67,21 @@ const BODY_SPEED = 1.5;
 const BODY = [J.head, J.chest, J.pelvis, J.shoulderL, J.shoulderR, J.hipL, J.hipR, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
 /** How long (s) after an impulse the body moves unchecked. */
 const BURST = 0.35;
+/**
+ * How fast (rad/s) a standing leg's knee swings round the hip-foot line to bend the way the
+ * pose bends it. The knee's muscle pulls toward where the pose put the knee, but with the hips
+ * elsewhere that point can sit on the far side of the hip-foot line, and the rigid bones hold
+ * a knee bent the wrong way there: on a sit start the knee sat on the pad with the shin
+ * rising from it to the foothold, bent backwards, for seconds. A leg turns the knee out by
+ * rotating at the hip, so the knee swings round, it never folds through the straight leg.
+ */
+const KNEE_SWING = 3.5;
+/** Knees bent less than this far off the leg's line (m) have no bend to turn. */
+const KNEE_BENT = 0.03;
+const LEGS = [
+  [J.hipL, J.kneeL, J.footL, 2],
+  [J.hipR, J.kneeR, J.footR, 3],
+] as const;
 
 export class Ragdoll {
   pos: THREE.Vector3[] = [];
@@ -212,6 +227,9 @@ export class Ragdoll {
           if (v.lengthSq() > max * max) pos[i].copy(prev[i]).addScaledVector(v, max / v.length());
         }
       }
+      for (const [hip, knee, foot, end] of LEGS) {
+        if (this.ends[end].mode !== 'free') this.turnKnee(hip, knee, foot, posture, KNEE_SWING * dt);
+      }
       // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat;
       // free hands (only ever let go on purpose, dropping off the top) are held too.
       const hips = this.tmp.subVectors(pos[J.pelvis], prev[J.pelvis]);
@@ -270,6 +288,31 @@ export class Ragdoll {
     }
     // 5. NaN guard: snap back to the posed skeleton.
     if (pos.some((p) => !Number.isFinite(p.x + p.y + p.z)) && posture) this.reset(posture);
+  }
+
+  /** Swing a knee round its hip-foot line, at most `max` radians, toward the side the pose bends it. */
+  private turnKnee(hip: number, knee: number, foot: number, posture: THREE.Vector3[], max: number) {
+    const { pos } = this;
+    const axis = this.tmp.subVectors(pos[foot], pos[hip]);
+    const span = axis.length();
+    if (span < 1e-3) return;
+    axis.divideScalar(span);
+    // Where the knee sticks out from the leg's line, now and in the pose (measured on this line).
+    const out = this.tmp2.subVectors(pos[knee], pos[hip]);
+    const along = out.dot(axis);
+    out.addScaledVector(axis, -along);
+    const want = this.tmp3.subVectors(posture[knee], posture[hip]);
+    const poseAxis = posture[foot].clone().sub(posture[hip]).normalize();
+    want.addScaledVector(poseAxis, -want.dot(poseAxis));
+    want.addScaledVector(axis, -want.dot(axis));
+    const r = out.length();
+    if (r < KNEE_BENT || want.length() < KNEE_BENT) return;
+    const angle = out.angleTo(want);
+    if (angle < 1e-3) return;
+    // Rotate round the line, keeping the knee's distance from it (so the bones keep their length).
+    const side = out.clone().cross(want).dot(axis) < 0 ? -1 : 1;
+    out.applyAxisAngle(axis, side * Math.min(angle, max));
+    pos[knee].copy(pos[hip]).addScaledVector(axis, along).add(out);
   }
 
   private invMass(i: number) {

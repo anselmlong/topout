@@ -19,6 +19,8 @@ import { STANDING_AT, standHip, topoutPose, type Lip } from './topout';
 import { frameAt, lipAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
 const PAD_TOP = 0.3;
+/** How high (m) above the mat a posed knee stays clear of it. */
+const KNEE_CLEAR = 0.15;
 /** A hand on a hold less than this far (cm) above the feet is down by the hips: it presses. */
 const PRESS_ABOVE_FEET = 60;
 
@@ -268,7 +270,14 @@ function poseFrom(
               // and a little down, so the leg pushes into that face like a strut.
               lateral.clone().multiplyScalar(side * 0.85).addScaledVector(faces[i]!, 0.35).addScaledVector(torsoDir, -0.2)
             : normal.clone().addScaledVector(lateral, side * 0.7);
-    return ik(pelvis[i], target, LEG, pole);
+    // Only a drop knee and a bridged leg mean the knee to point down; a flag isn't standing.
+    const bridged = stem && !legs[i] && backstep <= 0.15;
+    if (!flag && legs[i] !== 'drop-knee' && !bridged) kneeOff(pole, pelvis[i], target);
+    const posed = ik(pelvis[i], target, LEG, pole);
+    // Hips down on the mat (a sit start), a knee aimed down or out to the side would be posed
+    // on or in the mat: as it gets there the knee comes up instead, as a sitting climber's does.
+    const mat = Math.min(1, Math.max(0, (PAD_TOP + KNEE_CLEAR - posed.joint.y) / 0.1));
+    return mat > 0 ? ik(pelvis[i], target, LEG, pole.normalize().lerp(V(0, 1, 0), mat)) : posed;
   };
   const [aL, aR, lL, lR] = [arm(0), arm(1), leg(0), leg(1)];
   return {
@@ -282,6 +291,20 @@ function poseFrom(
     knees: [lL.joint, lR.joint],
     feet: [lL.end, lR.end],
   };
+}
+
+/**
+ * A frog knee points out from the wall and to the side. On an overhang "out from the wall" is
+ * also down, so with the foot level with the hips or above them (a sit start, a foot up by the
+ * hip on a steep wall) that would aim the knee below the hip-foot line: bent backwards, the
+ * knee down on the mat and the shin rising from it to the foothold. A real knee comes up and
+ * out there, so the pole's downward part (across the leg) is dropped.
+ */
+function kneeOff(pole: THREE.Vector3, hip: THREE.Vector3, foot: THREE.Vector3) {
+  const leg = foot.clone().sub(hip).normalize();
+  const down = -pole.clone().addScaledVector(leg, -pole.dot(leg)).y;
+  // Lifting the pole by down / (1 - leg.y²) levels the knee's direction across the leg.
+  return down > 0 ? pole.add(V(0, down / Math.max(0.3, 1 - leg.y * leg.y), 0)) : pole;
 }
 
 function standingPose(wall: Wall): Pose {
