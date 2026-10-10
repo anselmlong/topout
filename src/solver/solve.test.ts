@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { PALM_ALONE, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, backBridge, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
 import { lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Point, type Volume, type Wall } from './types';
 
@@ -255,6 +255,39 @@ describe('solver', () => {
     // The feet smear on opposite faces somewhere in the beta.
     const smearing = [stem.start, ...stem.moves.map((m) => m.to)].some((s) => s.limbs[2] === -1 && s.limbs[3] === -1);
     expect(smearing).toBe(true);
+  });
+
+  it('back-and-foot: in a tight vertical corner the back leans on one face, feet on the other', () => {
+    const corner = (angle: number, fold: number): Wall => ({ ...wall(angle), fold: { u: 200, angle: fold } });
+    const hands: [Point, Point] = [{ u: 185, v: 250 }, { u: 215, v: 290 }];
+    // Feet on the right face, far enough out to strut across: the back goes on the left face.
+    expect(backBridge(corner(0, 90), hands, [{ u: 250, v: 120 }, { u: 262, v: 150 }])?.side).toBe(-1);
+    // Not with a foot on each face (that's a stem), feet tucked into the crease, a wide
+    // open corner, the hands away from the corner, or an overhanging corner.
+    expect(backBridge(corner(0, 90), hands, [{ u: 150, v: 120 }, { u: 262, v: 150 }])).toBeNull();
+    expect(backBridge(corner(0, 90), hands, [{ u: 215, v: 120 }, { u: 225, v: 150 }])).toBeNull();
+    expect(backBridge(corner(0, 60), hands, [{ u: 250, v: 120 }, { u: 262, v: 150 }])).toBeNull();
+    expect(backBridge(corner(0, 90), [{ u: 290, v: 250 }, { u: 320, v: 290 }], [{ u: 250, v: 120 }, { u: 262, v: 150 }])).toBeNull();
+    expect(backBridge(corner(30, 90), hands, [{ u: 250, v: 120 }, { u: 262, v: 150 }])).toBeNull();
+
+    // Crimps up the crease, footholds only on the right face: the climber leans back into
+    // the corner on the way up, and it climbs easier than the same holds in a wide corner.
+    const holds: Hold[] = [];
+    for (let v = 195, i = 0; v < 360; v += 45, i++) holds.push({ id: `h${i}`, type: 'crimp', size: 'm', u: i % 2 ? 215 : 185, v, rot: 0, seed: 0 });
+    for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `f${j}`, type: 'foot', size: 's', u: j % 2 ? 262 : 250, v, rot: 0 });
+    const bridged = (w: Wall) => {
+      const r = solve(w, start, finishAt(380), holds);
+      if (!r.ok) throw new Error(r.message);
+      const n = [r.start, ...r.moves.map((m) => m.to)].filter((st) =>
+        backBridge(w, [st.points[0], st.points[1]], st.points.slice(2).map((p, i) => (st.limbs[2 + i] === OFF ? null : p))),
+      ).length;
+      return { grade: r.grade, n };
+    };
+    const tight = bridged(corner(0, 90));
+    expect(tight.n).toBeGreaterThan(0);
+    expect(tight.grade).toBeLessThan(bridged(corner(0, 60)).grade);
+    // Overhanging, the back can't hold the body in: no back-and-foot.
+    expect(bridged(corner(30, 90)).n).toBe(0);
   });
 
   it('in a corner, steps up onto the jugs rather than stemming smears past them', () => {

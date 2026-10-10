@@ -231,6 +231,36 @@ export function stemBonus(wall: Wall, footU: [number, number]): number {
   return opposite ? 0.62 * Math.sin(rad(Math.min(90, wall.fold.angle))) : 0;
 }
 
+/**
+ * Back-and-foot (stem-and-back) in a tight inside corner: the feet push on one face while the
+ * back or shoulder leans on the other, the body wedged across the corner pushing out, not
+ * down, as in a chimney (Climbing, "How to Climb Chimneys"; theCrag glossary, "chimney":
+ * "back against one wall and feet against the other"). Only a corner of ~105° or tighter
+ * gives the back a face to reach, only with every foot that's on on the same face, far
+ * enough from the other face for the legs to strut across (bent to nearly straight), and
+ * the hands near the crease so the body is in the corner. Like a smear it relies on
+ * friction, so not where the corner overhangs more than ~20°. The back is a poorer
+ * contact than a second foot: it gives less than a stem (stemBonus), and less again off one
+ * foot. Returns the side
+ * the back is on (-1 left of the crease, +1 right) and what it gives, or null.
+ */
+export function backBridge(wall: Wall, hands: [Point, Point], feet: (Point | null)[]): { side: -1 | 1; bonus: number } | null {
+  if (!wall.fold || wall.fold.angle < 75) return null;
+  const f = wall.fold.u;
+  const on = feet.filter((p): p is Point => !!p);
+  if (!on.length) return null;
+  const side = Math.sign(on[0].u - f);
+  if (!side || on.some((p) => Math.sign(p.u - f) !== side || Math.abs(p.u - f) < 8)) return null;
+  // Straight-line distance from each foot across to the other face's plane.
+  const open = Math.sin(rad(180 - wall.fold.angle));
+  if (on.some((p) => Math.abs(p.u - f) * open < 35 || Math.abs(p.u - f) * open > 95)) return null;
+  if (Math.abs((hands[0].u + hands[1].u) / 2 - f) > 40) return null;
+  const hipV = (hands[0].v + hands[1].v) / 4 + on.reduce((s, p) => s + p.v, 0) / on.length / 2;
+  if (angleAt(wall, hipV) > 20 || on.some((p) => angleAt(wall, p.v) > 20)) return null;
+  // One foot alone is a weaker strut than two.
+  return { side: -side as -1 | 1, bonus: (on.length > 1 ? 0.4 : 0.25) * Math.sin(rad(Math.min(90, wall.fold.angle))) };
+}
+
 /** Real height above the floor (cm) of the wall point at v: overhangs lean out, so less than v. */
 export function heightAt(wall: Wall, v: number): number {
   let h = 0;

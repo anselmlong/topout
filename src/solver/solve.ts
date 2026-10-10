@@ -35,6 +35,7 @@ import {
   mantleStep,
   pressQuality,
   stemBonus,
+  backBridge,
   vAtHeight,
   wallPoint,
   toGrade,
@@ -353,11 +354,23 @@ class Context {
     if (stay !== undefined) q[stay === 2 ? 1 : 0] = 0;
     // The stem closes that share of each foot's shortfall, so a foothold in a corner still
     // beats a smear: pressing out on a hold, the foot can stand down on it as well.
-    if (l[2] !== OFF && l[3] !== OFF && stay === undefined) {
-      const bonus = stemBonus(this.wall, [p[2].u, p[3].u]);
-      if (bonus) return [q[0] + bonus * (1 - q[0]), q[1] + bonus * (1 - q[1])];
+    if (stay !== undefined) return q;
+    const bonus = this.bridge(l, p);
+    // Only the feet that are on push: a flagged leg gets nothing from it.
+    return bonus ? [l[2] !== OFF ? q[0] + bonus * (1 - q[0]) : q[0], l[3] !== OFF ? q[1] + bonus * (1 - q[1]) : q[1]] : q;
+  }
+
+  /**
+   * Opposition across an inside corner from the feet that are on: a stem (feet on both
+   * faces), or else the back leaned on the other face (backBridge). 0 on a flat wall.
+   */
+  bridge(l: Limbs, p: Point[]): number {
+    if (!this.wall.fold) return 0;
+    if (l[2] !== OFF && l[3] !== OFF) {
+      const stem = stemBonus(this.wall, [p[2].u, p[3].u]);
+      if (stem) return stem;
     }
-    return q;
+    return backBridge(this.wall, [p[0], p[1]], [l[2] !== OFF ? p[2] : null, l[3] !== OFF ? p[3] : null])?.bonus ?? 0;
   }
 
   /**
@@ -457,7 +470,7 @@ class Context {
       if (val === SMEAR) {
         if (this.opts.noSmear) return false;
         // Smears need a slab or vertical face — or a corner to stem across (up to ~20° steep).
-        const stemming = this.wall.fold && stemBonus(this.wall, [p[2].u, p[3].u]) > 0;
+        const stemming = this.wall.fold && (stemBonus(this.wall, [p[2].u, p[3].u]) > 0 || this.bridge(l, p) > 0);
         if (angleAt(this.wall, p[f].v) > (stemming ? 20 : 0)) return false;
         continue;
       }
@@ -570,7 +583,8 @@ class Context {
     let high = 0;
     if (to >= 0 && !heel) {
       const lift = l[limb] >= 0 ? Math.max(0, np[limb].v - p[limb].v) : 0;
-      const stem = l[stay] !== OFF ? stemBonus(this.wall, [np[2].u, np[3].u]) : 0;
+      // Or the back leans on the other face, the standing foot pushing it there.
+      const stem = l[stay] !== OFF ? Math.max(stemBonus(this.wall, [np[2].u, np[3].u]), backBridge(this.wall, [p[0], p[1]], [p[stay]])?.bonus ?? 0) : 0;
       high =
         (load / g) * (1 - stem) * ((0.25 * Math.max(0, lift - 35)) / 60 + 1.0 * highStep([np[0], np[1]], np[limb]));
     }
@@ -611,7 +625,8 @@ class Context {
       : { u: p[other].u, v: p[other].v - 140 };
     const c = { u: (p[other].u + feetMid.u) / 2, v: (p[other].v + feetMid.v) / 2 };
     // Stemming a corner pushes weight onto the legs: the arms carry less than on any face.
-    const stem = lw[2] !== OFF && lw[3] !== OFF ? stemBonus(this.wall, [p[2].u, p[3].u]) : 0;
+    // So does leaning the back on the other face, feet pushing it there (back-and-foot).
+    const stem = this.bridge(lw, p);
     // Stood up on a mantle shelf, the palm still pressing on it steadies the body. A palm
     // left on alone while the other hand moves has only the feet (a stem) to push back.
     const g = Math.max(

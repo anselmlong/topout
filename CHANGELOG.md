@@ -13,6 +13,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Only heel hooks and toe hooks where the wall overhangs: on a slab or a vertical face a foot
   brought up by the hands is a high step the climber rocks over onto, and the ticker says so
   instead of calling it a heel hook.
+- Leans back in tight corners: with both feet on one face of a 90° or tighter corner, the
+  climber wedges the back or shoulder against the other face (back and foot, like a chimney) to
+  take weight off the arms, and the ticker says so. Not on overhanging corners.
 
 **Grades**
 - Mantles grade fairer: once you're up on a ledge or a volume top, standing up to the next hold is

@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { bestPull, flagFor, footTechnique, handTechnique, highStep, hipTurn, mantleable, mantleStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
+import { backBridge, bestPull, flagFor, footTechnique, handTechnique, highStep, hipTurn, mantleable, mantleStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, Wall } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
@@ -33,6 +33,16 @@ const SHELF_SPREAD = [-11, 11, -24, 24];
  * across behind the standing leg during the reach instead of jumping there in one frame.
  */
 const FLAG_SWING = 4;
+/** How fast (per second) the back settles onto, or comes off, the other face of a corner. */
+const BACK_EASE = 2.5;
+
+/** The face of a corner the back leans on (back-and-foot, see backBridge), and how far on it is, 0..1. */
+interface BackOn {
+  /** A point on that face's plane and its normal, out from the wall. */
+  at: THREE.Vector3;
+  normal: THREE.Vector3;
+  k: number;
+}
 
 /**
  * The solver's foot techniques, plus a mantle: the foot up on the shelf the hands press out
@@ -67,6 +77,8 @@ function poseFrom(
   sink = 0,
   /** Hip turn on a long reach (see hipTurn): + turns the left hip in, - the right. */
   twist = 0,
+  /** Back-and-foot in a corner: the back leaning on the other face (see backBridge). */
+  back: BackOn | null = null,
 ): Pose {
   const holding = resting === null ? hands : [hands[1 - resting], hands[1 - resting]];
   // Stemming: the feet bridged across an inside corner, one on each face, pressing them
@@ -80,11 +92,18 @@ function poseFrom(
     feet[1].clone().sub(feet[0]).dot(faces[0]!) > 0.03 &&
     feet[0].clone().sub(feet[1]).dot(faces[1]!) > 0.03;
   // Bridged across a corner the body squares up to it; there's no hip to turn in.
-  if (stem) twist = 0;
+  const leaning = back && back.k > 0 ? back.k : 0;
+  if (stem || leaning) twist *= stem ? 0 : 1 - leaning;
   // Facet nearest the hands (a dihedral has two faces at the same height). A stemming
   // climber squares up to the corner instead, facing into the crease, back to the room.
   const handFace = nearestFrame(frames, holding[0].clone().add(holding[1]).multiplyScalar(0.5)).normal;
-  const normal = stem ? handFace.clone().multiplyScalar(0.5).add(faces[0]!).add(faces[1]!).normalize() : handFace;
+  // Back-and-foot: the body faces the face the feet push on, side-on to the one behind it.
+  const footFace = faces[0] ?? faces[1];
+  const normal = stem
+    ? handFace.clone().multiplyScalar(0.5).add(faces[0]!).add(faces[1]!).normalize()
+    : leaning && footFace
+      ? handFace.clone().lerp(footFace, leaning).normalize()
+      : handFace;
   const handsMid = holding[0].clone().add(holding[1]).multiplyScalar(0.5);
   const planted = feet.filter((f, i) => f && !lifting[i]) as THREE.Vector3[];
   const on = planted.length ? planted : (feet.filter(Boolean) as THREE.Vector3[]);
@@ -141,6 +160,15 @@ function poseFrom(
     ? V(0, 1, 0).addScaledVector(normal, -0.35).normalize()
     : bodyDir.clone().addScaledVector(normal, hipsIn - 0.7 * lean - 0.35 * load).normalize();
   const hip = chest.clone().addScaledVector(torsoDir, -TORSO);
+  if (leaning) {
+    // The torso slides across into the corner until the back of the hip and shoulder sit
+    // on the other face (a body's half-depth out from it), wedged between it and the feet.
+    const mid = chest.clone().add(hip).multiplyScalar(0.5);
+    const gap = mid.sub(back!.at).dot(back!.normal);
+    const shift = back!.normal.clone().multiplyScalar((0.15 - gap) * leaning);
+    chest.add(shift);
+    hip.add(shift);
+  }
   // Climber's right. We see their back, so this is +x on screen.
   const lateral = V().crossVectors(torsoDir, normal).normalize();
   if (lateral.lengthSq() < 0.5) lateral.set(1, 0, 0);
@@ -413,6 +441,10 @@ interface Run {
   winding: number;
   /** Hip turn for the current reach (see hipTurn): + left hip in, - right hip in. */
   twist: number;
+  /** The corner face the back leans on for this move (back-and-foot), eased on and off. */
+  back: BackOn | null;
+  /** Whether the current move's stance leans the back on it. */
+  backOn: boolean;
   lastThud: number;
   /** The top-out after a send or near miss (see topOut). */
   out: { t0: number; released: boolean; landed: number; face: THREE.Vector3; turned: number; claps: number; floor: number; mantle: { from: Pose; lip: Lip } | null } | null;
@@ -455,6 +487,7 @@ export function Climber({ day }: { day: Day }) {
     twist = 0,
     /** A foot about to move (2/3): the weight comes off it before it lifts. */
     winding = -1,
+    back: BackOn | null = null,
   ): THREE.Vector3[] => {
     const e = sim.ends;
     const hands: [THREE.Vector3, THREE.Vector3] = [sim.pos[J.handL].clone(), sim.pos[J.handR].clone()];
@@ -464,7 +497,7 @@ export function Climber({ day }: { day: Day }) {
     ];
     const mid = hands[0].clone().add(hands[1]).multiplyScalar(0.5);
     const lifting: [boolean, boolean] = [e[2].mode === 'moving' || winding === 2, e[3].mode === 'moving' || winding === 3];
-    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting, sink, twist));
+    return poseToArray(poseFrom(frames, hands, feet, Math.max(0, worldV(frames, mid) - 80), flagAway, legs, lifting, arms, resting, sink, twist, back));
   };
 
   const start = (pb: Playback): Run | null => {
@@ -499,7 +532,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, launch: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -589,6 +622,16 @@ export function Climber({ day }: { day: Day }) {
       reaching !== null && f.holds.length && !f.dynamic && !r.legs[0] && !r.legs[1] && (!r.arms[reaching] || r.arms[reaching] === 'sidepull')
         ? (backFlag?.turn ?? hipTurn(day.wall, f.to.hands, f.to.feet, reaching)) * (reaching === 0 ? 1 : -1)
         : 0;
+    // Back-and-foot: in a tight corner with the feet on one face, the back leans on the other.
+    if (f.holds.length) {
+      const bb = backBridge(day.wall, f.to.hands, f.to.feet);
+      r.backOn = !!bb && !r.legs.includes('mantle') && !r.legs.includes('shelf');
+      if (bb && day.wall.fold) {
+        const hipV = (f.to.hands[0].v + f.to.hands[1].v) / 2 - 70;
+        const face = frameAt(frames, day.wall.fold.u + bb.side * 30, Math.max(0, hipV));
+        r.back = { at: face.origin.clone(), normal: face.normal.clone(), k: r.back?.k ?? 0 };
+      }
+    }
     // Limbs sharing a mantle shelf spread out along it, palms either side of the middle and
     // the feet outside them, instead of all piling onto the one point the solver gives it.
     const contacts: (Point | null)[] = [...f.to.hands, ...f.to.feet].map((c, n) => {
@@ -658,6 +701,8 @@ export function Climber({ day }: { day: Day }) {
                   ? ' (hip turn)'
                   : foot && across && stemBonus(day.wall, [foot.u, across.u]) > 0
                   ? ' (stem)'
+                  : r.backOn
+                  ? ' (back and foot)'
                   : h && foot && highStep(f.to.hands, foot) > 0.8
                   ? ' (high step)'
                   : ''
@@ -1025,7 +1070,11 @@ export function Climber({ day }: { day: Day }) {
         const want = r.flagAway[i] || (i === 0 ? -1 : 1);
         return a + Math.max(-FLAG_SWING * STEP, Math.min(FLAG_SWING * STEP, want - a));
       }) as [number, number];
-      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagSwing, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist, r.winding)));
+      if (r.back) {
+        r.back.k += Math.max(-BACK_EASE * STEP, Math.min(BACK_EASE * STEP, (r.backOn ? 1 : 0) - r.back.k));
+        if (!r.backOn && r.back.k <= 0) r.back = null;
+      }
+      sim.step(STEP, r.limp ? null : (outPose ?? postureFor(sim, r.flagSwing, r.legs, r.arms, r.rest?.hand ?? null, r.sink, r.twist, r.winding, r.back)));
     }
     // Thuds when the body hits the pad.
     if (sim.impacts.length) {
