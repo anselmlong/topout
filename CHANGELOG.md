@@ -11,6 +11,12 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   lying on the mat bent backwards, on steep walls the knees point out and up rather than down,
   and in corners a knee no longer stays stuck bent the wrong way for several moves.
 
+**Grades**
+- Corners are checked against real climbs: three new reference problems, a chimney climbed back
+  and foot, a chimney that rolls over onto a slab and a shallow corner stemmed on smears, each
+  graded like a named outdoor problem, and all three already land on their grades. The setter's
+  route for Oct 28 was rebuilt so it's a true V2 again.
+
 ## 2026-10-10
 
 **Climber**

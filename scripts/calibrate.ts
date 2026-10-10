@@ -24,6 +24,7 @@ export interface Anchor {
   fold?: number;
   /** Hand holds straight up the middle instead of zig-zagging. */
   column?: boolean;
+  /** Where the footholds run (cm across the wall); default up the middle (u 200). */
   feetU?: number;
   /** Turn the hand holds' edges to face out, away from the line (gastons). */
   gaston?: boolean;
@@ -41,6 +42,8 @@ export interface Anchor {
    * established on it (lip contacts, see volumes.ts) and stands up to reach the finish.
    */
   ledge?: number;
+  /** The wall changes angle partway up: from `at` cm up the wall, it carries on at `angle`. */
+  upper?: { at: number; angle: number };
   /**
    * A known miss: the solver can't hit this one yet without overfitting. Says what it
    * grades now and why, so a later run can work on it. Still counts toward the mean.
@@ -194,6 +197,34 @@ export const ANCHORS: Anchor[] = [
     top: 480,
     miss: 'V2.6 (V3.6 before standing up off a mantle stopped counting as a lock-off, model.ts MANTLE_STAND). Pulling onto the shelf and the foot up beside the hands at MANTLE_LOAD floor every mantle near V2.5, however good the holds under it. Those V1s are top-outs onto a flat boulder top with no reach after, so not tuned on this alone.',
   },
+  // Corners climbed without footholds on both faces: back-and-foot (model.ts backBridge) and
+  // stemming on smears (stemBonus). No board has corners, so these come from outdoor problems
+  // (grades found via search on 2026-10-10). A chimney has next to nothing for the hands, so
+  // the hands get the poorest holds the model has, small slopers, up the crease (column).
+  // A tight corner, footholds on one face only, nothing on the other: the back goes on it.
+  // Glen Canyon's "The Chimney" (theCrag, V1, three stars) is a 6 m squeeze chimney; Elevenmile
+  // Canyon's "Hugs Chimney" (Mountain Project, V1-2) chimneys up into a crack.
+  { name: 'vertical chimney, back and foot', angle: 0, type: 'sloper', size: 's', spacing: 50, feet: true, expect: 1, fold: 90, column: true, feetU: 255 },
+  // The same corner leaning out, then rolling over into a slab: Bradley Mountain's "Corner
+  // Problem" (Mountain Project, V2, Connecticut) starts with both hands in a chimney on the
+  // overhang, works up it to a corner and exits onto the slab face.
+  {
+    name: '10° chimney to a slab',
+    angle: 10,
+    type: 'sloper',
+    size: 's',
+    spacing: 50,
+    feet: true,
+    expect: 2,
+    fold: 90,
+    column: true,
+    feetU: 255,
+    upper: { at: 250, angle: -20 },
+  },
+  // A shallow open book on friction: Joshua Tree's "Stem Gem" (John Bachar; Mountain Project
+  // and the Wolverine "Joshua Tree Bouldering" guide, V4) stems up a concave face of
+  // featureless granite on smears and poor slopers.
+  { name: 'vertical shallow corner, slopers, smears', angle: 0, type: 'sloper', size: 's', spacing: 50, feet: false, expect: 4, fold: 40 },
 ];
 
 const TOP = 400;
@@ -222,7 +253,12 @@ export function anchorRoute(a: Anchor) {
           { length: LEDGE_DEPTH, angle: -75 },
           { length: top + 20 - a.ledge - LEDGE_DEPTH, angle: a.angle },
         ]
-      : [{ length: top + 20, angle: a.angle }],
+      : a.upper
+        ? [
+            { length: a.upper.at, angle: a.angle },
+            { length: top + 20 - a.upper.at, angle: a.upper.angle },
+          ]
+        : [{ length: top + 20, angle: a.angle }],
     seed: 1,
     ...(a.fold ? { fold: { u: 200, angle: a.fold } } : {}),
     ...(a.ledge ? { lip: true } : {}),
@@ -240,7 +276,7 @@ export function anchorRoute(a: Anchor) {
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
-      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 214 : 186, v, rot: 0 });
+      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0 });
   return { wall, holds, finish: anchorFinish(a) };
 }
 
