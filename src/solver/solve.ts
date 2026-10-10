@@ -10,6 +10,8 @@ import {
   BODY,
   PAD,
   TOE_HOOK_OUT,
+  HEEL_STEEP,
+  TOE_STEEP,
   bestPull,
   SMEAR_QUALITY,
   angleAt,
@@ -376,14 +378,14 @@ class Context {
     const angle = angleAt(this.wall, fp.v);
     if (out < TOE_HOOK_OUT) {
       const hookable = h.type === 'jug' || h.type === 'volume' || ((h.type === 'edge' || h.type === 'sloper') && isBig(h.size));
-      return angle >= 12 && hookable && out >= 25;
+      return angle >= HEEL_STEEP && hookable && out >= 25;
     }
     const toeable =
       h.type === 'jug' ||
       h.type === 'volume' ||
       ((h.type === 'edge' || h.type === 'pinch') && h.size !== 's') ||
       (h.type === 'sloper' && isBig(h.size));
-    if (angle < 20 || !toeable) return false;
+    if (angle < TOE_STEEP || !toeable) return false;
     // The toe pulls the hold sideways, toward the body.
     const best = bestPull(h.rot);
     const c = Math.sign(midU - fp.u) * best.u;

@@ -554,13 +554,25 @@ export type FootTechnique = 'heel' | 'toe' | 'drop-knee' | null;
 
 /** How far out to the side (cm from between the hands) a hooked foot stops being a heel and becomes a toe hook. */
 export const TOE_HOOK_OUT = 70;
+/**
+ * How steep (degrees, at the foot) the wall must be to hook a heel or a toe. A hook pulls the
+ * hips in to the wall, which only helps where they hang out from it; on a slab or a vertical
+ * face the weight is already over the feet, so a foot up by the hands is stood on: a high
+ * step, rocked over onto. Coaching material teaches hooks as steep-ground technique (keeping
+ * the hips in and the feet on when the wall overhangs) and slab footwork as standing on the
+ * feet: rockovers and high steps.
+ */
+export const HEEL_STEEP = 12;
+export const TOE_STEEP = 20;
 
 /**
  * What a foot on a hold is doing, from where it sits relative to the hands. Shared by
  * the solver (heel hooks and drop knees change the load) and the climber's pose.
- * - Heel hook: a foot up near the hands, knee bent (validity rules live in the solver).
+ * - Heel hook: a foot up near the hands, knee bent, on ground at least HEEL_STEEP steep
+ *   (the other validity rules live in the solver).
  * - Toe hook: a foot up near the hands but far out to the side, leg nearly straight,
- *   the top of the foot pulling back against the far side of the hold.
+ *   the top of the foot pulling back against the far side of the hold (TOE_STEEP and up).
+ * Lower than that, a foot up near the hands is a high step (null).
  * - Drop knee: on steep ground, a foot out to the side at about hip height; the knee
  *   turns in and down so the hip presses to the wall.
  */
@@ -568,7 +580,11 @@ export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): F
   const low = Math.min(hands[0].v, hands[1].v);
   const dv = low - foot.v;
   const midU = (hands[0].u + hands[1].u) / 2;
-  if (dv < 35) return Math.abs(foot.u - midU) >= TOE_HOOK_OUT ? 'toe' : 'heel';
+  if (dv < 35) {
+    // Too slabby to hook: a high step (null), priced and posed as one.
+    const toe = Math.abs(foot.u - midU) >= TOE_HOOK_OUT;
+    return angleAt(wall, foot.v) < (toe ? TOE_STEEP : HEEL_STEEP) ? null : toe ? 'toe' : 'heel';
+  }
   if (angleAt(wall, low) > 10 && dv > 35 && dv < 110 && Math.abs(foot.u - midU) > 20) return 'drop-knee';
   return null;
 }

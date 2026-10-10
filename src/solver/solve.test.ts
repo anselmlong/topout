@@ -464,6 +464,22 @@ describe('solver', () => {
     if (without.ok) expect(withHeel.grade).toBeLessThan(without.grade);
   });
 
+  it('hooks only on steep ground: on a slab or a vertical face a foot by the hands is a high step', () => {
+    const hands: [Point, Point] = [
+      { u: 180, v: 260 },
+      { u: 220, v: 260 },
+    ];
+    const heelSpot = { u: 245, v: 240 };
+    const toeSpot = { u: 290, v: 240 };
+    for (const a of [-10, 0, 8]) {
+      expect(footTechnique(wall(a), hands, heelSpot)).toBe(null);
+      expect(footTechnique(wall(a), hands, toeSpot)).toBe(null);
+    }
+    expect(footTechnique(wall(15), hands, heelSpot)).toBe('heel');
+    expect(footTechnique(wall(15), hands, toeSpot)).toBe(null);
+    expect(footTechnique(wall(30), hands, toeSpot)).toBe('toe');
+  });
+
   it('toe hooks a sidepull far out to the side, but only when it faces away', () => {
     const steep = wall(35);
     const hands: Hold[] = [

@@ -10,6 +10,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Stands up into a move instead of popping: when a low foot lets go under a high step, the hips
   rise onto the high foot over about half a second instead of shooting up most of a metre in a
   blink and bouncing, and weight shifts between holds no longer jolt the body.
+- Only heel hooks and toe hooks where the wall overhangs: on a slab or a vertical face a foot
+  brought up by the hands is a high step the climber rocks over onto, and the ticker says so
+  instead of calling it a heel hook.
 
 **Grades**
 - Mantles grade fairer: once you're up on a ledge or a volume top, standing up to the next hold is
