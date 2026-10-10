@@ -16,6 +16,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   your legs' work, not a long lock-off, so an easy mantle no longer grades like a V3-V4 on its
   own. Three new reference problems check mantles against real outdoor mantle problems.
 
+**Holds**
+- Volumes look like volumes: smooth, glossy fibreglass shells that catch the light instead of
+  matt grey blocks, drilled with rows of bolt holes and held on by a big bolt and washer, and the
+  holds bolted onto them sit on a washer too.
+
 ## 2026-10-09
 
 **Climber**

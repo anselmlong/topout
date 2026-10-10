@@ -518,6 +518,7 @@ function HoldMesh({
   const { geometry, bolt, boltTilt = 0, screw } = holdMesh(hold.type, hold.size, holdVariant(hold));
   const volumes = useGame((s) => (s.viewing ? s.viewingVolumes : s.volumes));
   const t = placeOnWall(wall, frames, hold.u, hold.v, hold.rot, volumes);
+  const onVolume = !!surfaceAt(volumes, hold.u, hold.v);
   // Used holds get chalky.
   const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
   // A faint dusting all over, and real build-up on the faces hands and shoes use.
@@ -590,11 +591,19 @@ function HoldMesh({
             <cylinderGeometry args={[0.0115, 0.009, 0.002, 10]} />
             <meshStandardMaterial color="#2c2b2a" roughness={0.95} flatShading />
           </mesh>
-          <mesh position={[0, 0.0012, 0]} raycast={() => null}>
+          {onVolume && (
+            // Bolted into a volume's T-nut: a bright washer under the head, as setters fit them
+            // so the bolt doesn't bite into the hold.
+            <mesh position={[0, 0.0005, 0]} raycast={() => null}>
+              <cylinderGeometry args={[0.0108, 0.0108, 0.0008, 14]} />
+              <meshStandardMaterial color="#a9acb0" metalness={0.75} roughness={0.3} flatShading />
+            </mesh>
+          )}
+          <mesh position={[0, onVolume ? 0.0018 : 0.0012, 0]} raycast={() => null}>
             <cylinderGeometry args={[0.0068, 0.0072, 0.0016, 12]} />
             <meshStandardMaterial color="#6a6c70" metalness={0.65} roughness={0.38} flatShading />
           </mesh>
-          <mesh position={[0, 0.0021, 0]} raycast={() => null}>
+          <mesh position={[0, onVolume ? 0.0027 : 0.0021, 0]} raycast={() => null}>
             <cylinderGeometry args={[0.0032, 0.0032, 0.0004, 6]} />
             <meshBasicMaterial color="#161616" />
           </mesh>
