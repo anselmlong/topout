@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-12
+
+**Climber**
+- No more knee whip on dynos: when the climber throws for a hold, the knees and elbows move with
+  the body instead of snapping out sideways, so a high-stepped knee eases out to the side rather
+  than flicking half a metre in a blink.
+
 ## 2026-10-11
 
 **Grades**

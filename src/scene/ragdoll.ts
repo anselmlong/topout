@@ -65,6 +65,8 @@ const FREE_FOOT_SPEED = 2.5;
  */
 const BODY_SPEED = 1.5;
 const BODY = [J.head, J.chest, J.pelvis, J.shoulderL, J.shoulderR, J.hipL, J.hipR, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
+/** The joints in the middle of the limbs, which swing on their own once the torso moves. */
+const LIMB_JOINTS = [J.elbowL, J.elbowR, J.kneeL, J.kneeR];
 /** How long (s) after an impulse the body moves unchecked. */
 const BURST = 0.35;
 /**
@@ -235,6 +237,16 @@ export class Ragdoll {
         for (const i of BODY) {
           const v = this.tmp.subVectors(pos[i], prev[i]);
           if (v.lengthSq() > max * max) pos[i].copy(prev[i]).addScaledVector(v, max / v.length());
+        }
+      } else if (hanging && this.drag === null) {
+        // A launch throws the torso, and the knees and elbows ride along with the hips, but
+        // they don't get a swing of their own out of it: on day 16's dyno a high-stepped knee
+        // whipped 60 cm out to the side at 14 m/s while its foot stayed on.
+        const hips = this.tmp2.subVectors(pos[J.pelvis], prev[J.pelvis]);
+        const max = BODY_SPEED * dt;
+        for (const i of LIMB_JOINTS) {
+          const v = this.tmp.subVectors(pos[i], prev[i]).sub(hips);
+          if (v.lengthSq() > max * max) pos[i].copy(prev[i]).add(hips).addScaledVector(v, max / v.length());
         }
       }
       for (const [hip, knee, foot, end] of LEGS) {
