@@ -76,5 +76,35 @@ export const MACRO_HINT: Partial<Record<HoldType, string>> = {
   pinch: 'Pinch block: wide squeeze. Good on steep ground, a stretch for the thumb.',
 };
 
+/**
+ * How a hold's lip reads (model.ts incutRank, flattest .. deepest build of its type), and
+ * what that does: the HUD names it, since on a phone a crimp is a few pixels across.
+ */
+const LIP_WORDS: Partial<Record<HoldType, string[]>> = {
+  sloper: ['Round dome', 'Slight dish', 'Dished', 'Deep dish'],
+  pinch: ['Smooth sides', 'Shaped sides', 'Sculpted sides', 'Deep-cut sides'],
+  pocket: ['Open pocket', 'Shallow hood', 'Hooded', 'Deep hood'],
+  foot: ['Rounded nub', 'Low shelf', 'Positive', 'Sharp shelf'],
+  jib: ['Rounded nub', 'Low shelf', 'Positive', 'Sharp shelf'],
+};
+const LIP_DEFAULT = ['Flat lip', 'Shallow lip', 'Incut lip', 'Deep incut'];
+/** Jug families in mesh order (model.ts JUG_INCUT). */
+const JUG_FAMILY = ['Bucket', 'Ledge jug', 'Bucket', 'Horn', 'Pinch jug', 'Slopey jug'];
+
+export function lipWord(type: HoldType, rank: number, variant: number): string {
+  if (type === 'jug') return JUG_FAMILY[variant % JUG_FAMILY.length];
+  const words = LIP_WORDS[type] ?? LIP_DEFAULT;
+  return words[Math.round(rank * (words.length - 1))];
+}
+
+/** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
+export function lipEffect(type: HoldType, rank: number): string {
+  if (type === 'jug') return rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';
+  const feet = type === 'foot' || type === 'jib';
+  if (rank > 0.6) return feet ? 'easy to stand on' : 'holds well, even steep';
+  if (rank < 0.4) return feet ? 'half a smear' : 'harder, opens up steep';
+  return feet ? 'a fair edge' : 'typical';
+}
+
 /** Volumes are fibreglass shells: one neutral colour whatever the route. */
 export const VOLUME_COLOR = '#8d959e';

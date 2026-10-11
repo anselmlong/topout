@@ -3,7 +3,7 @@ import { ALL_STYLES, generateDay, wallStyleOf } from '../gen/day';
 import { holdIncut, wallHeight, wallPoint } from '../solver/model';
 import type { Hold, SolveResult } from '../solver/types';
 import { frameAt, panelFrames, uvToWorld, worldToUv } from '../scene/wallGeometry';
-import { bestTest, canPlace, holdNear, nextTraySeed, traySeed, verdictOf, type TestRun } from './rules';
+import { bestTest, canPlace, holdNear, nextTraySeed, swapSeeds, traySeed, verdictOf, type TestRun } from './rules';
 import { decodeRoute, encodeRoute, shareText } from './share';
 import { defaultSpots, spotsFilled, withSpots } from './spots';
 
@@ -64,6 +64,21 @@ describe('tray holds', () => {
     expect(placed.map((h) => h.seed)).toEqual(seeds.slice(0, 3));
     // Take the first one back off the wall: it's the next one handed out again.
     expect(nextTraySeed(10, placed.slice(1), 'edge', 'l', 4)).toBe(seeds[0]);
+  });
+
+  it('swaps a placed hold only for builds of its slot not on the wall, flattest first', () => {
+    const edge = (id: string, seed: number): Hold => ({ id, type: 'edge', size: 'l', u: 0, v: 0, rot: 0, seed });
+    const seeds = [0, 1, 2, 3].map((k) => traySeed(10, 'edge', 'l', k));
+    const lip = (seed: number) => holdIncut(edge('x', seed));
+    // Alone on the wall, an edge can be any of the slot's four builds, one per lip.
+    const alone = swapSeeds(10, [edge('a', seeds[0])], edge('a', seeds[0]), 4);
+    expect(alone.length).toBe(4);
+    expect(alone.map(lip)).toEqual([...alone.map(lip)].sort((a, b) => a - b));
+    // Builds already on the wall aren't on offer: they're in use.
+    const placed = [edge('a', seeds[0]), edge('b', seeds[1]), edge('c', seeds[2])];
+    expect(swapSeeds(10, placed, placed[0], 4).sort()).toEqual([seeds[0], seeds[3]].sort());
+    // With every build of the slot placed there's nothing to swap for.
+    expect(swapSeeds(10, [...placed, edge('d', seeds[3])], placed[0], 4)).toEqual([seeds[0]]);
   });
 });
 

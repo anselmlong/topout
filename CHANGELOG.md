@@ -16,6 +16,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Footholds differ too: every foot chip and jib is somewhere between a rounded, smeary nub and a
   sharp little shelf that juts out over its own shadow, and a positive one is easier to stand
   on, most of all on slabs. Edges and crimps used as footholds stand better when they're incut.
+- Pick the lip you want: tap a hold you've placed and the bar names how incut it is (a flat lip,
+  a deep incut, a dished sloper, a bucket or a slopey jug) with what that does, and a Deeper or
+  Flatter button swaps it for another one of the same hold from your set. The tray also says what
+  the next hold you place will be like.
 
 **Climber**
 - Knees bend the right way: on a sit start both knees come up toward the chest instead of one

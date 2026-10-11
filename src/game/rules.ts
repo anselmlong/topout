@@ -1,6 +1,6 @@
 // Placement and scoring rules shared by the game UI and the curation script.
 import { hash } from '../gen/rng';
-import { angleAt, holdVariant, JUG_INCUT, lipV, PAD, SHELF_ANGLE, vAtHeight, wallHeight } from '../solver/model';
+import { angleAt, holdIncut, holdVariant, JUG_INCUT, lipV, PAD, SHELF_ANGLE, vAtHeight, wallHeight } from '../solver/model';
 import type { Hold, HoldSize, HoldType, SolveResult, Volume, Wall } from '../solver/types';
 import { volumeRadius } from '../solver/volumes';
 import type { Spots } from './spots';
@@ -43,6 +43,25 @@ export function nextTraySeed(day: number, placed: Hold[], type: HoldType, size: 
   const used = new Set(same.map((h) => holdVariant(h) % TRAY_SEEDS));
   for (let k = 0; k < count; k++) if (!used.has(traySeed(day, type, size, k))) return traySeed(day, type, size, k);
   return traySeed(day, type, size, same.length);
+}
+
+/**
+ * The builds a placed hold can be swapped for: its own and those of its tray slot not on the
+ * wall yet, one per distinct incut, flattest first. A slot's holds are physical, so a swap only
+ * trades the hold for another of the same slot; the player picks a flat crimp for a hard move
+ * or a deep one for an easy one. Size and footprint stay the same, so the spot stays legal.
+ */
+export function swapSeeds(day: number, placed: Hold[], hold: Hold, count: number): number[] {
+  const own = holdVariant(hold) % TRAY_SEEDS;
+  const used = new Set(placed.filter((h) => h.id !== hold.id && h.type === hold.type && h.size === hold.size).map((h) => holdVariant(h) % TRAY_SEEDS));
+  const seeds = [own];
+  for (let k = 0; k < count; k++) {
+    const seed = traySeed(day, hold.type, hold.size, k);
+    if (!used.has(seed) && !seeds.includes(seed)) seeds.push(seed);
+  }
+  const lip = (seed: number) => holdIncut({ ...hold, seed, incut: undefined });
+  const distinct = seeds.filter((seed, i) => seeds.findIndex((o) => lip(o) === lip(seed)) === i);
+  return distinct.sort((a, b) => lip(a) - lip(b) || a - b);
 }
 
 export const holdRadius = (h: Pick<Hold, 'type' | 'size'>) =>

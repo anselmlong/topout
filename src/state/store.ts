@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { dayNumber, generateDay, withVolumes } from '../gen/day';
-import { MAX_TESTS, bestTest, canPlace, canPlaceVolume, nextTraySeed, verdictOf, type TestRun } from '../game/rules';
+import { MAX_TESTS, TRAY_SEEDS, bestTest, canPlace, canPlaceVolume, nextTraySeed, swapSeeds, verdictOf, type TestRun } from '../game/rules';
 import { findExample } from '../game/examples';
 import { parsePractice, practiceDay, practiceParam } from '../game/practice';
 import { decodeRoute } from '../game/share';
 import { defaultSpots, isSpotId, spotsFilled, spotsOf, withSpots, type SpotHold, type Spots } from '../game/spots';
 import { solveInWorker } from '../solver/client';
 import type { Day, Hold, HoldSize, HoldType, Point, SolveResult, Volume, VolumeShape } from '../solver/types';
+import { holdVariant } from '../solver/model';
 import { footSpots } from '../game/tips';
 import { loadDay, recordResult, saveDay } from './persist';
 
@@ -91,6 +92,8 @@ interface GameState {
   startDrag: (id: string) => void;
   endDrag: () => void;
   rotate: (delta: number) => void;
+  /** Trade the selected hold for the next build (flatter to deeper) of its tray slot. */
+  swapBuild: () => void;
   /** Put a hold on a start/finish spot, or change the one there. */
   setSpot: (id: string, hold: Partial<SpotHold>) => void;
   remove: (id?: string) => void;
@@ -411,6 +414,18 @@ export const useGame = create<GameState>((set, get) => {
       } else if (s.armed) {
         set({ ghostRot: s.ghostRot + delta });
       }
+    },
+
+    swapBuild() {
+      const s = get();
+      const h = s.placed.find((p) => p.id === s.selectedId);
+      if (!editable() || !h) return;
+      const seeds = swapSeeds(s.day!.number, s.placed, h, slotCount(s.day!, { type: h.type, size: h.size }));
+      if (seeds.length < 2) return;
+      const seed = seeds[(seeds.indexOf(holdVariant(h) % TRAY_SEEDS) + 1) % seeds.length];
+      remember();
+      edited({ placed: s.placed.map((p) => (p.id === h.id ? { ...p, seed, incut: undefined } : p)) });
+      persist();
     },
 
     setSpot(id, hold) {

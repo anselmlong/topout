@@ -1,15 +1,16 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
-import { MAX_TESTS, SQUARE, TOLERANCE, holds as nHolds } from '../game/rules';
+import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, routeColor } from '../scene/palette';
-import type { HoldSize, HoldType } from '../solver/types';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, lipEffect, lipWord, routeColor } from '../scene/palette';
+import { holdVariant, incutRank } from '../solver/model';
+import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
 import { cycleSpeed, useClimb, usePlaySpeed } from '../state/climb';
 import { seenHelp } from '../state/persist';
-import { remaining, testLimit, useGame } from '../state/store';
+import { remaining, slotCount, testLimit, useGame } from '../state/store';
 
 const SIZE_LABEL: Record<HoldSize, string> = { s: 'S', m: 'M', l: 'L', xl: 'XL' };
 
@@ -173,6 +174,23 @@ export function Controls() {
   return <p className={`controls ${climbing ? 'away' : ''}`}>{text}</p>;
 }
 
+/** A hold's lip in words (and what it does), or null for one with none to read. */
+function Lip({ hold }: { hold: Hold }) {
+  const rank = incutRank(hold);
+  if (rank === null) return null;
+  return (
+    <span className="lip" title={lipEffect(hold.type, rank)}>
+      <span className="lip-meter" aria-hidden="true">
+        {[0, 1, 2, 3].map((i) => (
+          <i key={i} className={i <= Math.round(rank * 3) ? 'on' : undefined} />
+        ))}
+      </span>
+      {lipWord(hold.type, rank, holdVariant(hold))}
+      <span className="dim"> · {lipEffect(hold.type, rank)}</span>
+    </span>
+  );
+}
+
 export function Tray() {
   const wasActive = useRef(false);
   const day = useGame((s) => s.day)!;
@@ -240,6 +258,12 @@ export function Tray() {
       {armed && (
         <p className="hint">
           <b>{armed.type === 'volume' ? (armed.shape === 'wedge' ? 'Wedge' : 'Pyramid') : HOLD_NAME[armed.type]}</b> · {HOLD_HINT[armed.type]}
+          {armed.type !== 'volume' && remaining(day, placed, volumes, armed) > 0 && (
+            <>
+              <br />
+              Next: <Lip hold={{ id: '_next', ...armed, u: 0, v: 0, rot: 0, seed: nextTraySeed(day.number, placed, armed.type, armed.size, slotCount(day, armed)) }} />
+            </>
+          )}
         </p>
       )}
     </section>
@@ -312,11 +336,33 @@ export function SelectionBar() {
   const armed = useGame((s) => s.armed);
   const rotate = useGame((s) => s.rotate);
   const remove = useGame((s) => s.remove);
+  const swapBuild = useGame((s) => s.swapBuild);
   const onSpot = useGame((s) => !!s.selectedId && isSpotId(s.day!, s.selectedId));
+  const hold = useGame((s) => s.placed.find((h) => h.id === s.selectedId));
+  const day = useGame((s) => s.day);
+  const placed = useGame((s) => s.placed);
   if (selected && onSpot) return <SpotPicker id={selected} />;
   if (!selected && !armed) return null;
+  // Other builds of the selected hold still in its tray slot: a flatter or deeper one.
+  const builds = hold && day ? swapSeeds(day.number, placed, hold, slotCount(day, hold)) : [];
+  const at = hold ? builds.indexOf(holdVariant(hold) % TRAY_SEEDS) : -1;
   return (
     <div className="selection-bar" role="toolbar" aria-label="Hold controls">
+      {hold && incutRank(hold) !== null && (
+        <span className="lip-row">
+          <Lip hold={hold} />
+          {builds.length > 1 && (
+            <button
+              className="swap"
+              onClick={() => swapBuild()}
+              title={`Swap for another from the set (${at + 1} of ${builds.length}, flattest first)`}
+              aria-label="Swap for another build of this hold"
+            >
+              {at === builds.length - 1 ? 'Flatter ⇄' : 'Deeper ⇄'}
+            </button>
+          )}
+        </span>
+      )}
       <button onClick={() => rotate(Math.PI / 12)} aria-label="Rotate left">
         ↺
       </button>

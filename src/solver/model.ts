@@ -163,6 +163,18 @@ export function holdIncut(hold: Hold): number {
 }
 
 /**
+ * Where a hold's incut sits in what its type comes in: 0 its flattest build .. 1 its deepest,
+ * or null for a hold with no lip to read (a volume face). What the HUD reads out, so a hold
+ * too small to read on a phone screen still says how positive it is.
+ */
+export function incutRank(hold: Hold): number | null {
+  const range: [number, number] | undefined =
+    hold.type === 'jug' ? [Math.min(...JUG_INCUT), Math.max(...JUG_INCUT)] : INCUT_RANGE[hold.type];
+  if (!range) return null;
+  return Math.min(1, Math.max(0, (holdIncut(hold) - range[0]) / (range[1] - range[0])));
+}
+
+/**
  * What incut does to a hand hold, against the type's middling build (its GRIP entry):
  * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
  * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
