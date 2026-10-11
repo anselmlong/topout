@@ -29,6 +29,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   cut loose near the top of the throw, and the body then swings out under the catch, instead
   of the feet letting go first and the climber dropping (onto the pad from a sit start) before
   the hand had gone anywhere.
+- No more free high steps: a foot that was hanging off the wall now steps up from the foot the
+  climber is standing on, so the climber stops letting a foot go just to bring it back up higher
+  for less effort. The Sep 29 setter's route drops from 19 moves to 17 with fewer foot shuffles.
 
 **Grades**
 - Corners are checked against real climbs: three new reference problems, a chimney climbed back

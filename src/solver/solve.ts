@@ -580,9 +580,13 @@ class Context {
     // High steps: a big lift, or a foot tucked up near the hips, takes hip mobility and
     // a rockover, while the arms hold on. Climbers take an intermediate foot instead.
     // In a corner the other foot stems against the opposite face and makes it easy.
+    // The lift is from the hold (or smear) the foot leaves. A foot coming back on from off
+    // the wall (flagging, or cut loose) has no hold to step up from: it's lifted from the foot
+    // the climber stands on, so letting a foot go first doesn't make a high step free.
     let high = 0;
     if (to >= 0 && !heel) {
-      const lift = l[limb] >= 0 ? Math.max(0, np[limb].v - p[limb].v) : 0;
+      const from = l[limb] !== OFF || l[stay] === OFF ? p[limb] : p[stay];
+      const lift = Math.max(0, np[limb].v - from.v);
       // Or the back leans on the other face, the standing foot pushing it there.
       const stem = l[stay] !== OFF ? Math.max(stemBonus(this.wall, [np[2].u, np[3].u]), backBridge(this.wall, [p[0], p[1]], [p[stay]])?.bonus ?? 0) : 0;
       high =

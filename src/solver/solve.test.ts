@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { solve } from './solve';
+import { moveDifficulty, moveParts, solve } from './solve';
 import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
 import { lipContacts, volumeContacts } from './volumes';
-import { OFF, type Hold, type HoldType, type Point, type Volume, type Wall } from './types';
+import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
 
@@ -256,7 +256,10 @@ describe('solver', () => {
     const wedge: Volume = { id: 'w', shape: 'wedge', size: 'l', u: 200, v: 215, rot: 0 };
     const tilted = solve(steep, start, finishAt(380), crimps, { volumes: [wedge] });
     if (!plain.ok || !tilted.ok) throw new Error('expected both to send');
-    expect(tilted.grade).toBeLessThanOrEqual(plain.grade);
+    // The crux eases; the grade can carry a little more pump, as the feet step up through
+    // an intermediate foothold under the wedge instead of hanging one off and pulling it up.
+    expect(tilted.crux).toBeLessThan(plain.crux);
+    expect(tilted.grade).toBeLessThan(plain.grade + 0.1);
   });
 
   it('a dihedral lets you stem where a flat wall gives nothing to stand on', () => {
@@ -509,6 +512,26 @@ describe('solver', () => {
     const heeled = [withHeel.start, ...withHeel.moves.map((m) => m.to)].some((s) => s.limbs[2] === hookIdx || s.limbs[3] === hookIdx);
     expect(heeled).toBe(true);
     if (without.ok) expect(withHeel.grade).toBeLessThan(without.grade);
+  });
+
+  it('a foot let off the wall steps up from the standing foot, not for free', () => {
+    const hands: Hold[] = [
+      { id: 's1', type: 'jug', size: 'l', u: 180, v: 230, rot: 0, role: 'start' },
+      { id: 's2', type: 'jug', size: 'l', u: 220, v: 230, rot: 0, role: 'start' },
+    ];
+    // The left foot steps up 60 cm onto `high`, from a chip level with the standing right
+    // foot or from hanging off the wall: the same high step either way.
+    const feet: Hold[] = [
+      { id: 'low', type: 'foot', size: 'm', u: 180, v: 90, rot: 0, seed: 1 },
+      { id: 'high', type: 'foot', size: 'm', u: 185, v: 150, rot: 0, seed: 1 },
+      { id: 'stand', type: 'foot', size: 'm', u: 220, v: 90, rot: 0, seed: 1 },
+    ];
+    // Indices: start 0-1, finish 2, then low 3, high 4, stand 5.
+    const step = (from: number) => {
+      const move: Move = { limb: 2, from: { limbs: [0, 1, from, 5], points: [] as never }, to: { limbs: [0, 1, 4, 5], points: [] as never }, difficulty: 0, dynamic: false };
+      return moveDifficulty(moveParts(wall(0), hands, finishAt(380), feet, move)!);
+    };
+    expect(step(OFF)).toBeCloseTo(step(3), 9);
   });
 
   it('hooks only on steep ground: on a slab or a vertical face a foot by the hands is a high step', () => {
