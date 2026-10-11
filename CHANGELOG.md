@@ -6,6 +6,12 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-11
 
+**Grades**
+- Big macro slopers hold better on steep walls: their rough rim is big enough to wrap, so on
+  an overhang they grade about a grade and a half easier than before (a 40° macro sloper line
+  is now about V4, like the Tension Board's big dual-texture slopers), while small slopers stay
+  as hard as they were.
+
 **Holds**
 - Footholds differ too: every foot chip and jib is somewhere between a rounded, smeary nub and a
   sharp little shelf that juts out over its own shadow, and a positive one is easier to stand

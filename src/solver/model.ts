@@ -79,12 +79,22 @@ export const MACRO_TYPES: HoldType[] = ['sloper', 'edge', 'pinch'];
 /**
  * A macro's grip against a medium hold of its type (in place of SIZE_GRIP), from what a big
  * hold gives the hand. A dual-texture macro sloper takes the whole palm and the heel of the
- * hand on its rough side, far more friction than a fist-sized dome (still a sloper on an
- * overhang: steepLoss is untouched). A macro ledge is a shelf a full hand deep, nearly a jug.
+ * hand on its rough side, far more friction than a fist-sized dome (and it rolls off less on
+ * an overhang, MACRO_STEEP). A macro ledge is a shelf a full hand deep, nearly a jug.
  * A pinch block is a wide pinch: more to squeeze, but the thumb sits at the end of a long
  * span, so it's only a little better than a medium pinch.
  */
 export const MACRO_GRIP: Partial<Record<HoldType, number>> = { sloper: 1.3, edge: 1.2, pinch: 1.06 };
+
+/**
+ * A macro's share of its type's steepLoss. A fist-sized dome is pure friction under the palm
+ * and rolls off as soon as the pull swings out; a dual-texture macro sloper is big enough to
+ * wrap, the fingers curling round its rough rim and the thumb or heel of the hand opposing
+ * them, so on an overhang it's half a pinch. Fitted to the Tension Board 2's dual-texture
+ * sloper benchmarks (scripts/calibrate.ts): "Heel Slopers" goes V3 at 25° to V4 at 40°, where
+ * Kilter's smaller "Super Sloper Slam Fest" goes V4 at 20° to V6 at 40°.
+ */
+export const MACRO_STEEP: Partial<Record<HoldType, number>> = { sloper: 0.5 };
 
 /** Size multiplier on a hold's grip: SIZE_GRIP, or its type's MACRO_GRIP for a macro. */
 export function sizeGrip(type: HoldType, size: HoldSize): number {
@@ -421,7 +431,8 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   // Holds on a volume use that face's angle rather than the panel's.
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v)))) + areteYaw(hold, pullTo, wall);
   const incut = incutFactors(hold);
-  const steepFactor = 1 - spec.steepLoss * incut.steep * steep;
+  const macro = hold.size === 'xl' ? (MACRO_STEEP[hold.type] ?? 1) : 1;
+  const steepFactor = 1 - spec.steepLoss * macro * incut.steep * steep;
   const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip;
   return base * orient * steepFactor;
 }

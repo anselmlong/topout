@@ -225,6 +225,22 @@ export const ANCHORS: Anchor[] = [
   // and the Wolverine "Joshua Tree Bouldering" guide, V4) stems up a concave face of
   // featureless granite on smears and poor slopers.
   { name: 'vertical shallow corner, slopers, smears', angle: 0, type: 'sloper', size: 's', spacing: 50, feet: false, expect: 4, fold: 40 },
+  // Macros (size xl: MACRO_GRIP, MACRO_STEEP). Tension Board 2 Spray and Mirror consensus
+  // grades per angle on boardsesh.com (found via search on 2026-10-11; the site can't be
+  // fetched from this run). The TB2 is set with big dual-texture holds (wood, and Mimic's
+  // polyurethane), the board closest to these macros. Its grades run soft at the bottom (its
+  // jug warm-ups, "lane 4" with 1,962 ascents and "Jug Start", are V0 at 40°, where Kilter's
+  // Jug Skin is V3), so these are read against each other more than against the Kilter rows.
+  // Macro slopers on a gentle overhang: "Heel Slopers" (SamYau, 112 ascents) is V3 at 25° and
+  // 30°, V2 at 15°.
+  { name: '25° macro slopers', angle: 25, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 3 },
+  // The same at 40°: Heel Slopers V4 (V4 at 45° too), "Sloper's First Day of School" V4, and on
+  // the Mirror layout "Introduction to Slurping the Slopers" V4; "Jennifer Slopez" V3. Only a
+  // grade over 25°, where Kilter's smaller slopers climb two.
+  { name: '40° macro slopers', angle: 40, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 4 },
+  // Pinch blocks at 40°: TB2 Mirror "Pinchachu" (90 ascents) V4, "In a pinch?" (44) V3. The
+  // same grade as the TB2's slopers there: on the board, a big sloper is no worse than a pinch.
+  { name: '40° macro pinches', angle: 40, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 4 },
 ];
 
 const TOP = 400;

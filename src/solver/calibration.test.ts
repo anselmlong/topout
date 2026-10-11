@@ -35,6 +35,18 @@ describe('grade calibration', () => {
     expect(face.grade).toBeGreaterThan(r.grade + 1);
   });
 
+  it('climbs a macro sloper steep, not only up close', () => {
+    // Was V5.8 when a macro sloper rolled off an overhang like a fist-sized one (MACRO_STEEP).
+    const grade = (name: string) => {
+      const r = results.find(({ a }) => a.name === name)!.r;
+      if (!r.ok) throw new Error(r.message);
+      return r.grade;
+    };
+    expect(grade('40° macro slopers')).toBeLessThan(5);
+    // Still a sloper: the 40° board's smaller slopers stay a grade or more harder.
+    expect(grade('40° slopers')).toBeGreaterThan(grade('40° macro slopers') + 1);
+  });
+
   it('is accurate on average', () => {
     const err =
       results.reduce((s, { a, r }) => s + (r.ok ? Math.abs(r.grade - a.expect) : 5), 0) / results.length;
