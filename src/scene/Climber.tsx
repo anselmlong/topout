@@ -35,6 +35,14 @@ const SHELF_SPREAD = [-11, 11, -24, 24];
  * across behind the standing leg during the reach instead of jumping there in one frame.
  */
 const FLAG_SWING = 4;
+/**
+ * How far through a dyno's throw (share of the hand's travel) the feet stay on before they
+ * cut loose on steep ground. A dyno is driven by the legs: the feet push until the legs are
+ * straight and only leave the wall as the body rises to the deadpoint (Hörst, Training for
+ * Climbing, on dynamic moves). Cut at the launch, the body dropped out of the wind-up,
+ * onto the pad from a sit start, before the hand had gone anywhere.
+ */
+const DYNO_CUT = 0.55;
 /** How fast (per second) the back settles onto, or comes off, the other face of a corner. */
 const BACK_EASE = 2.5;
 
@@ -460,6 +468,8 @@ interface Run {
   sink: number;
   /** The moving limb's drive, held back until its wind-up is over (see Keyframe.prep). */
   launch: { at: number; n: number; to: THREE.Vector3; normal: THREE.Vector3; duration: number; lift: number } | null;
+  /** When the feet cut loose off a steep dyno (see DYNO_CUT), until they have. */
+  cut: number | null;
   /** The limb winding up to move, while it does (feet: the hips shift off it first). */
   winding: number;
   /** Hip turn for the current reach (see hipTurn): + left hip in, - right hip in. */
@@ -555,7 +565,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, cut: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -594,6 +604,7 @@ export function Climber({ day }: { day: Day }) {
     const { sim } = r;
     r.rest = null;
     r.launch = null;
+    r.cut = null;
     r.winding = f.prep ? f.limb : -1;
     // Decide which way a free leg flags: toward the reach (see flagFor). Between reaches a
     // flag stays where it is rather than swinging the leg over.
@@ -688,8 +699,9 @@ export function Climber({ day }: { day: Day }) {
       const target = toWorld(f.to.hands[f.limb as 0 | 1], 0.07);
       const push = target.sub(sim.pos[J.pelvis]).normalize().multiplyScalar(2.2);
       sim.impulse(push, STEP, [J.pelvis, J.chest, J.head, J.shoulderL, J.shoulderR, J.hipL, J.hipR]);
+      // On steep ground the feet cut loose, but only once the legs have driven the body up.
       const steep = frameAt(frames, f.to.hands[0].u, f.to.hands[0].v).normal.y < -0.2;
-      if (steep) [2, 3].forEach((n) => (sim.ends[n].mode = 'free'));
+      if (steep) r.cut = r.t + (f.travel ?? f.duration * 0.85) * DYNO_CUT;
       sfx.whoosh();
     }
     if (f.move >= 0) {
@@ -1069,6 +1081,10 @@ export function Climber({ day }: { day: Day }) {
         }
       }
       if (r.rest) shakeOut(r);
+      if (r.cut !== null && r.t >= r.cut) {
+        r.cut = null;
+        sim.cutFeet();
+      }
       if (r.launch && r.t >= r.launch.at) {
         const l = r.launch;
         r.launch = null;

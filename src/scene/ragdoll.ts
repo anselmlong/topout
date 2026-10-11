@@ -194,6 +194,16 @@ export class Ragdoll {
     this.burst = BURST;
   }
 
+  /**
+   * Feet cut loose off a dyno: they come off the wall and the body swings under the hands.
+   * The swing is the body's own, not part of the launch, so its speed limit is back on.
+   */
+  cutFeet() {
+    this.ends[2].mode = 'free';
+    this.ends[3].mode = 'free';
+    this.burst = 0;
+  }
+
   step(dt: number, posture: THREE.Vector3[] | null) {
     const { pos, prev } = this;
     // 1. Integrate. Damped well on the wall so limbs settle smoothly; barely when falling.
