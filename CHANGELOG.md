@@ -6,6 +6,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-11
 
+**Holds**
+- Footholds differ too: every foot chip and jib is somewhere between a rounded, smeary nub and a
+  sharp little shelf that juts out over its own shadow, and a positive one is easier to stand
+  on, most of all on slabs. Edges and crimps used as footholds stand better when they're incut.
+
 **Climber**
 - Knees bend the right way: on a sit start both knees come up toward the chest instead of one
   lying on the mat bent backwards, on steep walls the knees point out and up rather than down,

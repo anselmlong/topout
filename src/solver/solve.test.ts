@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { solve } from './solve';
-import { PALM_ALONE, backBridge, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
 import { lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Point, type Volume, type Wall } from './types';
 
@@ -22,7 +22,7 @@ function ladder(type: HoldType, spacing: number, top = 380, rot = 0): Hold[] {
   }
   // Feet start just above the crash pad (v = 30).
   for (let v = 42, j = 0; v < top - 110; v += 35, j++) {
-    holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 215 : 185, v, rot: 0 });
+    holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: j % 2 ? 215 : 185, v, rot: 0, incut: typicalIncut('foot') });
   }
   return holds;
 }
@@ -71,6 +71,20 @@ describe('solver', () => {
     const ratio = (angle: number) =>
       handGrip({ ...crimp, incut: 0.85 }, body, wall(angle)) / handGrip({ ...crimp, incut: 0.1 }, body, wall(angle));
     expect(ratio(40)).toBeGreaterThan(ratio(0));
+  });
+
+  it('positive foot chips grade easier than rounded ones of the same size', () => {
+    const feet = (holds: Hold[], incut: number) => holds.map((h) => (h.type === 'foot' ? { ...h, incut } : h));
+    // Slabs live on the feet: there the chips' incut is worth a grade or a big part of one.
+    for (const [type, angle] of [['edge', -15], ['edge', -10], ['crimp', -15]] as const) {
+      const rounded = grade(wall(angle), feet(ladder(type, 45), 0));
+      const positive = grade(wall(angle), feet(ladder(type, 45), 0.9));
+      expect(positive).toBeLessThan(rounded - 0.2);
+    }
+    // A rounded chip is still better than nothing to stand on: it's a worse foothold, not a smear.
+    const chip: Hold = { id: 'c', type: 'foot', size: 'm', u: 200, v: 100, rot: 0 };
+    expect(footQuality({ ...chip, incut: 0.9 })).toBeGreaterThan(footQuality({ ...chip, incut: 0 }));
+    expect(footQuality({ ...chip, incut: 0 })).toBeGreaterThan(SMEAR_QUALITY.vertical);
   });
 
   it('a macro sloper or ledge grades easier than a medium one, and a sloper macro still rolls off steep', () => {
@@ -274,7 +288,7 @@ describe('solver', () => {
     // the corner on the way up, and it climbs easier than the same holds in a wide corner.
     const holds: Hold[] = [];
     for (let v = 195, i = 0; v < 360; v += 45, i++) holds.push({ id: `h${i}`, type: 'crimp', size: 'm', u: i % 2 ? 215 : 185, v, rot: 0, seed: 0 });
-    for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `f${j}`, type: 'foot', size: 's', u: j % 2 ? 262 : 250, v, rot: 0 });
+    for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `f${j}`, type: 'foot', size: 's', u: j % 2 ? 262 : 250, v, rot: 0, incut: typicalIncut('foot') });
     const bridged = (w: Wall) => {
       const r = solve(w, start, finishAt(380), holds);
       if (!r.ok) throw new Error(r.message);

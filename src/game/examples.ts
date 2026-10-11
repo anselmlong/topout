@@ -68,6 +68,7 @@ function ladder(l: Ladder, day: Day): Hold[] {
   const holds: Hold[] = [];
   const mid = WIDTH / 2;
   const seeds = middling(l.type, l.size);
+  const feetSeeds = middling('foot', 'm');
   let i = 0;
   for (let v = START_V + l.spacing; v < FINISH_V - l.spacing / 2; v += l.spacing, i++) {
     const side = i % 2 ? 1 : -1;
@@ -75,7 +76,7 @@ function ladder(l: Ladder, day: Day): Hold[] {
   }
   if (l.feet)
     for (let v = 55, j = 0; v < FINISH_V - 120; v += 38, j++) {
-      const foot: Hold = { id: `p${100 + j}`, type: 'foot', size: 'm', u: mid + (j % 2 ? 16 : -16), v, rot: 0 };
+      const foot: Hold = { id: `p${100 + j}`, type: 'foot', size: 'm', u: mid + (j % 2 ? 16 : -16), v, rot: 0, seed: feetSeeds[j % 2] };
       // A chip that would crowd a handhold is left out, as a setter would.
       if (canPlace(day.wall, [...spotsOf(day), ...holds], foot)) holds.push(foot);
     }

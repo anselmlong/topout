@@ -850,8 +850,11 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
  * stands proud and is slightly incut (a little shelf the toe of a shoe sits on)
  * while the face ramps down toward the wall underneath, like the poured chips
  * gyms screw between the bolt holes. Returns the screw head's spot too.
+ * Its incut (0 .. 1) is how positive that shelf is: a flat chip's top edge barely stands
+ * proud and rolls over into the crown, a smeary nub; a deep one's lip juts out over a
+ * shadowed shelf, a sharp step the toe stands on (solver/model.ts FOOT_INCUT).
  */
-function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45) {
   const N = 24;
   const W = 0.028 * (0.92 + 0.16 * k);
   const H = 0.021 * (1.04 - 0.08 * k);
@@ -859,15 +862,16 @@ function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   // Screw hole: centre and countersink radius.
   const hy = -0.002;
   const rh = 0.0042;
-  const incut = 0.003 + 0.002 * k;
+  const lean = 0.0005 + 0.011 * incut;
   const p1 = r.range(0, 6.3);
   const wobble = Array.from({ length: N }, (_, j) => 1 + 0.04 * Math.sin(2 * ((j / N) * Math.PI * 2) + p1));
   const outline = (c: number, s: number, j: number): [number, number] => [
     W * sgnpow(c, 0.75) * wobble[j],
     H * (s > 0 ? sgnpow(s, 0.45) : sgnpow(s, 0.9)) * wobble[j],
   ];
-  // Tall at the top edge, ramping down to the bottom.
-  const tall = (s: number) => Z * (0.62 + 0.38 * s);
+  // Tall at the top edge, ramping down to the bottom; a flat chip's top edge hardly stands
+  // proud, so it reads as a rounded dome.
+  const tall = (s: number) => Z * (0.62 + 0.38 * s * (0.35 + 0.65 * incut));
   type Ring = [t: number, lift: number, shade: number];
   // Skirt rises steeply, then a flattish crown out to the countersink's rim.
   const rings: Ring[] = [
@@ -897,12 +901,14 @@ function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
       const x = ox + (1.7 * rh * c - ox) * t;
       let y = oy + (hy + 1.7 * rh * s - oy) * t;
       // The top lip leans out over its own base: a small incut shelf.
-      if (t > 0 && t < 0.3) y += incut * Math.max(0, s) ** 3;
+      if (t > 0 && t < 0.3) y += lean * Math.max(0, s) ** 3;
+      // ...over its own shadow: the deeper the shelf, the darker under the lip.
+      const under = t > 0 && t < 0.1 ? 1 - 0.5 * incut * Math.max(0, s) ** 3 : 1;
       // Hand-poured, so the skirt is a little uneven; the crown stays smooth.
       const jz = t > 0 && t < 0.3 ? r.range(0.95, 1.05) : 1;
       // The tilt fades out toward the middle, so the screw seats level.
       pos.push(x, y, ringZ(lift, s * (1 - t)) * jz);
-      shade.push(sh);
+      shade.push(sh * under);
     }
     if (i) quad(i);
   });
@@ -948,8 +954,10 @@ function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
  * out over the footprint: a little positive edge for the toe of a shoe, the
  * way setters turn a jib so its sharp side faces up. The crown is a flat-ish
  * facet with a countersunk screw through it. Returns the screw head's spot.
+ * Its incut (0 .. 1) is how sharp that edge is: a blunt jib's girdle barely leans out, a
+ * sharp one's juts over the footprint with a shadowed step under it.
  */
-function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45) {
   const N = r.chance(0.5) ? 6 : 7;
   const W = 0.019 * (0.85 + 0.3 * k);
   const H = 0.015 * (1.1 - 0.2 * k);
@@ -978,8 +986,14 @@ function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
   // Girdle: most of the width and height; on the top side it leans out over the footprint.
   const girdle = ring(true, (c, s) => {
     const m = r.range(0.8, 0.96);
-    return [W * c * m, H * s * m + 0.0028 * Math.max(0, s) ** 2, tall(s) * r.range(0.58, 0.7)];
+    return [W * c * m, H * s * m + (0.0004 + 0.0055 * incut) * Math.max(0, s) ** 2, tall(s) * r.range(0.58, 0.7)];
   }, 1);
+  // The step under the sharp side sits in its shadow: shade the footprint's top points, which
+  // only touch that band (faces take their darkest corner), so the crown stays light.
+  for (let j = 0; j < N; j++) {
+    const y = pos[(base + j) * 3 + 1];
+    if (y > 0) shade[base + j] = 1 - 0.4 * incut * Math.min(1, y / H);
+  }
   // Crown: a small top facet, slightly domed, nudged up toward the sharp side.
   const crown = ring(false, (c, s) => {
     const m = r.range(0.55, 0.64);
@@ -1201,7 +1215,8 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
     return data;
   }
   if (type === 'foot' || type === 'jib') {
-    const p = type === 'foot' ? footChipGeometry(SIZE[size], k, r) : jibGeometry(SIZE[size], k, r);
+    const build = type === 'foot' ? footChipGeometry : jibGeometry;
+    const p = build(SIZE[size], k, r, incutOf(type, size, v));
     const data = finish(p.geometry, r, false, (_x, _y, _z, i) => p.shade(i), spec.grip!);
     data.screw = { at: p.screw, size: p.screwSize };
     cache.set(key, data);

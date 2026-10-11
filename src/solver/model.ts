@@ -129,12 +129,16 @@ const INCUT_RANGE: Partial<Record<HoldType, [number, number]>> = {
   pocket: [0.2, 0.9],
   sloper: [0, 0.3],
   pinch: [0.2, 0.8],
+  // Footholds: a chip or jib from a rounded, smeary nub to a sharp positive shelf the toe
+  // of a shoe stands on (see FOOT_INCUT).
+  foot: [0, 0.9],
+  jib: [0.1, 0.8],
 };
 
 /**
  * How incut a hold is, 0 (flat) .. 1 (deep), from its seed and size. Each size steps the
  * four builds through the levels differently, so a small and a large edge from the same
- * seed don't share a lip. Foot chips, jibs and volume faces have none (0).
+ * seed don't share a lip. Volume faces have none (0).
  */
 export function incutOf(type: HoldType, size: HoldSize, variant: number): number {
   if (type === 'jug') return JUG_INCUT[variant % JUG_INCUT.length];
@@ -166,10 +170,24 @@ export function typicalIncut(type: HoldType): number {
 
 /** The grip and steepLoss multipliers a hold's incut gives it (1, 1 for a typical one). */
 export function incutFactors(hold: Hold): { grip: number; steep: number } {
-  if (hold.grip !== undefined || (!INCUT_RANGE[hold.type] && hold.type !== 'jug')) return { grip: 1, steep: 1 };
+  if (hold.grip !== undefined || !GRIP[hold.type].hand || (!INCUT_RANGE[hold.type] && hold.type !== 'jug')) return { grip: 1, steep: 1 };
   const d = holdIncut(hold) - typicalIncut(hold.type);
   return { grip: 1 + INCUT_GRIP * d, steep: Math.max(0, 1 - INCUT_STEEP * d) };
 }
+
+/**
+ * What incut does to a foothold, per unit against the type's typical build: a shoe edges on
+ * a positive shelf with the weight straight down through the toe, but on a rounded, flat-topped
+ * chip it's half a smear, the rubber rolling off as soon as the heel drops or the hips swing
+ * out. Only holds with an edge to stand on: foot chips, jibs, edges and crimps (a jug is
+ * positive whatever its family, a sloper or pinch is a lump either way).
+ * Coaching material: VDiff Climbing, "Climbing Technique: Footwork" (edging on a defined
+ * edge vs smearing poorly defined, sloping features; climbers stand on a positive foothold in
+ * preference to a smear); UKClimbing, "Technique - Use of the Toe" (on a good edge you can
+ * pull in with the toe as well as push down, keeping weight on the feet on steep ground).
+ */
+export const FOOT_INCUT = 0.4;
+const FOOT_INCUT_TYPES: HoldType[] = ['foot', 'jib', 'edge', 'crimp'];
 
 export const SMEAR_QUALITY = { slab: 0.62, vertical: 0.38 };
 
@@ -510,7 +528,8 @@ export function footQuality(hold: Hold): number {
   // only the corner of the sole bites, and upside down it's a smear on the hold's back.
   const up = (1 + Math.cos(hold.rot)) / 2;
   const facing = 1 - spec.footFacing * (1 - up);
-  return Math.min(1, spec.foot * { s: 0.85, m: 1, l: 1.05, xl: 1.12 }[hold.size] * facing + tilt);
+  const incut = FOOT_INCUT_TYPES.includes(hold.type) ? 1 + FOOT_INCUT * (holdIncut(hold) - typicalIncut(hold.type)) : 1;
+  return Math.min(1, spec.foot * { s: 0.85, m: 1, l: 1.05, xl: 1.12 }[hold.size] * facing * incut + tilt);
 }
 
 /**

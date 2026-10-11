@@ -276,7 +276,7 @@ export function anchorRoute(a: Anchor) {
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
-      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0 });
+      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: typicalIncut('foot') });
   return { wall, holds, finish: anchorFinish(a) };
 }
 
