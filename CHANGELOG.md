@@ -10,6 +10,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - No more knee whip on dynos: when the climber throws for a hold, the knees and elbows move with
   the body instead of snapping out sideways, so a high-stepped knee eases out to the side rather
   than flicking half a metre in a blink.
+- Feet go on the holds in corners and on slabs: moving a smear up the wall now counts as a real
+  step, so the climber stands on the edges and jugs below the hands instead of smearing past them
+  all the way up. Grades barely move, the beta just looks like a climber's.
 
 **Grades**
 - Heel hooks need something to hook: a foot brought up by the hands onto a hold too small to

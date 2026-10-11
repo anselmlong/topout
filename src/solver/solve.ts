@@ -57,6 +57,14 @@ const MAX_CACHED_MOVES = 2_000_000;
 const MIN_GRIP = 0.05;
 /** A stance that hangs at under this share of the hard moves' hang is a rest (hardStreak). */
 const REST = 0.6;
+/**
+ * What re-placing a smear costs the beta (the second pass's sum, not the move's difficulty):
+ * a smeared foot that follows the hands up by 40 cm or more has been stepped up, a foot move
+ * like stepping onto a hold, so it's charged this share of the move's hanging term (a step's
+ * cost is about that: one foot holding, both hands on). Otherwise smears ride along with the
+ * hands for next to nothing and the climber smears past footholds it should stand on.
+ */
+const RESTEP = 0.75;
 
 type Limbs = [number, number, number, number];
 
@@ -95,8 +103,9 @@ export function solve(
   }
   const crux = bottleneck.cost;
 
-  // Pass 2: smoothest route whose every move is within the crux.
-  const smooth = ctx.search(starts, isGoal, (acc, d) => acc + d, crux + 1e-9);
+  // Pass 2: smoothest route whose every move is within the crux. Footwork the moves leave
+  // out of their difficulty (smears re-placed, RESTEP) still costs the route.
+  const smooth = ctx.search(starts, isGoal, (acc, d, w) => acc + d + w, crux + 1e-9);
   const path = smooth.goal ? smooth.path : bottleneck.path;
 
   const moves: Move[] = [];
@@ -221,10 +230,11 @@ class Context {
   at: Point[];
   /**
    * Every legal move out of each stance the first pass expanded, in visit order, so the
-   * second pass reuses them instead of re-scoring: a move's cost depends only on the
+   * second pass reuses them instead of re-scoring: a move's cost (d, and the footwork w the
+   * second pass adds, RESTEP) depends only on the
    * stance and the move. Entry i is limb `code[i] & 3` to hold `(code[i] >> 2) - 2`.
    */
-  private moves = new Map<number, { code: Int32Array; d: Float64Array }>();
+  private moves = new Map<number, { code: Int32Array; d: Float64Array; w: Float64Array }>();
   private cachedMoves = 0;
   /**
    * Reach distance (cm). Across a dihedral or over a ledge, the real 3D distance: the corner
@@ -510,7 +520,7 @@ class Context {
    * Cost of moving `limb` to `to` from stance `l`, or null if impossible. Pass `parts` to
    * get the pieces the cost is built from (moveDifficulty rebuilds it from them).
    */
-  moveCost(l: Limbs, limb: number, to: number, p = this.points(l), parts?: MoveParts[]): { d: number; dynamic: boolean } | null {
+  moveCost(l: Limbs, limb: number, to: number, p = this.points(l), parts?: MoveParts[]): { d: number; dynamic: boolean; w: number } | null {
     const next = [...l] as Limbs;
     next[limb] = to;
     const np = this.points(next);
@@ -533,7 +543,7 @@ class Context {
         if (trailed && (!both || trailed.d < both.d)) best = trailed;
       }
       if (best) parts?.push(best.parts);
-      return best && { d: best.d, dynamic: best.dynamic };
+      return best && { d: best.d, dynamic: best.dynamic, w: best.w };
     }
 
     // Foot move: both hands hold the load the moving foot gave up.
@@ -582,7 +592,7 @@ class Context {
       hookK: hook === 'heel' ? 0.3 : hook === 'toe' ? 0.2 : 0,
       highK: load > 0 ? (high * g) / load : 0,
     });
-    return { d: load / g + match + heelUp + high, dynamic: false };
+    return { d: load / g + match + heelUp + high, dynamic: false, w: 0 };
   }
 
   /**
@@ -597,7 +607,7 @@ class Context {
     p: Point[],
     np: Point[],
     handsAngle: number,
-  ): { d: number; dynamic: boolean; parts: MoveParts } | null {
+  ): { d: number; dynamic: boolean; w: number; parts: MoveParts } | null {
     const other = 1 - limb;
     const onFeet = [2, 3].filter((f) => lw[f] !== OFF);
     // Centre of the three-point stance the climber hangs from mid-move.
@@ -650,7 +660,13 @@ class Context {
     // Smears are modelled relative to the hands, so they "follow" a hand move;
     // charge for re-smearing that far.
     let resmear = 0;
-    for (const f of [2, 3]) if (l[f] === SMEAR) resmear += this.dist(p[f], np[f]) / 100;
+    let restep = 0;
+    for (const f of [2, 3])
+      if (l[f] === SMEAR) {
+        const moved = this.dist(p[f], np[f]);
+        resmear += moved / 100;
+        restep += Math.min(1, moved / 40);
+      }
     // Crossing through is awkward: allowed, but it costs.
     const cross = Math.max(0, np[0].u - np[1].u) / BODY.maxHandCross;
     // Barn door: if the remaining hand and the feet line up vertically (the hinge),
@@ -673,6 +689,7 @@ class Context {
     return {
       d,
       dynamic,
+      w: RESTEP * hold * restep,
       parts: {
         kind: 'hand',
         angle: handsAngle,
@@ -692,31 +709,33 @@ class Context {
     };
   }
 
-  neighbours(l: Limbs, visit: (n: Limbs, d: number) => void) {
+  neighbours(l: Limbs, visit: (n: Limbs, d: number, w: number) => void) {
     const k = this.key(l);
     const hit = this.moves.get(k);
     if (hit) {
       for (let i = 0; i < hit.code.length; i++) {
         const n = [...l] as Limbs;
         n[hit.code[i] & 3] = (hit.code[i] >> 2) - 2;
-        visit(n, hit.d[i]);
+        visit(n, hit.d[i], hit.w[i]);
       }
       return;
     }
     const code: number[] = [];
     const ds: number[] = [];
-    this.scoreMoves(l, (n, d, limb) => {
+    const ws: number[] = [];
+    this.scoreMoves(l, (n, d, w, limb) => {
       code.push(((n[limb] + 2) << 2) | limb);
       ds.push(d);
-      visit(n, d);
+      ws.push(w);
+      visit(n, d, w);
     });
     if (this.cachedMoves < MAX_CACHED_MOVES) {
       this.cachedMoves += code.length;
-      this.moves.set(k, { code: Int32Array.from(code), d: Float64Array.from(ds) });
+      this.moves.set(k, { code: Int32Array.from(code), d: Float64Array.from(ds), w: Float64Array.from(ws) });
     }
   }
 
-  private scoreMoves(l: Limbs, visit: (n: Limbs, d: number, limb: number) => void) {
+  private scoreMoves(l: Limbs, visit: (n: Limbs, d: number, w: number, limb: number) => void) {
     const h = this.holds;
     const p = this.points(l);
     for (let limb = 0; limb < 4; limb++) {
@@ -739,7 +758,7 @@ class Context {
         if (!m) continue;
         const n = [...l] as Limbs;
         n[limb] = to;
-        visit(n, m.d, limb);
+        visit(n, m.d, m.w, limb);
       }
     }
   }
@@ -747,7 +766,7 @@ class Context {
   search(
     starts: Limbs[],
     isGoal: (l: Limbs) => boolean,
-    combine: (acc: number, d: number) => number,
+    combine: (acc: number, d: number, w: number) => number,
     maxEdge: number,
   ) {
     const best = new Map<number, number>();
@@ -777,10 +796,10 @@ class Context {
         truncated = true;
         break;
       }
-      this.neighbours(l, (n, d) => {
+      this.neighbours(l, (n, d, w) => {
         if (d > maxEdge) return;
         const nk = this.key(n);
-        const c = combine(pri, d);
+        const c = combine(pri, d, w);
         const old = best.get(nk);
         if (old !== undefined && old <= c) return;
         best.set(nk, c);

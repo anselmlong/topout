@@ -328,6 +328,30 @@ describe('solver', () => {
     expect(toEdge.from.limbs.slice(2).sort()).toEqual([0, 1]);
   });
 
+  it('in a corner, steps up onto the holds below instead of smearing past them all the way', () => {
+    // Day 97's reference route, as curated: a 6° overhanging 90° corner, holds on both faces.
+    const corner: Wall = { width: 360, panels: [{ length: 499, angle: 6 }], seed: 1, fold: { u: 145, angle: 90 } };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 108, v: 143, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 149, v: 149, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'crimp', size: 'm', u: 152, v: 217, rot: 0.26 },
+      { id: 'h3', type: 'edge', size: 'm', u: 117, v: 233, rot: -0.25 },
+      { id: 'h4', type: 'edge', size: 'l', u: 161, v: 278, rot: -0.17 },
+      { id: 'h5', type: 'pinch', size: 'l', u: 120, v: 309, rot: -0.68 },
+      { id: 'h6', type: 'pinch', size: 's', u: 165, v: 344, rot: 0.62 },
+      { id: 'h8', type: 'sloper', size: 'l', u: 163, v: 396, rot: -0.01 },
+    ];
+    const r = solve(corner, jugs, { id: 'finish', type: 'jug', size: 'l', u: 158, v: 459, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to stem two smears up behind the hands for all ten hand moves, never placing a
+    // foot. Re-placing a smear now costs the beta about what a step does, so the feet go
+    // up the edges and pinches the hands left.
+    const steps = r.moves.filter((m) => m.limb >= 2 && m.to.limbs[m.limb] >= 0);
+    expect(steps.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('keeps a low foot on for a reach instead of cutting it to flag', () => {
     // Day 28's near-vertical wall, as curated: start jugs, a wedge volume under them, a
     // jug, a sloper and a jug up the right, then the finish back left.
