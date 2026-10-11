@@ -12,7 +12,7 @@ import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
-import { ARM, LEG, TORSO, V, ik, type Pose } from './pose';
+import { ARM, LEG, TORSO, V, ik, type Pose, type ShoeHook } from './pose';
 import { J, JOINTS, Ragdoll } from './ragdoll';
 import { buildTimeline, CRUX_SLOWMO, SEND, SHAKE_SCRIPT, REST, windupSink, type Keyframe, type Timeline } from './timeline';
 import { STANDING_AT, standHip, topoutPose, type Lip } from './topout';
@@ -462,6 +462,8 @@ interface Run {
   legs: [LegTechnique, LegTechnique];
   /** Sidepull / gaston / undercling / press per hand for the current move. */
   arms: [ArmTechnique, ArmTechnique];
+  /** Per foot, a heel or toe hook for the current move and the hold point it hooks. */
+  hooks: [(ShoeHook & { at: THREE.Vector3 }) | null, (ShoeHook & { at: THREE.Vector3 }) | null];
   /** A shake-out in progress: which hand, when it began, and the hold it goes back to. */
   rest: { hand: 0 | 1; t0: number; hold: number; at: THREE.Vector3; dipped: boolean } | null;
   /** Hip sink of a dyno's wind-up this step (see windupSink). */
@@ -565,7 +567,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, cut: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], hooks: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, cut: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -626,6 +628,15 @@ export function Climber({ day }: { day: Day }) {
         if (mantleable(hold, day.wall) && mantleStep(f.to.hands, shelf, foot)) return up ? 'mantle' : 'shelf';
         return footTechnique(day.wall, f.to.hands, foot);
       }) as [LegTechnique, LegTechnique];
+      // A hooking foot turns its shoe over onto the hold: which way is out, along the wall.
+      r.hooks = [0, 1].map((i) => {
+        const kind = r.legs[i];
+        const foot = f.to.feet[i];
+        if ((kind !== 'heel' && kind !== 'toe') || !foot) return null;
+        const face = frameAt(frames, foot.u, foot.v);
+        const out = Math.sign(foot.u - (f.to.hands[0].u + f.to.hands[1].u) / 2) || (i === 0 ? -1 : 1);
+        return { kind, at: toWorld(foot, 0.06), out: face.right.clone().multiplyScalar(out), up: face.up.clone(), normal: face.normal.clone() };
+      }) as Run['hooks'];
       const mantling = r.legs.includes('mantle');
       // The body centre each hand pulls toward, as the solver sees it: between the
       // other hand and the feet.
@@ -1133,6 +1144,11 @@ export function Climber({ day }: { day: Day }) {
     if (import.meta.env.DEV) (window as unknown as { __sim: Ragdoll }).__sim = sim;
     const pose = arrayToPose(sim.pos);
     pose.grips = [gripDir(r, 0), gripDir(r, 1)];
+    // The shoe turns into its hook once the foot is there, not while it's still travelling.
+    pose.hooks = ([0, 1] as const).map((i) => {
+      const h = r.hooks[i];
+      return h && sim.pos[i === 0 ? J.footL : J.footR].distanceTo(h.at) < 0.12 ? h : null;
+    }) as Pose['hooks'];
     pose.palms = ([0, 1] as const).map((i) => (r.arms[i] === 'palm' && r.grip[i] >= 0 ? palmNormal(r.holds[r.grip[i]]) : null)) as Pose['palms'];
     let inFrame = r.t;
     for (let i = 0; i < r.frame; i++) inFrame -= timeline.frames[i].duration;
@@ -1194,6 +1210,8 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
   );
   /** The head's gaze turn, eased toward its target so the eyes don't snap between holds. */
   const gaze = useMemo(() => ({ q: new THREE.Quaternion(), want: new THREE.Quaternion(), dir: V(), last: 0 }), []);
+  /** Each shoe's turn into a hook (0 stepping .. 1 hooked) and the hook it eases out of. */
+  const shoe = useMemo(() => ({ w: [0, 0], hook: [null, null] as (ShoeHook | null)[], q: new THREE.Quaternion(), last: 0 }), []);
 
   const setSeg = (m: THREE.Mesh | undefined, a: THREE.Vector3, b: THREE.Vector3) => {
     if (!m) return;
@@ -1274,13 +1292,34 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
         // A palm lies flat on its face, the back of the hand along the face's normal.
         orient(m, fingers, p.palms?.[i] ?? fwd.clone().negate());
       });
-      // Shoes: along the facing direction, sole square to the shin.
+      // Shoes: along the facing direction, sole square to the shin. A hooking foot turns
+      // over onto its hold (see ShoeHook), easing in and out over a few tenths of a second.
+      const t = performance.now() / 1000;
+      const ease = 1 - Math.exp(-Math.min(0.1, Math.max(0, t - shoe.last)) * 9);
+      shoe.last = t;
       [0, 1].forEach((i) => {
         const m = shoes.current[i];
         if (!m) return;
         const shin = p.feet[i].clone().sub(p.knees[i]).normalize();
         m.position.copy(p.feet[i]).addScaledVector(fwd, 0.04);
         orient(m, shin.negate(), fwd);
+        const h = p.hooks?.[i];
+        if (h) shoe.hook[i] = h;
+        shoe.w[i] += ((h ? 1 : 0) - shoe.w[i]) * ease;
+        const was = shoe.hook[i];
+        if (!was || shoe.w[i] < 0.01) return;
+        // Heel: sole down on top of the hold, toe out along the wall and a little up, the
+        // heel on the hold point. Toe: laces back toward the body against the far side of
+        // the hold, toes up and in to the wall, the shoe just beyond the hold.
+        const heel = was.kind === 'heel';
+        const laces = heel ? was.up.clone().addScaledVector(was.normal, 0.5) : was.out.clone().negate().addScaledVector(was.up, 0.2);
+        const toes = heel ? was.out.clone().addScaledVector(was.up, 0.35) : was.up.clone().multiplyScalar(0.8).addScaledVector(was.normal, -0.6);
+        const q = shoe.q.copy(m.quaternion);
+        orient(m, laces, toes);
+        const along = tmp.a.set(0, 0, 1).applyQuaternion(m.quaternion);
+        const at = heel ? p.feet[i].clone().addScaledVector(along, 0.06) : p.feet[i].clone().addScaledVector(was.out, 0.035);
+        m.quaternion.copy(q.slerp(m.quaternion, shoe.w[i]));
+        m.position.lerp(at, shoe.w[i]);
       });
     },
   }));

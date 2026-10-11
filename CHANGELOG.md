@@ -22,6 +22,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   the next hold you place will be like.
 
 **Climber**
+- Hooks look like hooks: in a heel hook the shoe turns over so the heel sits on the hold and the
+  toe points out along the wall, and in a toe hook the foot flexes so the top of the shoe pulls
+  back on the far side of the hold, instead of both looking like an ordinary step.
 - Knees bend the right way: on a sit start both knees come up toward the chest instead of one
   lying on the mat bent backwards, on steep walls the knees point out and up rather than down,
   and in corners a knee no longer stays stuck bent the wrong way for several moves.

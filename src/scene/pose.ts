@@ -8,6 +8,21 @@ export const ARM = [0.3, 0.29];
 export const LEG = [0.43, 0.42];
 export const TORSO = 0.5;
 
+/**
+ * A foot hooking its hold, in the wall's frame there. The shoe turns from a step (toe into
+ * the wall, sole down) to the hook: a heel hook puts the heel on top of the hold with the
+ * toe turned out along the wall; a toe hook flexes the foot so the top of it, the laces,
+ * pulls back toward the body on the hold's far side, toes up and into the wall.
+ */
+export interface ShoeHook {
+  kind: 'heel' | 'toe';
+  /** Along the wall, away from the hands (the side the leg reaches out to). */
+  out: THREE.Vector3;
+  up: THREE.Vector3;
+  /** Out of the wall. */
+  normal: THREE.Vector3;
+}
+
 export interface Pose {
   hip: THREE.Vector3;
   chest: THREE.Vector3;
@@ -22,6 +37,8 @@ export interface Pose {
   grips?: [THREE.Vector3 | null, THREE.Vector3 | null];
   /** Per hand: the face a palm lies flat on (its normal), or null for a grip. */
   palms?: [THREE.Vector3 | null, THREE.Vector3 | null];
+  /** Per foot: a heel or toe hook it's in on its hold (see ShoeHook), or null for a step. */
+  hooks?: [ShoeHook | null, ShoeHook | null];
   /** Where the climber is looking (a hold), or undefined to face straight ahead. */
   look?: THREE.Vector3 | null;
 }
