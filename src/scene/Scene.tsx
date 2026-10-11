@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { nextTraySeed } from '../game/rules';
 import { defaultSpots, spotsOf } from '../game/spots';
-import { bestPull, holdVariant, lipV, wallHeight } from '../solver/model';
+import { bestPull, GRIP, holdVariant, lipV, wallHeight } from '../solver/model';
 import type { Day, Hold, Volume, Wall } from '../solver/types';
 import { surfaceAt } from '../solver/volumes';
 import { climberFocus, useClimb } from '../state/climb';
@@ -521,13 +521,25 @@ function HoldMesh({
   const onVolume = !!surfaceAt(volumes, hold.u, hold.v);
   // Used holds get chalky.
   const chalk = useClimb((s) => s.chalk[hold.id] ?? 0);
+  // A black hold barely shades: on a black route every lip, dish and incut read as the same
+  // dark blob. Real black plastic is a deep charcoal with a satin sheen, and that's how it
+  // shows its form, so it's drawn a shade lighter than its swatch and with a sheen that
+  // catches the light along every edge and over every dome.
+  const dark = useMemo(() => {
+    const c = new THREE.Color(tint);
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b < 0.06;
+  }, [tint]);
   // A faint dusting all over, and real build-up on the faces hands and shoes use.
-  const color = useMemo(
-    () => new THREE.Color(tint).lerp(new THREE.Color('#f4f2ec'), Math.min(0.12, chalk * 0.03)),
-    [tint, chalk],
-  );
+  const color = useMemo(() => {
+    const base = new THREE.Color(tint);
+    if (dark) base.lerp(new THREE.Color('#77797f'), 0.5);
+    return base.lerp(new THREE.Color('#f4f2ec'), Math.min(0.12, chalk * 0.03));
+  }, [tint, dark, chalk]);
+  // Hand holds come with the gym regulars' chalk already on them, the way a gym hold reads:
+  // the white sits exactly where the fingers go, a sloper's dome or a pinch's flanks.
+  const dust = GRIP[hold.type].hand && hold.type !== 'volume' ? 0.1 : 0;
   const chalkUniform = useMemo(() => ({ value: 0 }), []);
-  chalkUniform.value = chalk > 0 ? Math.min(0.85, 0.3 + chalk * 0.12) : 0;
+  chalkUniform.value = chalk > 0 ? Math.min(0.85, 0.3 + chalk * 0.12) : dust;
   // Shoe rubber: footholds come pre-scuffed from the gym's regulars, and every
   // foot the climber puts on a hold leaves a little more.
   const rubber = useClimb((s) => s.rubber[hold.id] ?? 0);
@@ -578,7 +590,7 @@ function HoldMesh({
           vertexColors
           color={color}
           flatShading
-          roughness={0.85 + chalk * 0.02}
+          roughness={(dark ? 0.45 : 0.85) + chalk * 0.02}
           onBeforeCompile={addChalk}
           transparent={dragging}
           opacity={dragging ? 0.75 : 1}

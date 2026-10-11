@@ -16,6 +16,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   heel (a medium edge, a pinch, a foot chip) now counts as a high step you rock over onto, and
   the climber stands on it instead of pretending to hook it. Grades move by half a grade at most.
 
+**Holds**
+- Black holds show their shape: on black-hold days the holds are a charcoal with a satin sheen
+  instead of a flat black, so a jug's scoop, a sloper's dome and an edge's lip catch the light.
+  Hand holds also carry a little of the gym's chalk where the fingers go before anyone climbs.
+
 ## 2026-10-11
 
 **Grades**
