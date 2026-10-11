@@ -662,6 +662,40 @@ export function footTechnique(wall: Wall, hands: [Point, Point], foot: Point): F
 }
 
 /**
+ * Whether a foot up near the hands on `hold` can hook it (footTechnique's heel or toe), as the
+ * solver and the climber's pose both judge it:
+ * - Heel: on steep ground a heel on a big hold near hand height pulls the hips in.
+ *   Needs something to hook (jug, big edge or sloper, a volume), and to be out to the side.
+ * - Toe: further out (leg nearly straight), on steeper ground, the top of the foot pulls
+ *   back toward the body against the hold's far side. Works on smaller holds than a heel,
+ *   but only if that side faces away from the climber (a sidepull turned outward).
+ * Anything else up there is stood on: a high step.
+ */
+export function canHook(wall: Wall, h: Hold, hands: [Point, Point], fp: Point): boolean {
+  if (h.id.startsWith('arete:')) return false;
+  const hiV = Math.max(hands[0].v, hands[1].v);
+  if (fp.v > hiV + 10) return false;
+  const midU = (hands[0].u + hands[1].u) / 2;
+  const out = Math.abs(fp.u - midU);
+  const angle = angleAt(wall, fp.v);
+  if (out < TOE_HOOK_OUT) {
+    const hookable = h.type === 'jug' || h.type === 'volume' || ((h.type === 'edge' || h.type === 'sloper') && isBig(h.size));
+    return angle >= HEEL_STEEP && hookable && out >= 25;
+  }
+  const toeable =
+    h.type === 'jug' ||
+    h.type === 'volume' ||
+    ((h.type === 'edge' || h.type === 'pinch') && h.size !== 's') ||
+    (h.type === 'sloper' && isBig(h.size));
+  if (angle < TOE_STEEP || !toeable) return false;
+  // The toe pulls the hold sideways, toward the body.
+  const best = bestPull(h.rot);
+  const c = Math.sign(midU - fp.u) * best.u;
+  const t = h.tol ?? GRIP[h.type].tolerance;
+  return (c + t) / (1 + t) >= 0.35;
+}
+
+/**
  * Hip turn (twist lock / backstep): reaching a long way up with one hand on vertical or
  * steeper ground, a climber turns that hip into the wall and stands on the outside edge
  * of that foot. The reaching shoulder rises toward the hold and the other arm stays

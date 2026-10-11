@@ -70,7 +70,8 @@ describe('grade drivers', () => {
       if (!r.ok) continue;
       for (const m of r.moves) expect(moveDifficulty(moveParts(wall, ROUTE_START, finish, holds, m)!)).toBeCloseTo(m.difficulty, 9);
     }
-  });
+    // Grades every reference problem: ~4 s alone, more with the other files running.
+  }, 30_000);
 
   it('names what makes the classic problems hard', () => {
     const top = (name: string) => gradeDrivers(day(name).d, day(name).test).map((x) => x.key);

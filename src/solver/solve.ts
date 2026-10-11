@@ -9,10 +9,7 @@
 import {
   BODY,
   PAD,
-  TOE_HOOK_OUT,
-  HEEL_STEEP,
-  TOE_STEEP,
-  bestPull,
+  canHook,
   SMEAR_QUALITY,
   angleAt,
   footQuality,
@@ -21,7 +18,6 @@ import {
   handGrip,
   handMatchable,
   handLoad,
-  isBig,
   isPalm,
   palmFactor,
   palmOpposed,
@@ -373,47 +369,30 @@ class Context {
     return backBridge(this.wall, [p[0], p[1]], [l[2] !== OFF ? p[2] : null, l[3] !== OFF ? p[3] : null])?.bonus ?? 0;
   }
 
-  /**
-   * Hooks: a foot up near the hands only stays on as a heel or toe hook.
-   * - Heel: on steep ground a heel on a big hold near hand height pulls the hips in.
-   *   Needs something to hook (jug, big edge or sloper, a volume), and to be out to the side.
-   * - Toe: further out (leg nearly straight), on steeper ground, the top of the foot pulls
-   *   back toward the body against the hold's far side. Works on smaller holds than a heel,
-   *   but only if that side faces away from the climber (a sidepull turned outward).
-   */
+  /** Hooks: a foot up near the hands only stays on as a heel or toe hook (canHook). */
   hookOk(val: number, fp: Point, p: Point[]): boolean {
-    const h = this.holds[val];
-    if (h.id.startsWith('arete:')) return false;
-    const hiV = Math.max(p[0].v, p[1].v);
-    if (fp.v > hiV + 10) return false;
-    const midU = (p[0].u + p[1].u) / 2;
-    const out = Math.abs(fp.u - midU);
-    const angle = angleAt(this.wall, fp.v);
-    if (out < TOE_HOOK_OUT) {
-      const hookable = h.type === 'jug' || h.type === 'volume' || ((h.type === 'edge' || h.type === 'sloper') && isBig(h.size));
-      return angle >= HEEL_STEEP && hookable && out >= 25;
-    }
-    const toeable =
-      h.type === 'jug' ||
-      h.type === 'volume' ||
-      ((h.type === 'edge' || h.type === 'pinch') && h.size !== 's') ||
-      (h.type === 'sloper' && isBig(h.size));
-    if (angle < TOE_STEEP || !toeable) return false;
-    // The toe pulls the hold sideways, toward the body.
-    const best = bestPull(h.rot);
-    const c = Math.sign(midU - fp.u) * best.u;
-    const t = h.tol ?? GRIP[h.type].tolerance;
-    return (c + t) / (1 + t) >= 0.35;
+    return canHook(this.wall, this.holds[val], [p[0], p[1]], fp);
   }
 
-  /** The hook (if any) a foot on a hold is in: heel or toe. */
-  hookOf(l: Limbs, f: 2 | 3, p: Point[]): 'heel' | 'toe' | null {
+  /**
+   * Where a foot on a hold sits by the hands (footTechnique's heel or toe spot), hooked or stood
+   * on. A foot stood on a mantle shelf is mantling instead (unless it could hook it).
+   */
+  footUp(l: Limbs, f: 2 | 3, p: Point[]): 'heel' | 'toe' | null {
     if (l[f] < 0) return null;
     const t = footTechnique(this.wall, [p[0], p[1]], p[f]);
     if (t !== 'heel' && t !== 'toe') return null;
-    // A foot stood on a mantle shelf isn't hooking it (unless it could: steep enough to heel).
     if (this.mantleFoot(l, f, p) && !this.hookOk(l[f], p[f], p)) return null;
     return t;
+  }
+
+  /**
+   * The hook (if any) a foot on a hold is in: heel or toe. Up by the hands on something it can't
+   * hook (too small, not out to the side), it's stood on: a high step, priced as one.
+   */
+  hookOf(l: Limbs, f: 2 | 3, p: Point[]): 'heel' | 'toe' | null {
+    const t = this.footUp(l, f, p);
+    return t && this.hookOk(l[f], p[f], p) ? t : null;
   }
 
   footQ(val: number, p: Point, hook: 'heel' | 'toe' | null = null): number {
@@ -490,8 +469,9 @@ class Context {
       }
     }
     if (l[2] >= 0 && l[3] >= 0 && this.dist(p[2], p[3]) > BODY.stride) return false;
-    // One heel and one toe at a time (a heel-toe pair is fine, two of the same is not).
-    const hooks = [this.hookOf(l, 2, p), this.hookOf(l, 3, p)];
+    // One heel and one toe at a time (a heel-toe pair is fine, two of the same is not), and
+    // the same for feet up there stood on: no matching both feet up by the hands.
+    const hooks = [this.footUp(l, 2, p), this.footUp(l, 3, p)];
     if (hooks[0] && hooks[0] === hooks[1]) return false;
     // Dab: hips sitting on the mat. Mirrors the pose the climber is drawn in.
     const on = [2, 3].filter((f) => l[f] !== OFF);

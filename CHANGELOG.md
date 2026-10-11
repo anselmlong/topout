@@ -11,6 +11,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   the body instead of snapping out sideways, so a high-stepped knee eases out to the side rather
   than flicking half a metre in a blink.
 
+**Grades**
+- Heel hooks need something to hook: a foot brought up by the hands onto a hold too small to
+  heel (a medium edge, a pinch, a foot chip) now counts as a high step you rock over onto, and
+  the climber stands on it instead of pretending to hook it. Grades move by half a grade at most.
+
 ## 2026-10-11
 
 **Grades**

@@ -42,6 +42,12 @@ export interface Anchor {
    * established on it (lip contacts, see volumes.ts) and stands up to reach the finish.
    */
   ledge?: number;
+  /**
+   * Hand holds set as rails: in pairs side by side, `rails` cm either side of the middle, every
+   * `spacing` up. The footholds stop at the start (a board's kicker), so above it the feet go on
+   * the rails: stood on, heel hooked or toe hooked.
+   */
+  rails?: number;
   /** The wall changes angle partway up: from `at` cm up the wall, it carries on at `angle`. */
   upper?: { at: number; angle: number };
   /**
@@ -241,6 +247,19 @@ export const ANCHORS: Anchor[] = [
   // Pinch blocks at 40°: TB2 Mirror "Pinchachu" (90 ascents) V4, "In a pinch?" (44) V3. The
   // same grade as the TB2's slopers there: on the board, a big sloper is no worse than a pinch.
   { name: '40° macro pinches', angle: 40, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 4 },
+  // Heel and toe hooks (solve.ts hookOk, model.ts footTechnique): board problems named for them,
+  // set on rails (rails), the footholds stopping at the kicker, so the feet go on the hand holds:
+  // stood on, heeled, toed or drop-kneed. Consensus grades per angle on boardsesh.com (found via
+  // search on 2026-10-11; the site can't be fetched from this run).
+  // Kilter Homewall "heel toe" (mbae, 212 sends at 40°) is V3 at 20°, 25° and 30°. Homewall holds
+  // run smaller than the Original's (more crimps, pinches and flakes): medium edges.
+  { name: '25° edge rails, heel hooks', angle: 25, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 3, rails: 40 },
+  // The same problem is V4 at 40°, as are Kilter Homewall "Off the Hook" (271 sends) and Kilter
+  // Original "$4 hookr" at 40°.
+  { name: '40° edge rails, heel hooks', angle: 40, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 4, rails: 40 },
+  // Tension Board 2 Mirror "Heel-Toe''" (wood and plastic set) is V2 at 25° and 30°, V1 at 20°.
+  // The TB2's holds are bigger and its grades run soft (see the macros above): big edges.
+  { name: '25° big edge rails, heel hooks', angle: 25, type: 'edge', size: 'l', spacing: 50, feet: true, expect: 2, rails: 40 },
 ];
 
 const TOP = 400;
@@ -282,7 +301,10 @@ export function anchorRoute(a: Anchor) {
   const holds: Hold[] = [];
   let i = 0;
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
-  for (let v = 150 + a.spacing; v < handTop; v += a.spacing, i++) {
+  for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
+    for (const u of [200 - a.rails, 200 + a.rails])
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type) });
+  for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
@@ -291,7 +313,7 @@ export function anchorRoute(a: Anchor) {
     holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type) });
   }
   if (a.feet)
-    for (let v = 55, j = 0; v < (a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
+    for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
       holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: typicalIncut('foot') });
   return { wall, holds, finish: anchorFinish(a) };
 }

@@ -6,7 +6,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { sfx } from '../audio/sfx';
 import { withSpots } from '../game/spots';
-import { backBridge, bestPull, flagFor, footTechnique, handTechnique, highStep, hipTurn, mantleable, mantleStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
+import { backBridge, bestPull, canHook, flagFor, footTechnique, handTechnique, highStep, hipTurn, mantleable, mantleStep, stemBonus, type FootTechnique, type HandTechnique } from '../solver/model';
 import type { Day, Hold, Point, Wall } from '../solver/types';
 import { contactList, surfaceAt } from '../solver/volumes';
 import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../state/climb';
@@ -626,7 +626,9 @@ export function Climber({ day }: { day: Day }) {
         // climber is standing up on that foot.
         const up = Math.max(f.to.hands[0].v, f.to.hands[1].v) - foot.v < 45;
         if (mantleable(hold, day.wall) && mantleStep(f.to.hands, shelf, foot)) return up ? 'mantle' : 'shelf';
-        return footTechnique(day.wall, f.to.hands, foot);
+        // Up by the hands on something too small or too slabby to hook, the foot is stood on.
+        const t = footTechnique(day.wall, f.to.hands, foot);
+        return (t === 'heel' || t === 'toe') && !canHook(day.wall, hold, f.to.hands, foot) ? null : t;
       }) as [LegTechnique, LegTechnique];
       // A hooking foot turns its shoe over onto the hold: which way is out, along the wall.
       r.hooks = [0, 1].map((i) => {

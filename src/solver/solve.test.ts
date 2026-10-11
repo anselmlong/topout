@@ -534,6 +534,30 @@ describe('solver', () => {
     expect(step(OFF)).toBeCloseTo(step(3), 9);
   });
 
+  it('only heel hooks a hold big enough to hook: a medium edge by the hands is stood on', () => {
+    // Hands on a rail, one a rung higher; the right foot comes up level with the low hand,
+    // out to the side, on a 30° wall: a heel on a big edge, a high step on a medium one.
+    const hands: Hold[] = [
+      { id: 's1', type: 'jug', size: 'l', u: 160, v: 200, rot: 0, role: 'start' },
+      { id: 's2', type: 'jug', size: 'l', u: 240, v: 250, rot: 0, role: 'start' },
+    ];
+    // Indices: start 0-1, finish 2, then stand 3, rail 4.
+    const parts = (size: 'm' | 'l') => {
+      const holds: Hold[] = [
+        { id: 'stand', type: 'foot', size: 'm', u: 195, v: 110, rot: 0, seed: 1 },
+        { id: 'rail', type: 'edge', size, u: 240, v: 200, rot: 0, incut: typicalIncut('edge') },
+      ];
+      const move: Move = { limb: 3, from: { limbs: [0, 1, 3, OFF], points: [] as never }, to: { limbs: [0, 1, 3, 4], points: [] as never }, difficulty: 0, dynamic: false };
+      const p = moveParts(wall(30), hands, finishAt(380), holds, move);
+      if (p?.kind !== 'foot') throw new Error('no foot move');
+      return p;
+    };
+    expect(parts('l').hookK).toBeGreaterThan(0);
+    expect(parts('l').highK).toBe(0);
+    expect(parts('m').hookK).toBe(0);
+    expect(parts('m').highK).toBeGreaterThan(0);
+  });
+
   it('hooks only on steep ground: on a slab or a vertical face a foot by the hands is a high step', () => {
     const hands: [Point, Point] = [
       { u: 180, v: 260 },
