@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-12
 
 **Climber**
+- No more shoulder jolts under roofs and ledges: an elbow or shoulder just under a roof's lip or a
+  ledge no longer gets shoved out from the wall as if it had hit the panel above, so reaching or
+  dynoing over a lip moves smoothly instead of the shoulder lurching out for a frame.
 - No more knee whip on dynos: when the climber throws for a hold, the knees and elbows move with
   the body instead of snapping out sideways, so a high-stepped knee eases out to the side rather
   than flicking half a metre in a blink.

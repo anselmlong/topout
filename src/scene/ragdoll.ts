@@ -342,6 +342,12 @@ export class Ragdoll {
     return n >= 0 && this.ends[n].mode !== 'free' ? 0 : 1;
   }
 
+  /** Whether a point is within a facet's own edges and in front of its face. */
+  private over(f: PanelFrame, p: THREE.Vector3) {
+    const local = frameLocal(f, p);
+    return local.out >= 0 && local.v >= 0 && local.v <= f.v1 - f.v0 && local.u >= 0 && local.u <= f.u1 - f.u0;
+  }
+
   private collide() {
     const g = this.ground;
     for (let i = 0; i < JOINTS; i++) {
@@ -355,6 +361,13 @@ export class Ragdoll {
         const across = local.u / 100;
         if (along < -0.05 || along > (f.v1 - f.v0) / 100 + 0.05) continue;
         if (across < -0.05 || across > (f.u1 - f.u0) / 100 + 0.05) continue;
+        // The 5 cm past a facet's edge closes the seams between facets, but at a convex edge
+        // (a roof's lip, an arête) it reaches out over the next facet, where the space behind
+        // this facet's plane is open air: on day 17's dyno an elbow under the roof, in front
+        // of it, was shoved 8 cm out along the headwall's normal in one step, and the shoulder
+        // with it. Past the edge, a point in front of a facet it's squarely over is in the air.
+        const past = along < 0 || along > (f.v1 - f.v0) / 100 || across < 0 || across > (f.u1 - f.u0) / 100;
+        if (past && this.frames.some((g) => g !== f && this.over(g, p))) continue;
         {
           const depth = local.out;
           // Volumes stand proud of the wall: collide with their surface instead.
