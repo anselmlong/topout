@@ -24,6 +24,16 @@ const DIMS: Record<VolumeShape, Record<'s' | 'l', Dims>> = {
 
 export const volumeDims = (v: Pick<Volume, 'shape' | 'size'>) => DIMS[v.shape][v.size];
 
+/**
+ * Foot quality of a bare face pointing down the wall (a volume's underside): a toe pressed up
+ * against it for body tension, half what the poorest standing face gives. Enough that a route
+ * with nothing else still goes, never a stance the climber picks over a top face or foot chip.
+ */
+export const UNDERSIDE_FOOT = 0.1;
+
+/** A bare volume face pointing down the wall (its underside): see UNDERSIDE_FOOT. */
+export const isUnderside = (h: Pick<Hold, 'id' | 'type' | 'rot'>) => h.type === 'volume' && /:f\d+$/.test(h.id) && Math.cos(h.rot) < -0.2;
+
 /** Radius of a circle that contains the footprint (for spacing and bounds checks). */
 export function volumeRadius(v: Pick<Volume, 'shape' | 'size'>) {
   const d = volumeDims(v);
@@ -148,8 +158,11 @@ export function volumeContacts(volumes: Volume[] | undefined, wall: Wall, placed
       // How much the face stands proud of the wall decides how positive it is.
       const grip = 0.22 + 0.25 * inPlane;
       // Feet like a face that points up in the real world; one facing the floor is useless.
+      // An underside (pointing down the wall) has nothing a shoe can stand on: a toe pressed up
+      // against it only holds a little body tension, so the climber stands on the top face or a
+      // foot chip beside it whenever there is one.
       const worldUp = Math.max(0, -Math.sin((angle * Math.PI) / 180));
-      const foot = angle > 55 ? 0 : 0.2 + 0.4 * worldUp + (angle < 10 ? 0.1 : 0);
+      const foot = angle > 55 ? 0 : isUnderside({ id: `${vol.id}:f${i}`, type: 'volume', rot }) ? UNDERSIDE_FOOT : 0.2 + 0.4 * worldUp + (angle < 10 ? 0.1 : 0);
       const bare = taken.has(i) ? 0.55 : 1;
       out.push({
         id: `${vol.id}:f${i}`,

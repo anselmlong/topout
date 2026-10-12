@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
 import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, pocketFingers, toGrade, typicalIncut } from './model';
-import { lipContacts, volumeContacts } from './volumes';
+import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
@@ -401,6 +401,35 @@ describe('solver', () => {
     const hard = r.moves.filter((m) => m.limb <= 1 && m.difficulty >= r.crux * 0.85);
     expect(hard.length).toBeGreaterThan(0);
     for (const m of hard) expect(m.from.limbs.slice(2)).not.toContain(OFF);
+  });
+
+  it("stands on a volume's top face or a foot chip, not its underside", () => {
+    // A player's route on day 44's slab corner: a small pyramid volume low down by the start
+    // jug, a foot chip under the jug and crimps up and right. The volume's lower faces point
+    // at the floor: only a toe pressed up against them, never what a climber stands on.
+    const corner: Wall = { width: 380, panels: [{ length: 500, angle: -8 }], seed: 1, fold: { u: 174, angle: 105 } };
+    const jug: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 198, v: 140, rot: 0, role: 'start' }];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 295, v: 469, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h1', type: 'pocket', size: 's', u: 190.45, v: 191.82, rot: -0.017, seed: 3 },
+      { id: 'h2', type: 'crimp', size: 'm', u: 240.55, v: 258.29, rot: -0.137, seed: 10 },
+      { id: 'h3', type: 'crimp', size: 'm', u: 239.79, v: 312.11, rot: -0.043, seed: 9 },
+      { id: 'h4', type: 'sloper', size: 'l', u: 290.88, v: 359.13, rot: -0.117, seed: 8 },
+      { id: 'h5', type: 'edge', size: 'm', u: 265.06, v: 416.66, rot: 0.205, seed: 2 },
+      { id: 'f0', type: 'jib', size: 'm', u: 265.7, v: 204.75, rot: 0, seed: 4 },
+      { id: 'f1', type: 'foot', size: 'm', u: 189.51, v: 105.27, rot: 0, seed: 8 },
+      { id: 'f2', type: 'foot', size: 'm', u: 301.38, v: 236.48, rot: 0, seed: 4 },
+      { id: 'f4', type: 'jib', size: 'm', u: 286.37, v: 250.33, rot: 0, seed: 5 },
+      { id: 'f5', type: 'jib', size: 'm', u: 237.8, v: 206.48, rot: 0, seed: 2 },
+    ];
+    const volumes: Volume[] = [{ id: 'v0', shape: 'pyramid', size: 's', u: 247.71, v: 102.19, rot: Math.PI / 2 }];
+    const r = solve(corner, jug, finish, holds, { volumes });
+    if (!r.ok) throw new Error(r.message);
+    // It used to start with a foot on the volume's underside and make the first two hand
+    // moves from it, with the top face and the foot chip both in reach.
+    const contacts = contactList(jug, finish, holds, volumes, corner);
+    const pressed = r.moves.filter((m) => m.limb <= 1 && [2, 3].some((f) => m.from.limbs[f] >= 0 && isUnderside(contacts[m.from.limbs[f]])));
+    expect(pressed).toHaveLength(0);
   });
 
   it('keeps a low foot on for a reach instead of cutting it to flag', () => {

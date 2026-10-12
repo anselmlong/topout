@@ -6,6 +6,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-13
 
+**Climber**
+- Feet go on a volume's top, not its underside: the climber stands on the top face of a volume
+  or a foot chip beside it instead of pressing a toe up under the volume, and keeps the
+  underside for when there's nothing else to stand on.
+
 **Holds**
 - Pockets come in finger sizes: a pocket is now a mono, a two-finger or three-finger hole, or a
   four-finger slot, and you can see which from how wide its hole is (the hold bar names it too).

@@ -38,7 +38,7 @@ import {
   GRIP,
 } from './model';
 import { Heap } from './heap';
-import { contactList } from './volumes';
+import { contactList, isUnderside } from './volumes';
 import {
   OFF,
   SMEAR,
@@ -76,6 +76,17 @@ const RESTEP = 0.75;
  * sends the beta on foot shuffles to duck under the line.
  */
 const PUMP = 0.5;
+
+/**
+ * What a hand move made with a foot pressed on a volume's underside (isUnderside) costs the
+ * beta on top of its difficulty: this share of its hanging term. A face pointing at the floor
+ * holds only a toe pressed up against it, so climbers stand on the volume's top face or a foot
+ * chip beside it, and keep the underside for when there's nothing else. Its low foot quality
+ * alone barely moves the beta (a foot being on counts for far more than how good it is), so
+ * the foot stayed on the underside move after move with a better foothold in reach. Like
+ * RESTEP, it's footwork the move's difficulty leaves out.
+ */
+const TOE_PRESS = 0.5;
 
 /** A move within this share of the crux is a hard one: it pumps (hardStreak). */
 const HARD = 0.85;
@@ -240,6 +251,8 @@ class Context {
   footVals: number[];
   /** Whether each hold is a shelf to mantle onto (see mantleable). */
   mantle: boolean[];
+  /** Whether each hold is a volume's underside, a toe press rather than a foothold (TOE_PRESS). */
+  under: boolean[];
   /** Wall v where the surface meets the top of the crash pad. */
   padV: number;
   /** Each hold's point, shared by every stance that uses it. */
@@ -247,7 +260,7 @@ class Context {
   /**
    * Every legal move out of each stance the first pass expanded, in visit order, so the
    * second pass reuses them instead of re-scoring: a move's cost (d, and the footwork w the
-   * second pass adds, RESTEP) depends only on the
+   * second pass adds, RESTEP and TOE_PRESS) depends only on the
    * stance and the move. Entry i is limb `code[i] & 3` to hold `(code[i] >> 2) - 2`.
    */
   private moves = new Map<number, { code: Int32Array; d: Float64Array; w: Float64Array }>();
@@ -279,6 +292,7 @@ class Context {
       : flatDist;
     this.at = holds.map((h) => ({ u: h.u, v: h.v }));
     this.mantle = holds.map((h) => mantleable(h, wall));
+    this.under = holds.map((h) => isUnderside(h));
     this.handIdx = holds.map((h, i) => (GRIP[h.type].hand ? i : -1)).filter((i) => i >= 0);
     this.footVals = [...holds.map((_, i) => i), SMEAR, OFF];
     this.padV = vAtHeight(wall, PAD);
@@ -702,10 +716,11 @@ class Context {
     // Matching is a shuffle: fine on the finish, a small cost anywhere else.
     const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
     const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
+    const pressed = onFeet.filter((f) => lw[f] >= 0 && this.under[lw[f]]).length;
     return {
       d,
       dynamic,
-      w: RESTEP * hold * restep,
+      w: (RESTEP * restep + TOE_PRESS * pressed) * hold,
       parts: {
         kind: 'hand',
         angle: handsAngle,
