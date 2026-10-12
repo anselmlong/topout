@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-12
 
 **Climber**
+- Feet go on before a hard reach: the climber gets a foot onto a hold before a hard reach
+  instead of reaching with a leg hanging, or cutting a foot loose just before the finish.
+  About half as many hard reaches are made with a foot off. Grades barely move.
 - No more shoulder jolts under roofs and ledges: an elbow or shoulder just under a roof's lip or a
   ledge no longer gets shoved out from the wall as if it had hit the panel above, so reaching or
   dynoing over a lip moves smoothly instead of the shoulder lurching out for a frame.

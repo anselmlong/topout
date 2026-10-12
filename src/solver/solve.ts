@@ -66,6 +66,20 @@ const REST = 0.6;
  */
 const RESTEP = 0.75;
 
+/**
+ * What a hard reach (a hand move that counts toward the pump, hardStreak) made with a foot
+ * hanging off the wall costs the beta on top of its difficulty: this share of it. Climbers
+ * get a foot on before a hard reach: two feet on take weight off the arms, and hard moves are
+ * what pump them (and what the grade counts). Without it the second pass only sums the moves,
+ * so a step plus an easier reach looked dearer than one hard reach, and the climber cut a foot
+ * loose or left it dangling for the reach. Only those reaches pay it: charging every hard move
+ * sends the beta on foot shuffles to duck under the line.
+ */
+const PUMP = 0.5;
+
+/** A move within this share of the crux is a hard one: it pumps (hardStreak). */
+const HARD = 0.85;
+
 type Limbs = [number, number, number, number];
 
 export function solve(
@@ -104,8 +118,10 @@ export function solve(
   const crux = bottleneck.cost;
 
   // Pass 2: smoothest route whose every move is within the crux. Footwork the moves leave
-  // out of their difficulty (smears re-placed, RESTEP) still costs the route.
-  const smooth = ctx.search(starts, isGoal, (acc, d, w) => acc + d + w, crux + 1e-9);
+  // out of their difficulty (smears re-placed, RESTEP) still costs the route, and so does a
+  // hard reach made with a foot off (PUMP).
+  const footOff = (a: Limbs, b: Limbs) => (a[0] !== b[0] || a[1] !== b[1]) && (a[2] === OFF || a[3] === OFF);
+  const smooth = ctx.search(starts, isGoal, (acc, d, w, a, b) => acc + d + w + (d >= crux * HARD && footOff(a, b) ? PUMP * d : 0), crux + 1e-9);
   const path = smooth.goal ? smooth.path : bottleneck.path;
 
   const moves: Move[] = [];
@@ -140,7 +156,7 @@ export function solve(
  * A hard foot move counts too: the arms hold on while the foot finds its hold.
  */
 export function hardStreak(moves: Move[], crux: number, hang: number[]): number {
-  const hard = (m: Move) => m.difficulty >= crux * 0.85;
+  const hard = (m: Move) => m.difficulty >= crux * HARD;
   const strain = Math.max(0, ...moves.map((m, i) => (hard(m) && Number.isFinite(hang[i]) ? hang[i] : 0)));
   let run = 0;
   let longest = 0;
@@ -766,7 +782,7 @@ class Context {
   search(
     starts: Limbs[],
     isGoal: (l: Limbs) => boolean,
-    combine: (acc: number, d: number, w: number) => number,
+    combine: (acc: number, d: number, w: number, from: Limbs, to: Limbs) => number,
     maxEdge: number,
   ) {
     const best = new Map<number, number>();
@@ -799,7 +815,7 @@ class Context {
       this.neighbours(l, (n, d, w) => {
         if (d > maxEdge) return;
         const nk = this.key(n);
-        const c = combine(pri, d, w);
+        const c = combine(pri, d, w, l, n);
         const old = best.get(nk);
         if (old !== undefined && old <= c) return;
         best.set(nk, c);

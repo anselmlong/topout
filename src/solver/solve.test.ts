@@ -365,6 +365,31 @@ describe('solver', () => {
     expect(steps.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('sets a foot up before a hard reach instead of muscling it with a foot off', () => {
+    // Day 23's vertical wall, as curated: start jugs, a big sloper, a small sloper and a big
+    // crimp up and left, two foot chips.
+    const face: Wall = { width: 400, panels: [{ length: 456, angle: 1 }], seed: 1 };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 211, v: 160, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 259, v: 166, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'sloper', size: 'l', u: 220.79, v: 243.14, rot: -0.051 },
+      { id: 'h3', type: 'sloper', size: 's', u: 143.33, v: 301.96, rot: 0.025 },
+      { id: 'h4', type: 'crimp', size: 'l', u: 179.58, v: 334.47, rot: 0.111 },
+      { id: 'f0', type: 'foot', size: 'm', u: 165.99, v: 244.81, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 183.06, v: 99.09, rot: 0 },
+    ];
+    const r = solve(face, jugs, { id: 'finish', type: 'jug', size: 'l', u: 116, v: 422, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to make two of its hard reaches with the right foot hanging: matching the big
+    // sloper, and the finish, after cutting the foot loose. Now the foot goes on first (the
+    // start jug, then the big sloper), so no hard reach is made with a foot off.
+    const hard = r.moves.filter((m) => m.limb <= 1 && m.difficulty >= r.crux * 0.85);
+    expect(hard.length).toBeGreaterThan(0);
+    for (const m of hard) expect(m.from.limbs.slice(2)).not.toContain(OFF);
+  });
+
   it('keeps a low foot on for a reach instead of cutting it to flag', () => {
     // Day 28's near-vertical wall, as curated: start jugs, a wedge volume under them, a
     // jug, a sloper and a jug up the right, then the finish back left.
