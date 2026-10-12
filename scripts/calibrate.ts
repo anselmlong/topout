@@ -34,6 +34,8 @@ export interface Anchor {
   undercling?: boolean;
   /** Every hand hold's incut (0 flat .. 1 deep); default the type's typical build. */
   incut?: number;
+  /** Every hand hold's finger count if it's a pocket (1 a mono .. 4 a slot); default from its seed. */
+  fingers?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -279,6 +281,20 @@ export const ANCHORS: Anchor[] = [
   // under "Jug Skin" (the 40° jugs above, typical Kilter jugs, which the retailers say get
   // slopier as the board steepens).
   { name: '40° large buckets', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 1, incut: 0.95 },
+  // Pockets by finger count (model.ts fingersOf, FINGER_GRIP): until now no reference problem
+  // used pockets at all. Kilter consensus grades per angle on boardsesh.com (found via search on
+  // 2026-10-12; the site can't be fetched from this run).
+  // Two-finger pockets: Kilter Board Original "Pocket simulator" (Govert, 21 ascents at 30°) is
+  // climbed with only the middle and ring fingers on each hand, so every hold is a two-finger
+  // pocket on the Original's medium-sized holds. V5 at 30° and at 40°. (It is also listed V2 at
+  // 20°, three grades under 30°, which no other board problem here does in 10°; left out.)
+  { name: '30° two-finger pockets', angle: 30, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 5, fingers: 2 },
+  { name: '40° two-finger pockets', angle: 40, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 5, fingers: 2 },
+  // Open pockets: Kilter Homewall "Pockets" (steven97) is V3 at 30°, V4 at 40° and V5 at 45°, a
+  // grade and more under the two-finger problem above, so it climbs on bigger pockets the whole
+  // hand nearly fits: large three-finger pockets.
+  { name: '30° large pockets', angle: 30, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 3, fingers: 3 },
+  { name: '40° large pockets', angle: 40, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 4, fingers: 3 },
 ];
 
 const TOP = 400;
@@ -322,14 +338,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)

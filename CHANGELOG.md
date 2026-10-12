@@ -18,6 +18,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   four-finger slot, and you can see which from how wide its hole is (the hold bar names it too).
   Monos are much harder to hang than a two-finger pocket, which is harder than a three-finger one.
 
+**Grades**
+- Pockets are checked against real board problems: two Kilter pocket problems, one on
+  two-finger pockets and one on big three-finger pockets, each at 30° and 40°, now anchor pocket
+  grades. Topout already grades them within about half a grade, so no grades change.
+
 ## 2026-10-12
 
 **Climber**
