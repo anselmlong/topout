@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, pocketFingers, toGrade, typicalIncut } from './model';
 import { lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -71,6 +71,19 @@ describe('solver', () => {
     const ratio = (angle: number) =>
       handGrip({ ...crimp, incut: 0.85 }, body, wall(angle)) / handGrip({ ...crimp, incut: 0.1 }, body, wall(angle));
     expect(ratio(40)).toBeGreaterThan(ratio(0));
+  });
+
+  it('a pocket that takes more fingers grades easier: a mono is the hardest', () => {
+    const withFingers = (holds: Hold[], fingers: number) => holds.map((h) => (h.type === 'pocket' ? { ...h, fingers, incut: 0.55 } : h));
+    for (const angle of [0, 25]) {
+      const g = [1, 2, 3, 4].map((f) => grade(wall(angle), withFingers(ladder('pocket', 45), f)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.3);
+      expect(g[1]).toBeGreaterThan(g[2]);
+      expect(g[2]).toBeGreaterThanOrEqual(g[3]);
+    }
+    // Every size's own seeds cover a spread of finger counts, and only pockets have one.
+    for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => fingersOf(size, v))).size).toBeGreaterThan(1);
+    expect(pocketFingers({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {

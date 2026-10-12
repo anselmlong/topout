@@ -48,6 +48,8 @@ export interface Hold {
   seed?: number;
   /** Incut override, 0 (flat) .. 1 (deep); otherwise read off the seed (see holdIncut). */
   incut?: number;
+  /** Pocket finger-count override, 1 (a mono) .. 4; otherwise read off the seed (see pocketFingers). */
+  fingers?: number;
 }
 
 export interface Panel {

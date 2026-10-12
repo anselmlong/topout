@@ -177,6 +177,48 @@ export function incutRank(hold: Hold): number | null {
 }
 
 /**
+ * How many fingers a pocket takes (1 a mono .. 4 a full-hand slot), from its seed and size,
+ * independent of its hood (incutOf steps the same four builds in a different order). Small
+ * pockets run from monos to three-finger holes, large ones from two-finger holes to slots.
+ * The scene draws the hole that wide (holdGeometry pocketGeometry), so it reads at a glance.
+ */
+export const POCKET_FINGERS: Record<HoldSize, number[]> = { s: [1, 2, 2, 3], m: [2, 2, 3, 3], l: [2, 3, 4, 4], xl: [3, 3, 4, 4] };
+
+export function fingersOf(size: HoldSize, variant: number): number {
+  const list = POCKET_FINGERS[size];
+  return list[(3 * variant + 1 + { s: 0, m: 1, l: 2, xl: 3 }[size]) % list.length];
+}
+
+export function pocketFingers(hold: Hold): number | null {
+  return hold.type === 'pocket' ? (hold.fingers ?? fingersOf(hold.size, holdVariant(hold))) : null;
+}
+
+/**
+ * A pocket's grip by finger count, against a four-finger slot. The fingers aren't equal: in
+ * finger-force studies the middle finger carries about a third of the hand's pull, the ring
+ * finger a quarter, the index a little more and the little finger the rest (Vigouroux et al.,
+ * "Estimation of finger muscle tendon tensions and pulley forces during specific sport-climbing
+ * grip techniques", J. Biomech. 2006), so a two-finger pocket (middle and ring) holds a bit
+ * over half of what the whole hand does and a mono a third. Coaching material agrees that the
+ * count, not the hood, is what makes a pocket hard: Eric Hörst, "Training for Climbing" (two-
+ * finger pockets and monos are among the most stressful holds; three-finger pockets climb
+ * close to an edge); Climbing.com, "How to Climb Pockets" (match the fingers to the hole:
+ * a mono is a hard, risky hold). Gentler than the force shares, since a climber pulls a mono
+ * with the strongest finger and the body stays on through the feet.
+ * Normalised per size (fingerFactor), so the typical pocket of each size climbs as before.
+ */
+export const FINGER_GRIP = [0, 0.66, 0.86, 0.97, 1];
+
+/** A pocket's grip multiplier for its finger count against the average of its size (1 otherwise). */
+export function fingerFactor(hold: Hold): number {
+  const f = pocketFingers(hold);
+  if (f === null || hold.grip !== undefined) return 1;
+  const list = POCKET_FINGERS[hold.size];
+  const mean = list.reduce((a, n) => a + FINGER_GRIP[n], 0) / list.length;
+  return FINGER_GRIP[Math.max(1, Math.min(4, Math.round(f)))] / mean;
+}
+
+/**
  * What incut does to a hand hold, against the type's middling build (its GRIP entry):
  * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
  * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
@@ -462,7 +504,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep;
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip;
+  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold);
   return base * orient * steepFactor;
 }
 

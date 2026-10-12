@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-13
+
+**Holds**
+- Pockets come in finger sizes: a pocket is now a mono, a two-finger or three-finger hole, or a
+  four-finger slot, and you can see which from how wide its hole is (the hold bar names it too).
+  Monos are much harder to hang than a two-finger pocket, which is harder than a three-finger one.
+
 ## 2026-10-12
 
 **Climber**

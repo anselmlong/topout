@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { incutOf } from '../solver/model';
+import { fingersOf, incutOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -265,17 +265,19 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
  * centre. Built as rings around the hole rather than a dented ball, so the
  * rim is a sharp rolled edge, the hole has real walls and a floor, and the
  * top of the hole is hooded: the cavity runs up behind the lip, which is what
- * makes a good pocket incut. Large pockets take three fingers, small ones two.
+ * makes a good pocket incut. The hole is as wide as the fingers it takes
+ * (model.ts fingersOf): a mono is a round dimple, a four-finger slot a long letterbox.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5) {
+function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, fingers = 2) {
   const N = 28;
-  const W = 0.066 * (0.94 + 0.1 * k);
+  // The body widens to frame a long slot.
+  const W = (0.056 + 0.0065 * fingers) * (0.94 + 0.1 * k);
   const H = 0.056 * (1.04 - 0.08 * k);
-  // Hole: centre, half-width (finger count) and half-height.
+  // Hole: centre, half-width (a finger's width each) and half-height.
   const hy = 0.012 + 0.006 * k;
-  const a = 0.023 + 0.006 * k;
-  const b = 0.012;
+  const a = 0.006 + 0.0085 * fingers;
+  const b = Math.min(0.012, 0.85 * a);
   const Z = 0.028;
   const floorZ = 0.008;
   // How far the cavity runs up behind the lip: a deep hood wraps over the fingers.
@@ -1208,8 +1210,10 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   const r = rng(hash(type.length, type.charCodeAt(0), type.charCodeAt(1), size.charCodeAt(0), v));
   const k = v / (VARIANTS - 1);
   if (type === 'pocket' || type === 'sloper' || type === 'pinch') {
-    const build = { pocket: pocketGeometry, sloper: sloperGeometry, pinch: pinchGeometry }[type];
-    const p = build(SIZE[size], k, r, incutOf(type, size, v));
+    const p =
+      type === 'pocket'
+        ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v))
+        : { sloper: sloperGeometry, pinch: pinchGeometry }[type](SIZE[size], k, r, incutOf(type, size, v));
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;

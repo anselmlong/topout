@@ -97,6 +97,16 @@ export function lipWord(type: HoldType, rank: number, variant: number): string {
   return words[Math.round(rank * (words.length - 1))];
 }
 
+/** A pocket's size in fingers (model.ts pocketFingers). */
+const FINGER_WORDS = ['', 'Mono', 'Two-finger', 'Three-finger', 'Four-finger slot'];
+export function fingerWord(fingers: number): string {
+  return FINGER_WORDS[Math.max(1, Math.min(4, Math.round(fingers)))];
+}
+/** What a small pocket's finger count does (three or more fingers climb on their hood). */
+export function fingerEffect(fingers: number): string | null {
+  return fingers <= 1 ? 'one finger: much harder' : fingers === 2 ? 'two fingers: harder' : null;
+}
+
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
   if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';
