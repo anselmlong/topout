@@ -402,6 +402,8 @@ function dropPose(hip: THREE.Vector3, face: THREE.Vector3, squat: number, arms: 
 }
 
 const STEP = 1 / 120;
+/** Seconds the body takes to unfold from its hang into the drop off the top, and the arms to come down on landing. */
+const LET_GO = 0.3;
 const LIMB_NAME = ['Left hand', 'Right hand', 'Left foot', 'Right foot'];
 
 function poseToArray(p: Pose): THREE.Vector3[] {
@@ -482,7 +484,7 @@ interface Run {
   backOn: boolean;
   lastThud: number;
   /** The top-out after a send or near miss (see topOut). */
-  out: { t0: number; released: boolean; landed: number; face: THREE.Vector3; turned: number; claps: number; floor: number; mantle: { from: Pose; lip: Lip } | null } | null;
+  out: { t0: number; released: boolean; landed: number; face: THREE.Vector3; turned: number; claps: number; floor: number; mantle: { from: Pose; lip: Lip } | null; hang: THREE.Vector3[] | null } | null;
 }
 
 export function Climber({ day }: { day: Day }) {
@@ -863,7 +865,7 @@ export function Climber({ day }: { day: Day }) {
       const n = frameAt(frames, day.finish.u, day.finish.v).normal;
       const face = V(-n.x, 0, -n.z);
       if (face.lengthSq() < 0.01) face.set(0, 0, -1);
-      r.out = { t0: r.t, released: false, landed: -1, face: face.normalize(), turned: 0, claps: 0, floor: 0, mantle: null };
+      r.out = { t0: r.t, released: false, landed: -1, face: face.normalize(), turned: 0, claps: 0, floor: 0, mantle: null, hang: null };
       sim.tone = 1;
       puff(toWorld(day.finish, 0.05), n, timeline.send ? 24 : 10, 0.7);
       if (timeline.send) sfx.topout();
@@ -918,6 +920,8 @@ export function Climber({ day }: { day: Day }) {
     if (!out.released) {
       if (k < SEND.release) return null;
       out.released = true;
+      // The hanging body's shape off the hips, to ease out of (see LET_GO).
+      out.hang = sim.pos.map((p) => p.clone().sub(sim.pos[J.pelvis]));
       sim.ends.forEach((e) => (e.mode = 'free'));
       r.grip = [-1, -1];
       sim.tone = 0.7;
@@ -931,7 +935,14 @@ export function Climber({ day }: { day: Day }) {
     if (out.landed < 0) {
       const lowest = Math.min(...[J.footL, J.footR].map((j) => sim.pos[j].y - groundAt(sim.pos[j].x, sim.pos[j].z)));
       const falling = sim.pos[J.pelvis].y - sim.prev[J.pelvis].y < 0;
-      if (lowest > 0.07 || !falling) return poseToArray(dropPose(hip, out.face, 0.25, 'drop'));
+      if (lowest > 0.07 || !falling) {
+        const drop = poseToArray(dropPose(hip, out.face, 0.25, 'drop'));
+        // Letting go, the body unfolds from its hang into the drop instead of snapping to it:
+        // switched at once, the torso's muscles yanked the head and hips round at 12 m/s.
+        const x = Math.min(1, (k - SEND.release) / LET_GO);
+        const s = x * x * (3 - 2 * x);
+        return out.hang && s < 1 ? drop.map((p, i) => hip.clone().add(out.hang![i]).lerp(p, s)) : drop;
+      }
       // Touchdown: plant the feet under the hips and soak it up.
       out.landed = r.t;
       out.floor = groundAt(hip.x, hip.z);
@@ -964,7 +975,14 @@ export function Climber({ day }: { day: Day }) {
       });
     }
     const { arms, ak } = celebrate(r, t);
-    return poseToArray(dropPose(stand, face, squat, arms, ak));
+    const pose = poseToArray(dropPose(stand, face, squat, arms, ak));
+    if (t >= LET_GO) return pose;
+    // The arms come down from overhead as the legs soak up the landing, not in one frame.
+    const up = poseToArray(dropPose(stand, face, squat, 'drop'));
+    const x = t / LET_GO;
+    const s = x * x * (3 - 2 * x);
+    for (const j of [J.elbowL, J.elbowR, J.handL, J.handR]) pose[j] = up[j].lerp(pose[j], s);
+    return pose;
   };
   /**
    * Standing and facing the room, `t` seconds after landing (or the equivalent after a

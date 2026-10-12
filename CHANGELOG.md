@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-12
 
 **Climber**
+- Smooth drop off a traverse: letting go of a low finish, the climber unfolds from the hang
+  into the drop and the arms come down to the sides as they land, instead of the arms and
+  head flinging round in a single frame.
 - Feet go on before a hard reach: the climber gets a foot onto a hold before a hard reach
   instead of reaching with a leg hanging, or cutting a foot loose just before the finish.
   About half as many hard reaches are made with a foot off. Grades barely move.

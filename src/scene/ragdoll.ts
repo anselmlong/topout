@@ -57,6 +57,15 @@ const FREE_FOOT_PULL = 0.06;
 const FREE_FOOT_DAMP = 0.3;
 const FREE_FOOT_SPEED = 2.5;
 /**
+ * The same for a free hand off the wall (dropping off, landing, celebrating), relative to the
+ * chest, with an arm's quicker top speed. Pulled straight at its pose instead, a hand jumped
+ * 14 cm a step whenever the pose changed (letting go, touchdown) and built up Verlet speed:
+ * on day 20's landing the arms flung from overhead to the sides at 33 m/s in two frames.
+ */
+const FREE_HAND_PULL = 0.06;
+const FREE_HAND_DAMP = 0.3;
+const FREE_HAND_SPEED = 5;
+/**
  * Top speed (m/s) the body's own drive (gravity, momentum, muscles) gives the torso, knees and
  * elbows while a hand holds on. A low foot pinned under a high step holds the hips down while
  * the pose wants them stood up; when that foot lets go, the muscles would fire the hips up
@@ -102,6 +111,8 @@ export class Ragdoll {
   private tmp = new THREE.Vector3();
   private tmp2 = new THREE.Vector3();
   private tmp3 = new THREE.Vector3();
+  private hipsV = new THREE.Vector3();
+  private chestV = new THREE.Vector3();
 
   constructor(
     init: THREE.Vector3[],
@@ -254,23 +265,23 @@ export class Ragdoll {
       }
       // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat;
       // free hands (only ever let go on purpose, dropping off the top) are held too.
-      const hips = this.tmp.subVectors(pos[J.pelvis], prev[J.pelvis]);
+      const hips = this.hipsV.subVectors(pos[J.pelvis], prev[J.pelvis]);
+      const chest = this.chestV.subVectors(pos[J.chest], prev[J.chest]);
       this.ends.forEach((e, n) => {
         if (e.mode !== 'free') return;
         const j = ENDS[n];
-        if (n < 2 || !hanging) {
-          pos[j].lerp(posture[j], 0.14 * this.tone);
-          return;
-        }
-        // A free foot under a climber still holding on is swung by the leg: it moves with the
-        // hips plus a damped pull toward its pose, never faster than a leg swings. (Pulled
-        // straight at the pose, it would jump half a metre in a frame when it came off a hold
-        // and then ring at ~7 Hz; cut loose on a steep wall, the feet bounced a metre out.)
-        const rel = this.tmp2.subVectors(pos[j], prev[j]).sub(hips).multiplyScalar(1 - FREE_FOOT_DAMP);
-        rel.addScaledVector(this.tmp3.subVectors(posture[j], pos[j]), FREE_FOOT_PULL * this.tone);
-        const max = FREE_FOOT_SPEED * dt;
+        // A free foot (under a climber still holding on, or in the air off the top) is swung
+        // by the leg: it moves with the hips plus a damped pull toward its pose, never faster
+        // than a leg swings. (Pulled straight at the pose, it would jump half a metre in a
+        // frame when it came off a hold and then ring at ~7 Hz; cut loose on a steep wall, the
+        // feet bounced a metre out.) A free hand is swung by the arm the same way, off the chest.
+        const hand = n < 2;
+        const body = hand ? chest : hips;
+        const rel = this.tmp2.subVectors(pos[j], prev[j]).sub(body).multiplyScalar(1 - (hand ? FREE_HAND_DAMP : FREE_FOOT_DAMP));
+        rel.addScaledVector(this.tmp3.subVectors(posture[j], pos[j]), (hand ? FREE_HAND_PULL : FREE_FOOT_PULL) * this.tone);
+        const max = (hand ? FREE_HAND_SPEED : FREE_FOOT_SPEED) * dt;
         if (rel.lengthSq() > max * max) rel.setLength(max);
-        pos[j].copy(prev[j]).add(hips).add(rel);
+        pos[j].copy(prev[j]).add(body).add(rel);
       });
     }
     this.burst = Math.max(0, this.burst - dt);
