@@ -24,6 +24,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   all the way up. Grades barely move, the beta just looks like a climber's.
 
 **Grades**
+- Big buckets checked on a steep board: three new reference problems, a Kilter Board warm-up of
+  big jugs at 20°, 30° and 40°, confirm that deep jugs stay easy as the wall steepens (V0 to V1).
+  No grades change.
 - Crimps grade a little easier: crimp problems were coming out most of a grade harder than
   the same kind of problem on a Kilter Board, at every angle. Crimp-heavy routes drop by about
   half a grade; nothing else changes.

@@ -267,6 +267,18 @@ export const ANCHORS: Anchor[] = [
   { name: '25° crimps', angle: 25, type: 'crimp', size: 'm', spacing: 55, feet: true, expect: 5 },
   // The same problem is V4 at 30°, as is "Crimping basics" (160 sends; V3 at 20°, V4 at 40°).
   { name: '30° crimps', angle: 30, type: 'crimp', size: 'm', spacing: 55, feet: true, expect: 4 },
+  // Buckets hold at any angle (model.ts JUG_STEEP: only jugs flatter than typical roll off steep
+  // ground). Kilter Board Original consensus grades per angle on boardsesh.com (found via search
+  // on 2026-10-12; the site can't be fetched from this run). "juggling jugs" (timboslice9000,
+  // 5,213 sends at 40°), a warm-up on the board's big jugs: large deep buckets. Its angle curve
+  // is nearly flat, the shape the bucket claim predicts.
+  // V0 at 20° and at 30°.
+  { name: '20° large buckets', angle: 20, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 0, incut: 0.95 },
+  { name: '30° large buckets', angle: 30, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 0, incut: 0.95 },
+  // V1 at 35° and 40° (V3 only at 60-70°); "jug jug jug" (3,748 sends) is V0 at 40°. Two grades
+  // under "Jug Skin" (the 40° jugs above, typical Kilter jugs, which the retailers say get
+  // slopier as the board steepens).
+  { name: '40° large buckets', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 1, incut: 0.95 },
 ];
 
 const TOP = 400;
