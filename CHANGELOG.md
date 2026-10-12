@@ -29,6 +29,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Black holds show their shape: on black-hold days the holds are a charcoal with a satin sheen
   instead of a flat black, so a jug's scoop, a sloper's dome and an edge's lip catch the light.
   Hand holds also carry a little of the gym's chalk where the fingers go before anyone climbs.
+- Slopey jugs roll off steep walls: a slopey jug (and a little, a pinch jug) has nothing to hook,
+  so on an overhang it holds about like a good edge, while buckets and horns hold the same at any
+  angle. Picking one up now reads "rolls off steep"; a slopey-jug ladder on a 30° wall goes a
+  third of a grade harder than before, over a grade harder than the same ladder of buckets.
 
 ## 2026-10-11
 

@@ -185,6 +185,16 @@ export function incutRank(hold: Hold): number | null {
 export const INCUT_GRIP = 0.36;
 export const INCUT_STEEP = 0.9;
 
+/**
+ * A jug's steepLoss per unit of incut its lip falls short of a typical jug's. A bucket or a horn
+ * closes over the fingers, so the hand hangs off it at any angle (GRIP.jug steepLoss 0); a
+ * pinch jug or a slopey jug is a big rounded handful with nothing to hook, held by friction and
+ * the open hand like a big sloper, and it rolls out of the hand as the pull swings out on an
+ * overhang (the same physics as INCUT_STEEP: only a lip that wraps over resists a pull out
+ * from the wall). At 40° a slopey jug holds about like a typical edge; a bucket is still a bucket.
+ */
+export const JUG_STEEP = 0.4;
+
 /** A typical build's incut: the middle of what the type comes in (no effect on grip). */
 export function typicalIncut(type: HoldType): number {
   if (type === 'jug') return JUG_INCUT.reduce((a, b) => a + b) / JUG_INCUT.length;
@@ -419,8 +429,9 @@ function pullParts(hold: Hold, pullTo: { u: number; v: number }) {
  * Extra steepness of a face hold on an arête. Each face is turned away from the room by
  * half the fold, and while the body hangs in front of the edge (straddling it, as on any
  * arête line) it can't square up to either face: the pull comes off the hold at an
- * outward angle, as on an overhang. Edges and crimps open up, slopers roll; jugs don't
- * care. With the body well round onto the hold's own face, it squares up and this fades.
+ * outward angle, as on an overhang. Edges and crimps open up, slopers and slopey jugs
+ * roll; buckets don't care. With the body well round onto the hold's own face, it squares
+ * up and this fades.
  */
 export function areteYaw(hold: Hold, pullTo: { u: number; v: number }, wall: Wall): number {
   const fold = wall.fold;
@@ -446,7 +457,11 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v)))) + areteYaw(hold, pullTo, wall);
   const incut = incutFactors(hold);
   const macro = hold.size === 'xl' ? (MACRO_STEEP[hold.type] ?? 1) : 1;
-  const steepFactor = 1 - spec.steepLoss * macro * incut.steep * steep;
+  const loss =
+    hold.type === 'jug' && hold.grip === undefined
+      ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
+      : spec.steepLoss * macro * incut.steep;
+  const steepFactor = 1 - loss * steep;
   const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip;
   return base * orient * steepFactor;
 }

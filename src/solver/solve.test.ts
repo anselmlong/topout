@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, footTechnique, handGrip, handTechnique, hipTurn, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, toGrade, typicalIncut } from './model';
 import { lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -71,6 +71,19 @@ describe('solver', () => {
     const ratio = (angle: number) =>
       handGrip({ ...crimp, incut: 0.85 }, body, wall(angle)) / handGrip({ ...crimp, incut: 0.1 }, body, wall(angle));
     expect(ratio(40)).toBeGreaterThan(ratio(0));
+  });
+
+  it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {
+    const jug: Hold = { id: 'j', type: 'jug', size: 'm', u: 200, v: 200, rot: 0 };
+    const body = { u: 200, v: 150 };
+    const grip = (incut: number, angle: number) => handGrip({ ...jug, incut }, body, wall(angle));
+    const bucket = Math.max(...JUG_INCUT);
+    const slopey = Math.min(...JUG_INCUT);
+    expect(grip(bucket, 40)).toBeCloseTo(grip(bucket, 0), 6);
+    expect(grip(slopey, 40)).toBeLessThan(grip(slopey, 0) * 0.93);
+    // A jug ladder of slopey jugs on a 40° wall grades harder than the same ladder of buckets.
+    const withIncut = (holds: Hold[], incut: number) => holds.map((h) => (h.type === 'jug' ? { ...h, incut } : h));
+    expect(grade(wall(40), withIncut(ladder('jug', 50), slopey))).toBeGreaterThan(grade(wall(40), withIncut(ladder('jug', 50), bucket)) + 0.3);
   });
 
   it('positive foot chips grade easier than rounded ones of the same size', () => {
@@ -508,10 +521,10 @@ describe('solver', () => {
   it('face holds on an arête are worse while the body straddles the edge', () => {
     const arete: Wall = { ...wall(0), fold: { u: 200, angle: -70 } };
     const crimp: Hold = { id: 'c', type: 'crimp', size: 'm', u: 230, v: 250, rot: 0 };
-    const jug: Hold = { ...crimp, id: 'j', type: 'jug' };
+    const jug: Hold = { ...crimp, id: 'j', type: 'jug', incut: Math.max(...JUG_INCUT) };
     const straddling = { u: 200, v: 180 };
     expect(handGrip(crimp, straddling, arete)).toBeLessThan(handGrip(crimp, straddling, wall(0)));
-    // Jugs don't open up, and once round onto the hold's face the body squares up.
+    // Buckets don't open up, and once round onto the hold's face the body squares up.
     expect(handGrip(jug, straddling, arete)).toBeCloseTo(handGrip(jug, straddling, wall(0)));
     expect(handGrip(crimp, { u: 270, v: 180 }, arete)).toBeCloseTo(handGrip(crimp, { u: 270, v: 180 }, wall(0)));
   });

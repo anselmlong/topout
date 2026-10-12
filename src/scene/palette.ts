@@ -99,7 +99,7 @@ export function lipWord(type: HoldType, rank: number, variant: number): string {
 
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
-  if (type === 'jug') return rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';
+  if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';
   const feet = type === 'foot' || type === 'jib';
   if (rank > 0.6) return feet ? 'easy to stand on' : 'holds well, even steep';
   if (rank < 0.4) return feet ? 'half a smear' : 'harder, opens up steep';
