@@ -16,9 +16,11 @@ import { ARM, LEG, TORSO, V, ik, type Pose, type ShoeHook } from './pose';
 import { J, JOINTS, Ragdoll } from './ragdoll';
 import { buildTimeline, CRUX_SLOWMO, SEND, SHAKE_SCRIPT, REST, windupSink, type Keyframe, type Timeline } from './timeline';
 import { STANDING_AT, standHip, topoutPose, type Lip } from './topout';
-import { frameAt, lipAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
+import { frameAt, frameLocal, lipAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
 const PAD_TOP = 0.3;
+/** How far out from a face beside the hips a knee kept off it points (see offFaces), per unit of pole. */
+const KNEE_OFF_FACE = 0.3;
 /** How high (m) above the mat a posed knee stays clear of it. */
 const KNEE_CLEAR = 0.15;
 /** A hand on a hold less than this far (cm) above the feet is down by the hips: it presses. */
@@ -280,7 +282,7 @@ function poseFrom(
             : normal.clone().addScaledVector(lateral, side * 0.7);
     // Only a drop knee and a bridged leg mean the knee to point down; a flag isn't standing.
     const bridged = stem && !legs[i] && backstep <= 0.15;
-    if (!flag && legs[i] !== 'drop-knee' && !bridged) kneeOff(pole, pelvis[i], target);
+    if (!flag && legs[i] !== 'drop-knee' && !bridged) kneeOff(offFaces(pole, pelvis[i], frames), pelvis[i], target);
     const posed = ik(pelvis[i], target, LEG, pole);
     // Hips down on the mat (a sit start), a knee aimed down or out to the side would be posed
     // on or in the mat: as it gets there the knee comes up instead, as a sitting climber's does.
@@ -299,6 +301,23 @@ function poseFrom(
     knees: [lL.joint, lR.joint],
     feet: [lL.end, lR.end],
   };
+}
+
+/**
+ * A knee never points into a wall face beside the hips. "Out to the side" is taken along the
+ * face the hands are on, so in a corner the knee on the crease side was aimed into the other
+ * face: on day 44's high step the left knee swung behind the wall as the foot passed the
+ * hip, jammed in the crease and stayed there 0.7 s, the leg hidden behind the body. Facing
+ * one face of a corner, a climber turns that knee out along the other face instead.
+ */
+function offFaces(pole: THREE.Vector3, hip: THREE.Vector3, frames: PanelFrame[]) {
+  for (const f of frames) {
+    const { u, v, out } = frameLocal(f, hip);
+    if (out < 0 || out > LEG[0] + LEG[1] || u < 0 || u > f.u1 - f.u0 || v < 0 || v > f.v1 - f.v0) continue;
+    const into = pole.dot(f.normal);
+    if (into < 0) pole.addScaledVector(f.normal, KNEE_OFF_FACE - into);
+  }
+  return pole;
 }
 
 /**

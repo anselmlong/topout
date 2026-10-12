@@ -10,6 +10,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Feet go on a volume's top, not its underside: the climber stands on the top face of a volume
   or a foot chip beside it instead of pressing a toe up under the volume, and keeps the
   underside for when there's nothing else to stand on.
+- High steps in a corner: the knee comes up by the chest and out from the wall instead of
+  jamming into the crease, where the leg vanished behind the body.
 
 **Holds**
 - Pockets come in finger sizes: a pocket is now a mono, a two-finger or three-finger hole, or a
