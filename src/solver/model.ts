@@ -64,7 +64,9 @@ export const GRIP: Record<HoldType, GripSpec> = {
   // soon as the pull swings out from the wall.
   pinch: { grip: 0.64, tolerance: 0.5, steepLoss: 0.05, hand: true, foot: 0.6, footFacing: 0.3 },
   sloper: { grip: 0.6, tolerance: 0.25, steepLoss: 0.7, hand: true, foot: 0.6, footFacing: 0.25 },
-  crimp: { grip: 0.55, tolerance: 0.3, steepLoss: 0.16, hand: true, foot: 0.75, footFacing: 0.8 },
+  // Crimps sat 0.7 grades hard across the Kilter-graded reference problems at every angle
+  // until 2026-10-12 (0.55); 0.6 puts them a grade under a medium edge, as on the boards.
+  crimp: { grip: 0.6, tolerance: 0.3, steepLoss: 0.16, hand: true, foot: 0.75, footFacing: 0.8 },
   foot: { grip: 0.15, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.7, footFacing: 0.5 },
   jib: { grip: 0.1, tolerance: 0.2, steepLoss: 0, hand: false, foot: 0.5, footFacing: 0.3 },
   // A volume's face; real grip/foot values come per face (see volumes.ts).

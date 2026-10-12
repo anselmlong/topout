@@ -18,6 +18,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   all the way up. Grades barely move, the beta just looks like a climber's.
 
 **Grades**
+- Crimps grade a little easier: crimp problems were coming out most of a grade harder than
+  the same kind of problem on a Kilter Board, at every angle. Crimp-heavy routes drop by about
+  half a grade; nothing else changes.
 - Heel hooks need something to hook: a foot brought up by the hands onto a hold too small to
   heel (a medium edge, a pinch, a foot chip) now counts as a high step you rock over onto, and
   the climber stands on it instead of pretending to hook it. Grades move by half a grade at most.

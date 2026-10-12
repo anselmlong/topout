@@ -260,6 +260,13 @@ export const ANCHORS: Anchor[] = [
   // Tension Board 2 Mirror "Heel-Toe''" (wood and plastic set) is V2 at 25° and 30°, V1 at 20°.
   // The TB2's holds are bigger and its grades run soft (see the macros above): big edges.
   { name: '25° big edge rails, heel hooks', angle: 25, type: 'edge', size: 'l', spacing: 50, feet: true, expect: 2, rails: 40 },
+  // Crimps between vertical and the 40° board: Kilter Board Original consensus grades per angle on
+  // boardsesh.com (found via search on 2026-10-12; the site can't be fetched from this run).
+  // Medium crimps, the Original's typical build ("Heinous Crimps", above, is the flat one).
+  // "crimpy chimpy" (341 sends at 25°, the angle it was set at) is V5 at 25°.
+  { name: '25° crimps', angle: 25, type: 'crimp', size: 'm', spacing: 55, feet: true, expect: 5 },
+  // The same problem is V4 at 30°, as is "Crimping basics" (160 sends; V3 at 20°, V4 at 40°).
+  { name: '30° crimps', angle: 30, type: 'crimp', size: 'm', spacing: 55, feet: true, expect: 4 },
 ];
 
 const TOP = 400;
