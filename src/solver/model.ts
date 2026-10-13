@@ -712,6 +712,20 @@ export const MANTLE_STAND = 60;
 export const MANTLE_REACH = 150;
 
 /**
+ * How well a foot on a hold sits under a reach to `target`, to push the body up toward it
+ * (0..1): fully when it's straight under it (within ~15 cm sideways) and bent, 60-140 cm below;
+ * not at all from 60 cm out to the side, from a foot so low the leg is already straight at full
+ * stretch, or from one up by the hold. Reaching across the body, that foot is the one on the
+ * far side from the hand that stays on: the diagonal that keeps the body from swinging open.
+ */
+export function legPush(foot: Point, target: Point): number {
+  const under = Math.min(1, Math.max(0, (60 - Math.abs(foot.u - target.u)) / 45));
+  const below = target.v - foot.v;
+  if (below < 60) return 0;
+  return under * Math.min(1, Math.max(0, (200 - below) / 60));
+}
+
+/**
  * How well a palm presses on a mantle shelf: what a shoe gets from it (how positive it is),
  * scaled by its width, not its incut (a flat palm doesn't curl over a lip). A small volume's
  * top is a narrow shelf for two palms and a foot.

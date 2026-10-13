@@ -12,6 +12,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   underside for when there's nothing else to stand on.
 - High steps in a corner: the knee comes up by the chest and out from the wall instead of
   jamming into the crease, where the leg vanished behind the body.
+- Feet under the reach: before a big reach up, the climber puts a foot on the hold under the
+  next hold (on the far side from the hand that stays on) and stands up into it, instead of
+  stepping onto whichever foothold is nearest and reaching with its feet off to one side.
 
 **Holds**
 - Pockets come in finger sizes: a pocket is now a mono, a two-finger or three-finger hole, or a

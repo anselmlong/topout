@@ -27,6 +27,7 @@ import {
   MANTLE_LOAD,
   MANTLE_REACH,
   MANTLE_STAND,
+  legPush,
   mantleable,
   mantleStep,
   pressQuality,
@@ -88,6 +89,20 @@ const PUMP = 0.5;
  */
 const TOE_PRESS = 0.5;
 
+/**
+ * What a reach up costs the beta on top of its difficulty without a foot under it: this share
+ * of its hanging term per metre the hand rises above the one that stays on, less what a foot
+ * stood on a hold under the reach pushes (legPush). Climbers place a foot under the next hold,
+ * on the far side from the hand that stays on, and stand up into the reach, so the legs lift
+ * the body rather than the arm locking off (The Self-Coached Climber, Hague & Hunter: move
+ * the feet first, then push with the legs; the diagonal hand-foot pair stays balanced where a
+ * same-side pair barn-doors). Each move's difficulty prices a reach by the hands' span, not
+ * by whether a foot is under it, so the second pass took whichever foothold was cheapest to step on,
+ * usually the nearest, and reached with the feet off to one side. Like PUMP, footwork the
+ * move's difficulty leaves out: the crux and every move's grade stay as they are.
+ */
+const UNDER = 0.8;
+
 /** A move within this share of the crux is a hard one: it pumps (hardStreak). */
 const HARD = 0.85;
 
@@ -129,8 +144,8 @@ export function solve(
   const crux = bottleneck.cost;
 
   // Pass 2: smoothest route whose every move is within the crux. Footwork the moves leave
-  // out of their difficulty (smears re-placed, RESTEP) still costs the route, and so does a
-  // hard reach made with a foot off (PUMP).
+  // out of their difficulty (smears re-placed, RESTEP; a reach with no foot under it, UNDER)
+  // still costs the route, and so does a hard reach made with a foot off (PUMP).
   const footOff = (a: Limbs, b: Limbs) => (a[0] !== b[0] || a[1] !== b[1]) && (a[2] === OFF || a[3] === OFF);
   const smooth = ctx.search(starts, isGoal, (acc, d, w, a, b) => acc + d + w + (d >= crux * HARD && footOff(a, b) ? PUMP * d : 0), crux + 1e-9);
   const path = smooth.goal ? smooth.path : bottleneck.path;
@@ -260,7 +275,7 @@ class Context {
   /**
    * Every legal move out of each stance the first pass expanded, in visit order, so the
    * second pass reuses them instead of re-scoring: a move's cost (d, and the footwork w the
-   * second pass adds, RESTEP and TOE_PRESS) depends only on the
+   * second pass adds, RESTEP, TOE_PRESS and UNDER) depends only on the
    * stance and the move. Entry i is limb `code[i] & 3` to hold `(code[i] >> 2) - 2`.
    */
   private moves = new Map<number, { code: Int32Array; d: Float64Array; w: Float64Array }>();
@@ -717,10 +732,13 @@ class Context {
     const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
     const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
     const pressed = onFeet.filter((f) => lw[f] >= 0 && this.under[lw[f]]).length;
+    // How far the hand rises above the one that stays on, and how much a foot under it pushes.
+    const rise = Math.max(0, target.v - p[other].v) / 100;
+    const push = Math.max(0, ...onFeet.map((f) => (lw[f] >= 0 && !this.hookOf(lw, f as 2 | 3, p) ? legPush(p[f], target) : 0)));
     return {
       d,
       dynamic,
-      w: (RESTEP * restep + TOE_PRESS * pressed) * hold,
+      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push)) * hold,
       parts: {
         kind: 'hand',
         angle: handsAngle,

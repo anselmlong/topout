@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, pinchSpan, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, palmFactor, palmOpposed, pinchSpan, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -443,6 +443,41 @@ describe('solver', () => {
     const contacts = contactList(jug, finish, holds, volumes, corner);
     const pressed = r.moves.filter((m) => m.limb <= 1 && [2, 3].some((f) => m.from.limbs[f] >= 0 && isUnderside(contacts[m.from.limbs[f]])));
     expect(pressed).toHaveLength(0);
+  });
+
+  it('puts a foot under the reach to the finish, not out to the side', () => {
+    // A player's route on day 7's slab: jugs up the middle, the finish up and right of the
+    // last jug, a foot chip out right and a pocket under the finish.
+    const slab: Wall = { width: 360, panels: [{ length: 439, angle: -13 }], seed: 2674862226 };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 94, v: 120, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 150, v: 122, rot: 0, role: 'start' },
+    ];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 227, v: 396, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h1', type: 'pinch', size: 's', u: 81.63, v: 156.74, rot: -0.998, seed: 6 },
+      { id: 'h2', type: 'pocket', size: 'l', u: 196.59, v: 183.19, rot: 0.297, seed: 9 },
+      { id: 'h3', type: 'jug', size: 'l', u: 123.02, v: 214.28, rot: 0.109, seed: 10 },
+      { id: 'h4', type: 'pocket', size: 'm', u: 208.97, v: 257.67, rot: 0.131, seed: 10 },
+      { id: 'h5', type: 'sloper', size: 's', u: 148.16, v: 295.85, rot: -0.059, seed: 6 },
+      { id: 'h6', type: 'jug', size: 'l', u: 246.58, v: 327.12, rot: 0.253, seed: 9 },
+      { id: 'h7', type: 'jug', size: 'm', u: 170.52, v: 367.06, rot: 0.105, seed: 10 },
+      { id: 'f0', type: 'foot', size: 'm', u: 81.03, v: 64.38, rot: 0, seed: 6 },
+      { id: 'f1', type: 'jib', size: 'm', u: 186.88, v: 169.27, rot: 0, seed: 4 },
+      { id: 'f2', type: 'foot', size: 'm', u: 267.91, v: 238.02, rot: 0, seed: 8 },
+      { id: 'f3', type: 'foot', size: 'm', u: 167.52, v: 73.91, rot: 0, seed: 9 },
+      { id: 'f4', type: 'jib', size: 'm', u: 200.19, v: 155.3, rot: 0, seed: 2 },
+      { id: 'f6', type: 'foot', size: 'm', u: 141.41, v: 93.15, rot: 0, seed: 7 },
+    ];
+    const r = solve(slab, jugs, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to step the right foot out to the chip 40 cm right of the finish (the nearest
+    // step up) and reach the left hand to the finish from there. Now the left foot goes onto
+    // the pocket under it, diagonal to the right hand on the jug, and pushes up.
+    const toFinish = r.moves.find((m) => m.limb <= 1 && m.to.limbs[m.limb] === 2)!;
+    const target = toFinish.to.points[toFinish.limb];
+    const push = Math.max(...[2, 3].filter((f) => toFinish.from.limbs[f] >= 0).map((f) => legPush(toFinish.from.points[f], target)));
+    expect(push).toBeGreaterThan(0.5);
   });
 
   it('keeps a low foot on for a reach instead of cutting it to flag', () => {
