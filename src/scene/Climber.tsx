@@ -37,6 +37,8 @@ const SHELF_SPREAD = [-11, 11, -24, 24];
  * across behind the standing leg during the reach instead of jumping there in one frame.
  */
 const FLAG_SWING = 4;
+/** Furthest a flag reaches from its hip (m): short of the leg's 0.85, so the knee stays soft. */
+const FLAG_REACH = 0.78;
 /**
  * How far through a dyno's throw (share of the hand's travel) the feet stay on before they
  * cut loose on steep ground. A dyno is driven by the legs: the feet push until the legs are
@@ -241,11 +243,28 @@ function poseFrom(
       // Flag: the free leg presses on the wall as a counterweight (see flagFor). An outside
       // flag reaches long and nearly straight out on its own side; a back flag crosses
       // behind the standing leg to a spot on the wall beyond and below that foot.
-      const outside = pelvis[i].clone().addScaledVector(lateral, side * 0.55).addScaledVector(torsoDir, -0.6);
-      const behind = other.clone().addScaledVector(lateral, -side * 0.3).addScaledVector(torsoDir, -0.22);
+      // "Down" is down the wall, not down the torso: sat back off a high step on an overhang
+      // the torso leans out, and along it the flag pointed into the wall, ending level with
+      // the hips (day 5: the leg stuck straight out sideways in the air for a second).
+      const down = torsoDir.clone().addScaledVector(normal, -torsoDir.dot(normal)).negate();
+      if (down.lengthSq() < 1e-4) down.set(0, -1, 0);
+      down.normalize();
+      const outside = pelvis[i].clone().addScaledVector(lateral, side * 0.55).addScaledVector(down, 0.6);
+      const behind = other.clone().addScaledVector(lateral, -side * 0.3).addScaledVector(down, 0.22);
       target = outside.lerp(behind, back);
       // Pressed against the wall, level with the standing foot.
       target.addScaledVector(normal, other.clone().sub(target).dot(normal) + 0.04);
+      // Hips too far out for the foot to reach the wall: the leg hangs, down and a little out
+      // on its side, knee soft, rather than locking out straight at a point it can't touch
+      // (on an overhang, toward the wall is up: the leg stuck out level with the hips).
+      const reach = target.clone().sub(pelvis[i]);
+      const short = Math.min(1, Math.max(0, (reach.length() - LEG[0] - LEG[1]) / 0.2));
+      if (reach.length() > FLAG_REACH) {
+        const hang = V(0, -1, 0).addScaledVector(lateral, side * 0.35).normalize();
+        target = pelvis[i].clone().addScaledVector(reach.normalize().lerp(hang, short).normalize(), FLAG_REACH);
+        // ...held clear of the mat on a low start, not dabbed on it.
+        target.y = Math.max(target.y, PAD_TOP + KNEE_CLEAR + 0.1);
+      }
     }
     const flag = !feet[i] && !!other;
     // No feet on at all (campus): tucked up, knee bent, clear of the mat.

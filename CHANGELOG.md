@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-13
 
 **Climber**
+- Free leg on steep walls: when a foot comes off and the hips swing out from an overhang, the
+  leg hangs bent under the body, clear of the mat, instead of sticking straight out level
+  with the hips in mid-air.
 - Feet go on a volume's top, not its underside: the climber stands on the top face of a volume
   or a foot chip beside it instead of pressing a toe up under the volume, and keeps the
   underside for when there's nothing else to stand on.
