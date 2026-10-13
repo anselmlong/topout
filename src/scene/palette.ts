@@ -1,4 +1,4 @@
-import type { Day, HoldType } from '../solver/types';
+import type { Day, HoldSize, HoldType } from '../solver/types';
 
 /** Muted, neutral scene palette. UI colors mirror these in styles.css. */
 export const PALETTE = {
@@ -129,8 +129,9 @@ export function depthEffect(type: HoldType, mm: number): string | null {
 }
 
 /** A sloper's pitch in words (model.ts sloperPitch), or null for a middling one. */
-export function pitchWord(deg: number): string | null {
-  return deg <= 30 ? 'Flat-topped sloper' : deg >= 48 ? 'Steep sloper' : null;
+export function pitchWord(deg: number, size: HoldSize = 'm'): string | null {
+  const name = size === 'xl' ? 'macro' : 'sloper';
+  return deg <= 30 ? `Flat-topped ${name}` : deg >= 48 ? `Steep ${name}` : null;
 }
 /** What a sloper's pitch does: the steeper its top, the less the palm presses into it. */
 export function pitchEffect(deg: number): string | null {

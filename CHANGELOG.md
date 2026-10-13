@@ -19,6 +19,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   vertical and 25° walls now anchor how much harder a steep sloper is. Topout lands within about
   half a grade of them, so no grades change.
 
+**Holds**
+- Macro slopers come flat-topped or steep: the big dual-texture slopers now come in four builds,
+  from a proud, flat-topped dish the whole hand sits on to a low, round dome that the palm only
+  smears. The flatter ones hold better, especially on overhangs, and the hold bar names them.
+
 ## 2026-10-13
 
 **Climber**

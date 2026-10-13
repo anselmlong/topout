@@ -327,9 +327,12 @@ export function depthFactor(hold: Hold): number {
  * says the same: Climbing.com, "How to Climb Slopers" (get as much skin on the hold as you
  * can and get the body under it, so the pull presses into the surface rather than along it);
  * Eric Hörst, "Training for Climbing" (slopers depend on friction and the angle of pull, so
- * they get much harder as the wall steepens and the pull swings out). Macros keep one pitch.
+ * they get much harder as the wall steepens and the pull swings out).
+ * Macros span the widest range, 20-50: a dual-texture macro sloper is cast either as a big
+ * flat-topped dish the whole hand sits on or as a round blank dome, and from across the gym
+ * that's the first thing to read on one.
  */
-export const SLOPER_PITCH: Partial<Record<HoldSize, number[]>> = { s: [30, 38, 46, 54], m: [27, 35, 43, 51], l: [24, 32, 40, 48] };
+export const SLOPER_PITCH: Partial<Record<HoldSize, number[]>> = { s: [30, 38, 46, 54], m: [27, 35, 43, 51], l: [24, 32, 40, 48], xl: [20, 30, 40, 50] };
 
 export function pitchOf(size: HoldSize, variant: number): number | null {
   const list = SLOPER_PITCH[size];

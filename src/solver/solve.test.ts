@@ -130,10 +130,22 @@ describe('solver', () => {
     const body = { u: 200, v: 150 };
     const at = (deg: number, angle: number) => handGrip({ id: 's', type: 'sloper', size: 'm', u: 200, v: 200, rot: 0, pitch: deg }, body, wall(angle));
     expect(at(51, 35) / at(51, 0)).toBeLessThan(at(27, 35) / at(27, 0));
-    // Every size's own seeds cover a spread of pitches; macros and other types have none.
-    for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => pitchOf(size, v))).size).toBe(4);
-    expect(pitchOf('xl', 0)).toBeNull();
+    // Every size's own seeds cover a spread of pitches, macros the widest; other types have none.
+    for (const size of ['s', 'm', 'l', 'xl'] as const) expect(new Set([0, 1, 2, 3].map((v) => pitchOf(size, v))).size).toBe(4);
+    expect(Math.max(...[0, 1, 2, 3].map((v) => pitchOf('xl', v)!)) - Math.min(...[0, 1, 2, 3].map((v) => pitchOf('xl', v)!))).toBeGreaterThanOrEqual(30);
     expect(sloperPitch({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {
+    const macros = (pitch: number) => ladder('sloper', 55).map((h) => (h.type === 'sloper' ? { ...h, size: 'xl' as const, pitch, incut: 0.15 } : h));
+    const gap = [0, 30].map((angle) => {
+      const g = [20, 35, 50].map((deg) => grade(wall(angle), macros(deg)));
+      expect(g[0]).toBeLessThan(g[1]);
+      expect(g[1]).toBeLessThan(g[2]);
+      return g[2] - g[0];
+    });
+    expect(gap[0]).toBeGreaterThan(0.2);
+    expect(gap[1]).toBeGreaterThan(gap[0]);
   });
 
   it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {
