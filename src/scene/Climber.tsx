@@ -40,6 +40,12 @@ const FLAG_SWING = 4;
 /** Furthest a flag reaches from its hip (m): short of the leg's 0.85, so the knee stays soft. */
 const FLAG_REACH = 0.78;
 /**
+ * How far below its hip (m) a bridged foot starts to bring its knee up like a high step's
+ * instead of aiming it down into the face (full by 0.35 m higher). A stemming foot stands
+ * ~0.8 m below the hip, so only a high step across the corner gets it.
+ */
+const BRIDGE_HIGH = 0.55;
+/**
  * How far through a dyno's throw (share of the hand's travel) the feet stay on before they
  * cut loose on steep ground. A dyno is driven by the legs: the feet push until the legs are
  * straight and only leave the wall as the body rises to the deadpoint (Hörst, Training for
@@ -302,6 +308,14 @@ function poseFrom(
     // Only a drop knee and a bridged leg mean the knee to point down; a flag isn't standing.
     const bridged = stem && !legs[i] && backstep <= 0.15;
     if (!flag && legs[i] !== 'drop-knee' && !bridged) kneeOff(offFaces(pole, pelvis[i], frames), pelvis[i], target);
+    // A bridged leg stepping high (day 43: a 1.1 m step across the corner onto the start jug)
+    // brings the foot up past the hip still aimed down like a strut: the knee was posed below
+    // both hip and foot, bent backwards, and the knee snapped up through it at 10 m/s. As the
+    // foot comes up toward the hip the knee comes up and out like any other high step's.
+    if (bridged) {
+      const up = Math.min(1, Math.max(0, (target.y - pelvis[i].y + BRIDGE_HIGH) / 0.35));
+      if (up > 0) pole.lerp(kneeOff(pole.clone(), pelvis[i], target), up * up * (3 - 2 * up));
+    }
     const posed = ik(pelvis[i], target, LEG, pole);
     // Hips down on the mat (a sit start), a knee aimed down or out to the side would be posed
     // on or in the mat: as it gets there the knee comes up instead, as a sitting climber's does.

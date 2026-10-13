@@ -48,6 +48,9 @@ export interface EndDrive {
   t: number;
   duration: number;
   lift: number;
+  /** A foot's swing out round its hip (bowRoundHip), at its fullest `bowAt` of the way along. */
+  bow: THREE.Vector3;
+  bowAt: number;
 }
 
 const GRAVITY = -9.8;
@@ -87,12 +90,23 @@ const BURST = 0.35;
  * rotating at the hip, so the knee swings round, it never folds through the straight leg.
  */
 const KNEE_SWING = 3.5;
+/** Closest (m), along the wall, a foot's path comes to its hip on the way past it (bowRoundHip). */
+const FOOT_CLEAR = 0.34;
+/** Latest along a move (0..1) the bow peaks (and earliest, 1 less it), so it eases on and off. */
+const BOW_LATEST = 0.7;
+const UP = new THREE.Vector3(0, 1, 0);
 /** Knees bent less than this far off the leg's line (m) have no bend to turn. */
 const KNEE_BENT = 0.03;
 const LEGS = [
   [J.hipL, J.kneeL, J.footL, 2],
   [J.hipR, J.kneeR, J.footR, 3],
 ] as const;
+
+/** 0 at both ends of a move, 1 at `at` of the way along, easing in and out of it (smoothstep). */
+function bowShape(s: number, at: number): number {
+  const x = s < at ? s / at : (1 - s) / (1 - at);
+  return x * x * (3 - 2 * x);
+}
 
 export class Ragdoll {
   pos: THREE.Vector3[] = [];
@@ -160,6 +174,8 @@ export class Ragdoll {
       t: 0,
       duration: 1,
       lift: 0,
+      bow: new THREE.Vector3(),
+      bowAt: 0.5,
     }));
   }
 
@@ -175,7 +191,11 @@ export class Ragdoll {
     const k = Math.min(1, e.t / e.duration);
     // Smootherstep: zero velocity and acceleration at both ends of a reach.
     const s = k * k * k * (k * (k * 6 - 15) + 10);
-    return e.from.clone().lerp(e.to, s).addScaledVector(e.normal, Math.sin(Math.PI * s) * e.lift);
+    return e.from
+      .clone()
+      .lerp(e.to, s)
+      .addScaledVector(e.normal, Math.sin(Math.PI * s) * e.lift)
+      .addScaledVector(e.bow, bowShape(s, e.bowAt));
   }
 
   /** Move an end to a new target, starting from wherever it is now. */
@@ -198,6 +218,35 @@ export class Ragdoll {
     e.t = 0;
     e.duration = Math.max(0.05, duration);
     e.lift = lift;
+    e.bow.set(0, 0, 0);
+    if (end >= 2) this.bowRoundHip(e, end === 2 ? J.hipL : J.hipR, end === 2 ? -1 : 1);
+  }
+
+  /**
+   * A foot stepping up past its own hip (a high step to a hold level with the hips) swings out
+   * round it along the wall, as a leg does, instead of sliding straight past it. Carried along
+   * the straight line it went within 22 cm of the hip on day 43's 1.1 m step across the
+   * corner: the leg folded flat, and as the hip-foot line spun past the hip the knee whipped
+   * round it, 25 cm in three physics steps (11 m/s). The bow is set once per move (a smooth
+   * path), sideways along the wall, at most FOOT_CLEAR less the closest approach.
+   */
+  private bowRoundHip(e: EndDrive, hip: number, side: -1 | 1) {
+    const h = this.pos[hip];
+    const seg = this.tmp.subVectors(e.to, e.from);
+    const len2 = seg.lengthSq();
+    const k = len2 > 1e-6 ? Math.min(1, Math.max(0, this.tmp2.subVectors(h, e.from).dot(seg) / len2)) : 0;
+    const off = this.tmp2.copy(e.from).addScaledVector(seg, k).sub(h);
+    const gap = off.length();
+    if (gap >= FOOT_CLEAR || k <= 0 || k >= 1) return;
+    // Sideways along the wall, on the side the path already passes (its own side if straight
+    // through): the knee goes out and the foot comes up beside the hip, not out into the room.
+    const across = this.tmp3.crossVectors(e.normal, UP);
+    if (across.lengthSq() < 1e-4) return;
+    across.normalize();
+    const sideways = off.dot(across);
+    const dir = Math.abs(sideways) > 0.04 ? Math.sign(sideways) : side * Math.sign(across.x || 1);
+    e.bow.copy(across).multiplyScalar(dir * (FOOT_CLEAR - gap));
+    e.bowAt = Math.min(BOW_LATEST, Math.max(1 - BOW_LATEST, k));
   }
 
   /** Push the whole body (e.g. the launch of a dyno). Units: m/s. */

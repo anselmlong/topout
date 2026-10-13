@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-13
 
 **Climber**
+- High steps across a corner: when a foot steps up past the hip onto a hold level with it, the
+  foot swings out to the side and the knee comes up and out, instead of the knee snapping up
+  through the leg as the foot slides past the hip.
 - Free leg on steep walls: when a foot comes off and the hips swing out from an overhang, the
   leg hangs bent under the body, clear of the mat, instead of sticking straight out level
   with the hips in mid-air.
