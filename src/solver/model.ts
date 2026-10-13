@@ -73,7 +73,10 @@ export const GRIP: Record<HoldType, GripSpec> = {
   volume: { grip: 0.5, tolerance: 0.35, steepLoss: 0.4, hand: true, foot: 0.5, footFacing: 0 },
 };
 
-export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.15, xl: 1.15 };
+// Small holds were 0.8 (until 2026-10-13), which put every small crimp and thin pinch reference
+// problem half a grade to a grade hard (Kilter's small crimps at 0° and 40°, Atomik's 10-14 mm
+// strips, low granite crimps and thin pinches), while the small sloper rows sat on target.
+export const SIZE_GRIP: Record<HoldSize, number> = { s: 0.86, m: 1, l: 1.15, xl: 1.15 };
 
 /** The hold types that come as macros (size 'xl'). */
 export const MACRO_TYPES: HoldType[] = ['sloper', 'edge', 'pinch'];

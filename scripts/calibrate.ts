@@ -38,6 +38,8 @@ export interface Anchor {
   fingers?: number;
   /** Every hand hold's span (cm between thumb and fingers) if it's a pinch; default from its seed. */
   span?: number;
+  /** Every hand hold's shelf depth (mm) if it's a crimp or an edge; default from its seed. */
+  depth?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -313,6 +315,21 @@ export const ANCHORS: Anchor[] = [
   // "5 Large Basic Pinches Set #3", the wider set of the basic pinches (no width given; set past a
   // hand's width, 7.5 cm): V2 on vertical, V4 on a 20° wall, V7 at 45°.
   { name: '20° large wide pinches', angle: 20, type: 'pinch', size: 'l', spacing: 55, feet: true, expect: 4, span: 7.5 },
+  // Crimps by shelf depth (model.ts EDGE_DEPTH, depthGrip): until now no reference problem set a
+  // crimp's depth, so the fingertip strips and full-pad crimps every crimp now comes as were graded
+  // off their seeds. Atomik Climbing Holds' grade guides give each set's size off the wall (found
+  // via search on 2026-10-13; the site can't be fetched from this run). As with the pinches above,
+  // only their overhanging grades are used.
+  // Fingertip strips: "10 Small Simple Crimps Set #1", sold by depth as 10 mm to 14 mm, V4+ on a
+  // 20° wall (V2 on vertical, V7+ at 45°).
+  { name: '20° shallow small crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, depth: 12 },
+  // "5 Small Granite Crimps Set #3", the low-profile set, 1/2" to 3/4" off the wall (13-19 mm):
+  // V4 on a 25° wall (V2+ on vertical, V6/10 at 45°).
+  { name: '25° low small crimps', angle: 25, type: 'crimp', size: 's', spacing: 55, feet: true, expect: 4, depth: 16 },
+  // Full-pad crimps: "5 Medium Steep Wall Oval Crimps Set #2", 7/8" to 1" off the wall (22-25 mm),
+  // incut for steep walls: V2+ on a 20° wall (V1+ on vertical). Two grades under the 10-14 mm
+  // strips at the same angle.
+  { name: '20° deep incut crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.8 },
 ];
 
 const TOP = 400;
@@ -356,14 +373,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)

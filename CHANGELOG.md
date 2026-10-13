@@ -42,6 +42,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   20° and 25° walls now anchor how much harder a thin pinch is. Topout lands within a grade of
   them, so no grades change. Two upcoming days (Oct 19 and Nov 6) had drifted off their target
   grade and were reset.
+- Small holds a touch easier: small crimps and thin pinches graded half a grade to a grade too
+  hard against real board and hold-maker grades, so they now climb a little easier. Three crimp
+  sets sold by depth (10-14 mm strips, low granite crimps, deep 22-25 mm crimps) now anchor how
+  much a crimp's depth matters: a fingertip strip grades about two grades over a full-pad crimp.
 
 ## 2026-10-12
 
