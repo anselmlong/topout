@@ -40,6 +40,8 @@ export interface Anchor {
   span?: number;
   /** Every hand hold's shelf depth (mm) if it's a crimp or an edge; default from its seed. */
   depth?: number;
+  /** Every hand hold's pitch (degrees its top slopes off level) if it's a sloper; default from its seed. */
+  pitch?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -330,6 +332,21 @@ export const ANCHORS: Anchor[] = [
   // incut for steep walls: V2+ on a 20° wall (V1+ on vertical). Two grades under the 10-14 mm
   // strips at the same angle.
   { name: '20° deep incut crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.8 },
+  // Slopers by pitch (model.ts SLOPER_PITCH, pitchGrip, pitchSteep): until now no reference problem
+  // set a sloper's pitch, so the flat-topped and steep builds every sloper now comes as were graded
+  // off their seeds. Atomik Climbing Holds' grade guides (found via search on 2026-10-13; the site
+  // can't be fetched from this run). Large slopers at the ends of the large range: 24 degrees
+  // (flat-topped) and 48 (steep).
+  // Flat-topped: "5 Large Steep Wall Slopers", shaped for steep walls so their tops stay level on
+  // an overhang, are V1 on vertical (as are "5 Large Basic Steep Wall Slopers Set #1"; V2 at 20°).
+  { name: 'vertical flat-topped slopers', angle: 0, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 1, pitch: 24 },
+  // The same build at 25°: "5 Large Steep Wall Slopers" are V2/3 on a 25° wall, and the "XL
+  // Adjustable Sloper", whose top can be set anywhere from 0 to 25 degrees of incut, is V1-4 on a
+  // 25° wall set its easiest way. V3.
+  { name: '25° flat-topped slopers', angle: 25, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 3, pitch: 24 },
+  // The adjustable sloper set its hardest way, its top at 0 degrees of incut, so it slopes off as
+  // steeply as it can: V3-V7+ on a 25° wall. V5, two grades over its easiest setting.
+  { name: '25° steep slopers', angle: 25, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 5, pitch: 48 },
 ];
 
 const TOP = 400;
@@ -373,14 +390,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)

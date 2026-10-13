@@ -14,6 +14,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   palm the bare volume face right next to it, a pointless shuffle that made the next reach look
   easier than it is. Bare faces stay there for palming when nothing is bolted onto them.
 
+**Grades**
+- Slopers are checked against real hold-maker grades: flat-topped and steep large slopers on
+  vertical and 25° walls now anchor how much harder a steep sloper is. Topout lands within about
+  half a grade of them, so no grades change.
+
 ## 2026-10-13
 
 **Climber**
