@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, incutOf, meanDepth, spanOf } from '../solver/model';
+import { depthOf, fingersOf, incutOf, meanDepth, meanPitch, pitchOf, spanOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -670,14 +670,17 @@ function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
  * outline is a hand-shaped lozenge, sometimes narrower at the top like a pear.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.15) {
+function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.15, pitch = 0) {
   const N = 32;
   const W = 0.1 * (0.9 + 0.2 * k);
   const H = 0.078;
-  const Z = 0.05 * (1.04 - 0.08 * k);
+  // Its pitch (model.ts pitchOf, here -1 flat-topped .. 1 steep against its size's mean) is
+  // how far the palm ramp slopes off level: a flat-topped sloper stands proud with its crest
+  // high, a rounded shelf; a steep one is a low bump whose ramp lies nearly flush to the wall.
+  const Z = 0.05 * (1.04 - 0.08 * k) * (1 - 0.3 * pitch);
   // Crest: low, and a little off to one side.
   const cx = W * r.range(-0.12, 0.12);
-  const cy = -H * (0.25 + 0.15 * k);
+  const cy = -H * (0.25 + 0.15 * k + 0.2 * pitch);
   const e = 0.72 + 0.18 * k;
   const pear = r.range(0, 0.2);
   // Its incut is the dish the palm sits in (a flat dome rolls off, a dished one holds).
@@ -1220,7 +1223,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v))
         : type === 'pinch'
           ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), spanOf(size, v))
-          : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v));
+          : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;

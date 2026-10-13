@@ -23,6 +23,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   stepping onto whichever foothold is nearest and reaching with its feet off to one side.
 
 **Holds**
+- Slopers come flat-topped or steep: a flat-topped one stands proud with its top nearly level and
+  holds better, a steep one is a low bump the palm slides off, worse still on an overhang. The
+  hold bar names it ("Flat-topped sloper", "Steep sloper").
 - Pockets come in finger sizes: a pocket is now a mono, a two-finger or three-finger hole, or a
   four-finger slot, and you can see which from how wide its hole is (the hold bar names it too).
   Monos are much harder to hang than a two-finger pocket, which is harder than a three-finger one.

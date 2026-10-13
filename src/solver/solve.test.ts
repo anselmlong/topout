@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, palmFactor, palmOpposed, pinchSpan, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -114,6 +114,26 @@ describe('solver', () => {
       for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => depthOf(type, size, v))).size).toBe(4);
     expect(depthOf('edge', 'xl', 0)).toBeNull();
     expect(edgeDepth({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a flat-topped sloper grades easier than a steep one of the same size and dish, more so when steep', () => {
+    const withPitch = (holds: Hold[], pitch: number) => holds.map((h) => (h.type === 'sloper' ? { ...h, pitch, incut: 0.15 } : h));
+    const gap: number[] = [];
+    for (const angle of [0, 30]) {
+      const g = [27, 39, 51].map((deg) => grade(wall(angle), withPitch(ladder('sloper', 45), deg)));
+      expect(g[0]).toBeLessThan(g[1]);
+      expect(g[1]).toBeLessThan(g[2]);
+      gap.push(g[2] - g[0]);
+    }
+    expect(gap[0]).toBeGreaterThan(0.2);
+    // The pull swinging out on an overhang costs a steep sloper more than a flat-topped one.
+    const body = { u: 200, v: 150 };
+    const at = (deg: number, angle: number) => handGrip({ id: 's', type: 'sloper', size: 'm', u: 200, v: 200, rot: 0, pitch: deg }, body, wall(angle));
+    expect(at(51, 35) / at(51, 0)).toBeLessThan(at(27, 35) / at(27, 0));
+    // Every size's own seeds cover a spread of pitches; macros and other types have none.
+    for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => pitchOf(size, v))).size).toBe(4);
+    expect(pitchOf('xl', 0)).toBeNull();
+    expect(sloperPitch({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {

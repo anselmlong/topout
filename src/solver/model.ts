@@ -317,6 +317,67 @@ export function depthFactor(hold: Hold): number {
 }
 
 /**
+ * How far a sloper's palm surface slopes away from level (degrees, on a vertical wall), from its
+ * seed and size, on its own cycle (one build off its dish, so the steepest build is never also
+ * the roundest). Pitch is what grades a sloper: it's held by friction alone, and friction
+ * only holds while the surface's slope stays under the angle the skin's friction allows
+ * (Coulomb: slipping starts once tan(pitch) passes the friction coefficient), while the share
+ * of the pull pressing the palm into it falls with cos(pitch). A flat-topped sloper is
+ * nearly a rounded shelf; a steep one is a blank bump the palm only smears. Coaching material
+ * says the same: Climbing.com, "How to Climb Slopers" (get as much skin on the hold as you
+ * can and get the body under it, so the pull presses into the surface rather than along it);
+ * Eric Hörst, "Training for Climbing" (slopers depend on friction and the angle of pull, so
+ * they get much harder as the wall steepens and the pull swings out). Macros keep one pitch.
+ */
+export const SLOPER_PITCH: Partial<Record<HoldSize, number[]>> = { s: [30, 38, 46, 54], m: [27, 35, 43, 51], l: [24, 32, 40, 48] };
+
+export function pitchOf(size: HoldSize, variant: number): number | null {
+  const list = SLOPER_PITCH[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 1) % list.length] : null;
+}
+
+export function sloperPitch(hold: Hold): number | null {
+  return hold.type === 'sloper' ? (hold.pitch ?? pitchOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean pitch a sloper of this size comes in (degrees), what its mesh is drawn at; null for none. */
+export function meanPitch(size: HoldSize): number | null {
+  const list = SLOPER_PITCH[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/**
+ * A sloper's grip by pitch (degrees), against a level one: cos(pitch), the share of the pull
+ * pressing into the surface, made gentler (a 50 degree sloper about four fifths of a
+ * 25 degree one rather than seven tenths) as FINGER_GRIP is, since the feet still carry the body.
+ */
+export function pitchGrip(deg: number): number {
+  return 0.3 + 0.7 * Math.cos(rad(deg));
+}
+
+/**
+ * What a sloper's pitch does on an overhang, against its size's typical build: the pull
+ * swinging out adds to the slope the palm already has, and the friction it loses grows with
+ * tan(pitch) (d ln cos / d angle), so a flat-topped sloper keeps working a little steeper and
+ * a blank one rolls off sooner. Square-rooted, gentler, as pitchGrip is.
+ */
+export function pitchSteep(hold: Hold): number {
+  const deg = sloperPitch(hold);
+  const mean = meanPitch(hold.size);
+  if (deg === null || mean === null || hold.grip !== undefined) return 1;
+  return Math.sqrt(Math.tan(rad(Math.max(10, Math.min(70, deg)))) / Math.tan(rad(mean)));
+}
+
+/** A sloper's grip multiplier for its pitch against the average of its size (1 otherwise). */
+export function pitchFactor(hold: Hold): number {
+  const deg = sloperPitch(hold);
+  const list = SLOPER_PITCH[hold.size];
+  if (deg === null || !list || hold.grip !== undefined) return 1;
+  const mean = list.reduce((a, n) => a + pitchGrip(n), 0) / list.length;
+  return pitchGrip(Math.max(10, Math.min(70, deg))) / mean;
+}
+
+/**
  * What incut does to a hand hold, against the type's middling build (its GRIP entry):
  * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
  * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
@@ -600,9 +661,9 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const loss =
     hold.type === 'jug' && hold.grip === undefined
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
-      : spec.steepLoss * macro * incut.steep;
+      : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold);
+  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold) * pitchFactor(hold);
   return base * orient * steepFactor;
 }
 

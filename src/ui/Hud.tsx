@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, depthEffect, depthWord, fingerEffect, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor } from '../scene/palette';
-import { edgeDepth, holdVariant, incutRank, pinchSpan, pocketFingers } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, depthEffect, depthWord, fingerEffect, pitchEffect, pitchWord, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor } from '../scene/palette';
+import { edgeDepth, holdVariant, incutRank, pinchSpan, pocketFingers, sloperPitch } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -181,14 +181,18 @@ function Lip({ hold }: { hold: Hold }) {
   const fingers = pocketFingers(hold);
   const span = pinchSpan(hold);
   const depth = edgeDepth(hold);
-  // A pocket's finger count outweighs its hood, a pinch's span its sculpting and an edge's
-  // depth its lip: a mono, a thin fin or a fingertip crimp says so first.
+  const pitch = sloperPitch(hold);
+  // A pocket's finger count outweighs its hood, a pinch's span its sculpting, an edge's depth
+  // its lip and a sloper's pitch its dish: a mono, a thin fin, a fingertip crimp or a steep
+  // sloper says so first.
   const effect =
     (fingers !== null && fingerEffect(fingers)) ||
     (span !== null && spanEffect(span)) ||
     (depth !== null && depthEffect(hold.type, depth)) ||
+    (pitch !== null && pitchEffect(pitch)) ||
     lipEffect(hold.type, rank);
-  const prefix = fingers !== null ? fingerWord(fingers) : span !== null ? spanWord(span) : depth !== null ? depthWord(hold.type, depth) : null;
+  const prefix =
+    fingers !== null ? fingerWord(fingers) : span !== null ? spanWord(span) : depth !== null ? depthWord(hold.type, depth) : pitch !== null ? pitchWord(pitch) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

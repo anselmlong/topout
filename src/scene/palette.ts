@@ -128,6 +128,15 @@ export function depthEffect(type: HoldType, mm: number): string | null {
   return type === 'edge' && mm < 22 ? 'shallow: a bit harder' : null;
 }
 
+/** A sloper's pitch in words (model.ts sloperPitch), or null for a middling one. */
+export function pitchWord(deg: number): string | null {
+  return deg <= 30 ? 'Flat-topped sloper' : deg >= 48 ? 'Steep sloper' : null;
+}
+/** What a sloper's pitch does: the steeper its top, the less the palm presses into it. */
+export function pitchEffect(deg: number): string | null {
+  return deg >= 48 ? 'steep top: much harder' : deg >= 42 ? 'sloping top: harder' : deg <= 30 ? 'flat top: holds better' : null;
+}
+
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
   if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';
