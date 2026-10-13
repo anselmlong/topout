@@ -116,6 +116,18 @@ export function spanEffect(cm: number): string | null {
   return cm < 4.5 ? 'thin: harder to squeeze' : cm < 5.5 ? 'narrow: a bit harder' : null;
 }
 
+/** A crimp's or edge's shelf depth in words (model.ts edgeDepth), or null for a middling one. */
+export function depthWord(type: HoldType, mm: number): string | null {
+  if (type === 'crimp') return mm < 12 ? 'Shallow crimp' : mm >= 22 ? 'Full-pad crimp' : null;
+  return mm < 22 ? 'Shallow edge' : mm >= 40 ? 'Deep edge' : null;
+}
+/** What a shelf's depth does: under a finger pad only the tips bite. */
+export function depthEffect(type: HoldType, mm: number): string | null {
+  if (mm < 12) return 'fingertips only: much harder';
+  if (mm < 16) return 'shallow: harder';
+  return type === 'edge' && mm < 22 ? 'shallow: a bit harder' : null;
+}
+
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
   if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';

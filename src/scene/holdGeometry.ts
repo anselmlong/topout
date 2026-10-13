@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { fingersOf, incutOf, spanOf } from '../solver/model';
+import { depthOf, fingersOf, incutOf, meanDepth, spanOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -186,10 +186,13 @@ function incutProfile(pts: [number, number][], incut: number): [number, number][
  * melts into the wall instead of a cut-off end. Columns bunch up toward the
  * ends where the shape turns fastest. Returns the bolt square to the face.
  */
-function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5) {
+function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null) {
   const M = 14;
   const NU = 18;
-  const spline = new THREE.SplineCurve(incutProfile(pr.pts, incut).map(([a, b]) => new THREE.Vector2(a * scale * (0.92 + 0.16 * k), b * scale)));
+  // How far out of the wall: a crimp's or edge's shelf depth against its size's mean (model.ts
+  // depthOf), so a shallow one reads as a thin strip and a deep one as a shelf; else a little play.
+  const out = depth ?? 0.92 + 0.16 * k;
+  const spline = new THREE.SplineCurve(incutProfile(pr.pts, incut).map(([a, b]) => new THREE.Vector2(a * scale * out, b * scale)));
   const prof = spline.getSpacedPoints(M - 1);
   // Pin the ends to the wall exactly.
   prof[0].x = 0;
@@ -1232,7 +1235,8 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   }
   const profile = PROFILES[type];
   if (profile) {
-    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v));
+    const mm = depthOf(type, size, v);
+    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), profile.grip ?? spec.grip ?? TOP_GRIP);
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;

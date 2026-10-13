@@ -52,6 +52,8 @@ export interface Hold {
   fingers?: number;
   /** Pinch span override (cm between thumb and fingers); otherwise read off the seed (see pinchSpan). */
   span?: number;
+  /** Crimp or edge shelf depth override (mm); otherwise read off the seed (see edgeDepth). */
+  depth?: number;
 }
 
 export interface Panel {

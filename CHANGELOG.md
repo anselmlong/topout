@@ -26,6 +26,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Pinches come thin or wide: a pinch is now a thin fin, a hand-width rib or a wide one, and you
   can see which from how thick it's drawn (the hold bar says "Thin pinch" or "Wide pinch"). Thin
   fins are harder to squeeze than a broad pinch of the same size.
+- Crimps and edges come shallow or deep: each crimp and edge now has a shelf depth, drawn as far
+  out of the wall as it is deep, so a fingertip strip barely stands off the wall while a
+  full-pad crimp sits out like a shelf (the hold bar says "Shallow crimp" or "Full-pad crimp").
+  A crimp less than a finger pad deep is much harder to hold; past about 3 cm, extra depth barely helps.
 
 **Grades**
 - Pockets are checked against real board problems: two Kilter pocket problems, one on

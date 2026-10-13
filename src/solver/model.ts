@@ -258,6 +258,62 @@ export function spanFactor(hold: Hold): number {
 }
 
 /**
+ * How deep a crimp's or an edge's shelf is (mm, life size: how much of the finger pads it
+ * takes), from its seed and size, on its own cycle (two builds off the lip's, like a pinch's
+ * span, so the shallowest build is never also the flattest). Depth is what grades an edge
+ * before anything else: on a 1 cm edge only the fingertips bite and the joints crank to hold
+ * them, where a 2 cm one takes the first pads and a 3-4 cm one the whole first phalanx. Amca,
+ * Vigouroux, Aritan and Berton, "Effect of hold depth and grip technique on maximal finger
+ * forces in rock climbing" (J. Sports Sci. 2012): maximal finger force climbs steeply from a
+ * 1 cm to a 2 cm edge and levels off by 3-4 cm. Hangboards are built on the same curve
+ * (hangboards step their edges from about 6 mm to 25 mm for the same reason).
+ * The lists centre on the depth each build has always been drawn at. Macro ledges keep one.
+ */
+export const EDGE_DEPTH: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
+  crimp: { s: [9, 12, 15, 18], m: [11, 15, 19, 23], l: [14, 19, 24, 29] },
+  edge: { s: [16, 21, 27, 32], m: [20, 27, 34, 40], l: [25, 33, 41, 50] },
+};
+
+export function depthOf(type: HoldType, size: HoldSize, variant: number): number | null {
+  const list = EDGE_DEPTH[type]?.[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
+}
+
+export function edgeDepth(hold: Hold): number | null {
+  return hold.type === 'crimp' || hold.type === 'edge' ? (hold.depth ?? depthOf(hold.type, hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean depth an edge of this type and size comes in (mm), what its mesh is drawn at; null for none. */
+export function meanDepth(type: HoldType, size: HoldSize): number | null {
+  const list = EDGE_DEPTH[type]?.[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/**
+ * An edge's grip by depth (mm), against a deep one: the study's curve, steep under 2 cm and
+ * flat past 3, made gentler (a 1 cm edge about four fifths of a 3 cm one) as FINGER_GRIP
+ * is, since the feet still carry the body.
+ */
+export function depthGrip(mm: number): number {
+  return 1 - 0.4 * Math.exp(-(mm - 5) / 9);
+}
+
+/**
+ * An edge's or crimp's grip multiplier for its depth against its size's typical build (1
+ * otherwise). A line of mixed crimps grades off its shallowest, so the typical build sits a
+ * quarter of the way from the average down to the shallowest: a mixed set of a size climbs
+ * as that size always has (the board-graded reference problems were fitted to it).
+ */
+export function depthFactor(hold: Hold): number {
+  const mm = edgeDepth(hold);
+  const list = EDGE_DEPTH[hold.type]?.[hold.size];
+  if (mm === null || !list || hold.grip !== undefined) return 1;
+  const grips = list.map(depthGrip);
+  const mean = (3 * grips.reduce((a, n) => a + n, 0) / grips.length + Math.min(...grips)) / 4;
+  return depthGrip(Math.max(5, Math.min(60, mm))) / mean;
+}
+
+/**
  * What incut does to a hand hold, against the type's middling build (its GRIP entry):
  * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
  * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
@@ -543,7 +599,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep;
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold) * spanFactor(hold);
+  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold);
   return base * orient * steepFactor;
 }
 

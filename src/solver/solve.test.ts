@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, palmFactor, palmOpposed, pinchSpan, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, palmFactor, palmOpposed, pinchSpan, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -97,6 +97,23 @@ describe('solver', () => {
     for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => spanOf(size, v))).size).toBe(4);
     expect(spanOf('xl', 0)).toBeNull();
     expect(pinchSpan({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a deeper crimp grades easier than a shallow one of the same size and lip', () => {
+    const withDepth = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'crimp' ? { ...h, depth, incut: 0.5 } : h));
+    for (const angle of [0, 30]) {
+      const g = [10, 15, 22].map((mm) => grade(wall(angle), withDepth(ladder('crimp', 45), mm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.2);
+      expect(g[1]).toBeGreaterThan(g[2]);
+    }
+    // Depth matters less once the pads are on: 3 cm to 4 cm barely changes an edge.
+    expect(depthGrip(40) / depthGrip(30)).toBeLessThan(1.03);
+    expect(depthGrip(20) / depthGrip(10)).toBeGreaterThan(1.15);
+    // Every size's own seeds cover a spread of depths; macro ledges and other types have none.
+    for (const type of ['crimp', 'edge'] as const)
+      for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => depthOf(type, size, v))).size).toBe(4);
+    expect(depthOf('edge', 'xl', 0)).toBeNull();
+    expect(edgeDepth({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {
