@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, fingerEffect, fingerWord, lipEffect, lipWord, routeColor } from '../scene/palette';
-import { holdVariant, incutRank, pocketFingers } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, fingerEffect, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor } from '../scene/palette';
+import { holdVariant, incutRank, pinchSpan, pocketFingers } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -179,8 +179,11 @@ function Lip({ hold }: { hold: Hold }) {
   const rank = incutRank(hold);
   if (rank === null) return null;
   const fingers = pocketFingers(hold);
-  // A pocket's finger count outweighs its hood: a mono or two-finger hole says so first.
-  const effect = (fingers !== null && fingerEffect(fingers)) || lipEffect(hold.type, rank);
+  const span = pinchSpan(hold);
+  // A pocket's finger count outweighs its hood, and a pinch's span its sculpting: a mono or a
+  // thin fin says so first.
+  const effect = (fingers !== null && fingerEffect(fingers)) || (span !== null && spanEffect(span)) || lipEffect(hold.type, rank);
+  const prefix = fingers !== null ? fingerWord(fingers) : span !== null ? spanWord(span) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">
@@ -188,8 +191,8 @@ function Lip({ hold }: { hold: Hold }) {
           <i key={i} className={i <= Math.round(rank * 3) ? 'on' : undefined} />
         ))}
       </span>
-      {fingers !== null && `${fingerWord(fingers)}, `}
-      {fingers === null ? lipWord(hold.type, rank, holdVariant(hold)) : lipWord(hold.type, rank, holdVariant(hold)).toLowerCase()}
+      {prefix && `${prefix}, `}
+      {prefix ? lipWord(hold.type, rank, holdVariant(hold)).toLowerCase() : lipWord(hold.type, rank, holdVariant(hold))}
       <span className="dim"> · {effect}</span>
     </span>
   );

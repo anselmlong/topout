@@ -50,6 +50,8 @@ export interface Hold {
   incut?: number;
   /** Pocket finger-count override, 1 (a mono) .. 4; otherwise read off the seed (see pocketFingers). */
   fingers?: number;
+  /** Pinch span override (cm between thumb and fingers); otherwise read off the seed (see pinchSpan). */
+  span?: number;
 }
 
 export interface Panel {

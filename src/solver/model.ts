@@ -219,6 +219,45 @@ export function fingerFactor(hold: Hold): number {
 }
 
 /**
+ * How wide a pinch is between the thumb and the fingers (cm, life size), from its seed and size,
+ * on its own cycle (independent of the flanks' sculpting, incutOf). A pinch's span is what makes
+ * it hard: a thin fin gives the thumb nothing to oppose, so the hand squeezes a blade with the
+ * fingertips, while a broad one takes the thumb pad and the whole finger flank. Hao et al.,
+ * "Mechanics and muscular activity characteristics of the pinch grip across varying hold widths"
+ * (ISBS 2025, 22 climbers): pulling on a narrow pinch lost 31-46% of the force a jug allows, a
+ * broad pinch only 6-19%. Coaching material says the same past a hand's width: too wide and
+ * the thumb strains (grip-training guidance on pinch blocks). Macros (pinch blocks) keep one span.
+ */
+export const PINCH_SPAN: Partial<Record<HoldSize, number[]>> = { s: [3, 4, 5, 6], m: [3.5, 5, 6.5, 8], l: [4.5, 6, 7.5, 9] };
+
+export function spanOf(size: HoldSize, variant: number): number | null {
+  const list = PINCH_SPAN[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
+}
+
+export function pinchSpan(hold: Hold): number | null {
+  return hold.type === 'pinch' ? (hold.span ?? spanOf(hold.size, holdVariant(hold))) : null;
+}
+
+/**
+ * A pinch's grip by span (cm), against a hand-width one: the narrow end loses most (the study's
+ * narrow-to-broad ratio, about 0.7, made gentler as FINGER_GRIP is, since the feet still carry
+ * the body), and past about 6 cm the thumb starts to strain, a little.
+ */
+export function spanGrip(cm: number): number {
+  return cm <= 6 ? 1 - 0.07 * (6 - cm) : 1 - 0.015 * (cm - 6);
+}
+
+/** A pinch's grip multiplier for its span against the average of its size (1 otherwise). */
+export function spanFactor(hold: Hold): number {
+  const cm = pinchSpan(hold);
+  const list = PINCH_SPAN[hold.size];
+  if (cm === null || !list || hold.grip !== undefined) return 1;
+  const mean = list.reduce((a, n) => a + spanGrip(n), 0) / list.length;
+  return spanGrip(Math.max(2, Math.min(10, cm))) / mean;
+}
+
+/**
  * What incut does to a hand hold, against the type's middling build (its GRIP entry):
  * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
  * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
@@ -504,7 +543,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep;
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold);
+  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold) * spanFactor(hold);
   return base * orient * steepFactor;
 }
 

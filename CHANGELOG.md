@@ -17,6 +17,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Pockets come in finger sizes: a pocket is now a mono, a two-finger or three-finger hole, or a
   four-finger slot, and you can see which from how wide its hole is (the hold bar names it too).
   Monos are much harder to hang than a two-finger pocket, which is harder than a three-finger one.
+- Pinches come thin or wide: a pinch is now a thin fin, a hand-width rib or a wide one, and you
+  can see which from how thick it's drawn (the hold bar says "Thin pinch" or "Wide pinch"). Thin
+  fins are harder to squeeze than a broad pinch of the same size.
 
 **Grades**
 - Pockets are checked against real board problems: two Kilter pocket problems, one on

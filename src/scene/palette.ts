@@ -107,6 +107,15 @@ export function fingerEffect(fingers: number): string | null {
   return fingers <= 1 ? 'one finger: much harder' : fingers === 2 ? 'two fingers: harder' : null;
 }
 
+/** A pinch's span in words (model.ts pinchSpan), or null for one about a hand's width. */
+export function spanWord(cm: number): string | null {
+  return cm < 4.5 ? 'Thin pinch' : cm > 7.5 ? 'Wide pinch' : null;
+}
+/** What a pinch's span does: a thin fin gives the thumb little to squeeze. */
+export function spanEffect(cm: number): string | null {
+  return cm < 4.5 ? 'thin: harder to squeeze' : cm < 5.5 ? 'narrow: a bit harder' : null;
+}
+
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
   if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, pocketFingers, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, lipV, palmFactor, palmOpposed, pinchSpan, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -84,6 +84,19 @@ describe('solver', () => {
     // Every size's own seeds cover a spread of finger counts, and only pockets have one.
     for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => fingersOf(size, v))).size).toBeGreaterThan(1);
     expect(pocketFingers({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a broad pinch grades easier than a thin fin of the same size and sculpting', () => {
+    const withSpan = (holds: Hold[], span: number) => holds.map((h) => (h.type === 'pinch' ? { ...h, span, incut: 0.5, rot: Math.PI / 2 } : h));
+    for (const angle of [0, 30]) {
+      const g = [3.5, 5, 6.5].map((cm) => grade(wall(angle), withSpan(ladder('pinch', 45), cm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.2);
+      expect(g[1]).toBeGreaterThan(g[2]);
+    }
+    // Every size's own seeds cover a spread of spans; macros (pinch blocks) and other types have none.
+    for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => spanOf(size, v))).size).toBe(4);
+    expect(spanOf('xl', 0)).toBeNull();
+    expect(pinchSpan({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {

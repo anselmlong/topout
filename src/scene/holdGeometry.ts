@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { fingersOf, incutOf } from '../solver/model';
+import { fingersOf, incutOf, spanOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -753,9 +753,11 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
  * dimple for the thumb pad. The outline is a lozenge, fuller at the bottom.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5) {
+function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null) {
   const N = 40;
-  const W = 0.031 * (0.9 + 0.2 * k);
+  // Half its width. Its span (model.ts spanOf, cm in life, drawn 20% large like the rest) is
+  // what the thumb and fingers squeeze across, so a thin fin reads thin and a broad one broad.
+  const W = span === null ? 0.031 * (0.9 + 0.2 * k) : (span * 0.006) / S;
   const H = 0.081;
   const oy0 = 0.003;
   const Z = 0.048 * (1.04 - 0.08 * k);
@@ -1213,7 +1215,9 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
     const p =
       type === 'pocket'
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v))
-        : { sloper: sloperGeometry, pinch: pinchGeometry }[type](SIZE[size], k, r, incutOf(type, size, v));
+        : type === 'pinch'
+          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), spanOf(size, v))
+          : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v));
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;
