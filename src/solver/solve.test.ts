@@ -482,6 +482,36 @@ describe('solver', () => {
     expect(pressed).toHaveLength(0);
   });
 
+  it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {
+    // A player's route on day 78's vertical corner: a small pyramid volume halfway up, a crimp
+    // bolted onto its right face, pinches and edges round it.
+    const corner: Wall = { width: 400, panels: [{ length: 437, angle: -2 }], seed: 1961286659, fold: { u: 230, angle: 60 } };
+    const jug: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 244, v: 142, rot: 0, role: 'start' }];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 218, v: 398, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h1', type: 'pinch', size: 'm', u: 222.21, v: 177.24, rot: -0.689, seed: 6 },
+      { id: 'h2', type: 'edge', size: 'l', u: 259.04, v: 225.89, rot: 0.007, seed: 5 },
+      { id: 'h3', type: 'crimp', size: 'm', u: 209.37, v: 273.28, rot: -0.104, seed: 3 },
+      { id: 'h4', type: 'edge', size: 's', u: 251.61, v: 321.68, rot: 0.302, seed: 5 },
+      { id: 'h5', type: 'pinch', size: 'm', u: 218.37, v: 357.64, rot: -0.73, seed: 5 },
+      { id: 'f0', type: 'jib', size: 'm', u: 219.66, v: 238.33, rot: 0, seed: 2 },
+      { id: 'f1', type: 'foot', size: 'm', u: 248.79, v: 49.82, rot: 0, seed: 10 },
+      { id: 'f2', type: 'foot', size: 'm', u: 240.23, v: 77.07, rot: 0, seed: 9 },
+    ];
+    const volumes: Volume[] = [{ id: 'v0', shape: 'pyramid', size: 's', u: 198.97, v: 263.77, rot: Math.PI / 4 }];
+    // The face under the crimp is still there for a foot, not for a hand.
+    const contacts = contactList(jug, finish, holds, volumes, corner);
+    const face = contacts.find((h) => h.id === 'v0:f2')!;
+    expect(handGrip(face, { u: face.u, v: face.v - 100 }, corner)).toBe(0);
+    expect(footQuality(face)).toBeGreaterThan(0);
+    const r = solve(corner, jug, finish, holds, { volumes });
+    if (!r.ok) throw new Error(r.message);
+    // It used to let go of the crimp to palm the fibreglass 2 cm from it, which shifted the
+    // smear just enough to make the next reach easier.
+    const palmed = r.moves.filter((m) => m.limb <= 1 && contacts[m.to.limbs[m.limb]].id === 'v0:f2');
+    expect(palmed).toHaveLength(0);
+  });
+
   it('puts a foot under the reach to the finish, not out to the side', () => {
     // A player's route on day 7's slab: jugs up the middle, the finish up and right of the
     // last jug, a foot chip out right and a pocket under the finish.

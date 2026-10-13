@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-14
+
+**Climber**
+- Holds on volumes: a hand on a hold bolted onto a volume stays on it instead of letting go to
+  palm the bare volume face right next to it, a pointless shuffle that made the next reach look
+  easier than it is. Bare faces stay there for palming when nothing is bolted onto them.
+
 ## 2026-10-13
 
 **Climber**

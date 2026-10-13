@@ -5,7 +5,7 @@
 // The solver sees a volume as one extra contact per face: an up-facing face is
 // a foothold and a sloper-ish handhold, side faces are sidepulls, a down face
 // is an undercling. Holds bolted onto a face take that face's angle.
-import { angleAt, lipPanel, lipV } from './model';
+import { GRIP, angleAt, lipPanel, lipV } from './model';
 import type { Hold, Volume, VolumeShape, Wall } from './types';
 
 interface Dims {
@@ -138,12 +138,14 @@ function faceIndex(vol: Volume, u: number, v: number): number {
 
 /**
  * One contact per face, as solver holds. A face with a hold bolted onto it is mostly
- * taken up by that hold: climbers use the hold, so the bare face is worth much less.
+ * taken up by that hold: climbers use the hold, so the bare face is worth much less to a foot,
+ * and nothing to a hand when the hold is a hand hold.
  */
 export function volumeContacts(volumes: Volume[] | undefined, wall: Wall, placed: Hold[] = []): Hold[] {
   const out: Hold[] = [];
   for (const vol of volumes ?? []) {
     const taken = new Set(placed.map((h) => faceIndex(vol, h.u, h.v)));
+    const handTaken = new Set(placed.filter((h) => GRIP[h.type].hand).map((h) => faceIndex(vol, h.u, h.v)));
     faces(vol).forEach((f, i) => {
       const p = toWall(vol, f.x, f.y);
       const s = surfaceAt([vol], p.u, p.v);
@@ -171,7 +173,11 @@ export function volumeContacts(volumes: Volume[] | undefined, wall: Wall, placed
         u: p.u,
         v: p.v,
         rot,
-        grip: grip * bare,
+        // A hand on a face with a hand hold bolted onto it takes the hold: the hold sits on the
+        // face where a palm would go, so a hand never lets go of it to palm the fibreglass round
+        // it. (It did, a hand-width over or less, to shift the smear or make room for a foot.)
+        // The bare face is still there for the feet, and a foot chip leaves room for a hand.
+        grip: handTaken.has(i) ? 0 : grip * bare,
         foot: foot * bare,
         angle,
       });
