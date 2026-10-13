@@ -31,6 +31,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Pockets are checked against real board problems: two Kilter pocket problems, one on
   two-finger pockets and one on big three-finger pockets, each at 30° and 40°, now anchor pocket
   grades. Topout already grades them within about half a grade, so no grades change.
+- Thin and wide pinches are checked against real hold-maker grades: thin and wide pinch sets on
+  20° and 25° walls now anchor how much harder a thin pinch is. Topout lands within a grade of
+  them, so no grades change. Two upcoming days (Oct 19 and Nov 6) had drifted off their target
+  grade and were reset.
 
 ## 2026-10-12
 

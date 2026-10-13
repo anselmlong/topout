@@ -36,6 +36,8 @@ export interface Anchor {
   incut?: number;
   /** Every hand hold's finger count if it's a pocket (1 a mono .. 4 a slot); default from its seed. */
   fingers?: number;
+  /** Every hand hold's span (cm between thumb and fingers) if it's a pinch; default from its seed. */
+  span?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -295,6 +297,22 @@ export const ANCHORS: Anchor[] = [
   // hand nearly fits: large three-finger pockets.
   { name: '30° large pockets', angle: 30, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 3, fingers: 3 },
   { name: '40° large pockets', angle: 40, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 4, fingers: 3 },
+  // Pinches by span (model.ts pinchSpan, spanGrip): until now no reference problem set a pinch's
+  // width, so the thin fins and wide pinches every pinch now comes as were graded off their seeds.
+  // No board benchmark gives a pinch's width, so these take Atomik Climbing Holds' per-angle grade
+  // guides, which give each set's width (found via search on 2026-10-13; the site can't be fetched
+  // from this run). Their vertical grades run a grade or two soft against the vertical rows here
+  // (their small crimps are "V2 on vertical", where vertical small crimps are V4 above), so only
+  // their overhanging grades are used.
+  // Thin: "5 Small Simple Pinches", 2" wide (5 cm) and 1-1/4" off the wall, V4 on a 25° wall
+  // (V3/4 on another listing of the same set; V7 at 45°).
+  { name: '25° thin pinches', angle: 25, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 4, span: 5 },
+  // Wide: "5 Pack Squished Pinches" Set #1 (2-1/2" to 3" wide) is V2 on a 25° wall and Set #3
+  // (2-1/2" to 3-3/4") V4: the same width, so V3 between them, at 7 cm.
+  { name: '25° wide pinches', angle: 25, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 3, span: 7 },
+  // "5 Large Basic Pinches Set #3", the wider set of the basic pinches (no width given; set past a
+  // hand's width, 7.5 cm): V2 on vertical, V4 on a 20° wall, V7 at 45°.
+  { name: '20° large wide pinches', angle: 20, type: 'pinch', size: 'l', spacing: 55, feet: true, expect: 4, span: 7.5 },
 ];
 
 const TOP = 400;
@@ -338,14 +356,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
