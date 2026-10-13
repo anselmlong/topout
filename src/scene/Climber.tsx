@@ -46,6 +46,15 @@ const FLAG_REACH = 0.78;
  */
 const BRIDGE_HIGH = 0.55;
 /**
+ * How far below its hip (m) a frog-kneed foot starts to bring its knee up as well as out
+ * (fully by 0.3 m higher, a foot up by the hip). A foot that high folds the leg shut along a
+ * line pointing into the wall, so "out from the wall" has nothing left to say and the knee
+ * lay flat out sideways, level with the hip, thigh and shin stacked like a split (day 112's
+ * "Left foot -> crimp"). A climber high-stepping drives the knee up toward the shoulder
+ * on that side and out over the foot, so the hips can rock over it.
+ */
+const HIGH_KNEE = 0.4;
+/**
  * How far through a dyno's throw (share of the hand's travel) the feet stay on before they
  * cut loose on steep ground. A dyno is driven by the legs: the feet push until the legs are
  * straight and only leave the wall as the body rises to the deadpoint (Hörst, Training for
@@ -305,6 +314,18 @@ function poseFrom(
               // and a little down, so the leg pushes into that face like a strut.
               lateral.clone().multiplyScalar(side * 0.85).addScaledVector(faces[i]!, 0.35).addScaledVector(torsoDir, -0.2)
             : normal.clone().addScaledVector(lateral, side * 0.7);
+    // A frog knee on a foot up by the hip comes up toward the shoulder as well as out. The
+    // hips are no higher than the other leg reaches: with that foot still low, the posed hips
+    // stood up over the reaching hand while the body hung where that leg held it, the high
+    // foot right by the hip.
+    if (!flag && !legs[i] && backstep <= 0.15 && !stem) {
+      const hipY = other ? Math.min(pelvis[i].y, other.y + LEG[0] + LEG[1]) : pelvis[i].y;
+      const up = Math.min(1, Math.max(0, (target.y - hipY + HIGH_KNEE) / 0.3));
+      // Up instead of out: with the posed hips a little above the foot, the leg's line runs
+      // down into the wall, and "out" along with "up" leaves the knee level across it.
+      const k = up * up * (3 - 2 * up);
+      pole.addScaledVector(normal, -0.8 * k).addScaledVector(torsoDir, 0.9 * k);
+    }
     // Only a drop knee and a bridged leg mean the knee to point down; a flag isn't standing.
     const bridged = stem && !legs[i] && backstep <= 0.15;
     if (!flag && legs[i] !== 'drop-knee' && !bridged) kneeOff(offFaces(pole, pelvis[i], frames), pelvis[i], target);
