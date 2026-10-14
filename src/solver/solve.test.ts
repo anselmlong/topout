@@ -589,6 +589,32 @@ describe('solver', () => {
     expect(Math.round(r.grade)).toBe(1);
   });
 
+  it('keeps both feet on a slab instead of letting a smear dangle', () => {
+    // Day 50's reference route (V1, an 11° slab): a jug start, edges and crimps up and left.
+    const slab: Wall = { width: 360, panels: [{ length: 484, angle: -11 }], seed: 2113044559 };
+    const start: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 270, v: 128, rot: 0, role: 'start' }];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 131, v: 445, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h1', type: 'edge', size: 'm', u: 237.5, v: 146.3, rot: -0.02 },
+      { id: 'h2', type: 'edge', size: 'm', u: 277.2, v: 187.2, rot: 0.02 },
+      { id: 'h4', type: 'jug', size: 'm', u: 236.8, v: 234.3, rot: -0.31 },
+      { id: 'h5', type: 'crimp', size: 'm', u: 191.2, v: 261.8, rot: -0.27 },
+      { id: 'h6', type: 'crimp', size: 'l', u: 216.5, v: 293.9, rot: -0.32 },
+      { id: 'h7', type: 'sloper', size: 'l', u: 167.2, v: 315.4, rot: -0.18 },
+      { id: 'h9', type: 'edge', size: 's', u: 149.4, v: 364.9, rot: -0.11 },
+      { id: 'h10', type: 'edge', size: 'm', u: 180, v: 382.5, rot: 0.18 },
+    ];
+    const r = solve(slab, start, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to take its right foot off the smear and make two reaches with the leg hanging
+    // off the slab, since a smear following the hands up costs the beta and a dangling foot
+    // didn't. Now it steps that foot onto the start jug.
+    const dangling = r.moves.filter((m) => m.limb <= 1 && !m.dynamic && m.from.limbs.slice(2).includes(OFF));
+    expect(dangling).toHaveLength(0);
+    expect(r.moves.some((m) => m.limb >= 2 && m.to.limbs[m.limb] === 0)).toBe(true);
+    expect(Math.round(r.grade)).toBe(1);
+  });
+
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {
     // A player's route on day 78's vertical corner: a small pyramid volume halfway up, a crimp
     // bolted onto its right face, pinches and edges round it.

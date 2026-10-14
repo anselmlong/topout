@@ -131,6 +131,21 @@ const SPLIT = 1;
 const SMEARED = 1;
 const SMEAR_CLEAR = 25;
 
+/**
+ * What a hand move made with a foot hanging off the wall for nothing costs the beta on top of
+ * its difficulty: this share of its hanging term per such foot. On a slab or a vertical wall a
+ * climber keeps both feet on, on a hold or smeared, and takes one off only to flag it against
+ * a barn door or to cut loose on a jump (Climbing.com, "How to Flag"; The Self-Coached
+ * Climber, Hague & Hunter, on keeping weight on the feet). A smear that follows the hands up
+ * pays RESTEP while a dangling foot paid nothing, so the beta took a smearing foot off the
+ * slab and climbed on with the leg hanging rather than walk it up. Not on steep ground (past
+ * DANGLE_ANGLE), where cutting feet is climbing, nor a dynamic move or a flag a barn door
+ * needs. Like RESTEP, footwork the move's difficulty leaves out: the crux and every move's
+ * grade stay as they are.
+ */
+const DANGLE = 0.75;
+const DANGLE_ANGLE = 20;
+
 /** A move within this share of the crux is a hard one: it pumps (hardStreak). */
 const HARD = 0.85;
 
@@ -303,7 +318,7 @@ class Context {
   /**
    * Every legal move out of each stance the first pass expanded, in visit order, so the
    * second pass reuses them instead of re-scoring: a move's cost (d, and the footwork w the
-   * second pass adds, RESTEP, TOE_PRESS, UNDER, SPLIT and SMEARED) depends only on the
+   * second pass adds, RESTEP, TOE_PRESS, UNDER, SPLIT, SMEARED and DANGLE) depends only on the
    * stance and the move. Entry i is limb `code[i] & 3` to hold `(code[i] >> 2) - 2`.
    */
   private moves = new Map<number, { code: Int32Array; d: Float64Array; w: Float64Array }>();
@@ -776,6 +791,8 @@ class Context {
     // Matching is a shuffle: fine on the finish, a small cost anywhere else.
     const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
     const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
+    // A foot hanging off a slab or vertical wall for no flag and no jump (DANGLE).
+    const dangling = !dynamic && handsAngle < DANGLE_ANGLE && !(narrow > 0 && out > 0) ? [2, 3].filter((f) => l[f] === OFF).length : 0;
     const pressed = onFeet.filter((f) => lw[f] >= 0 && this.under[lw[f]]).length;
     // How far the hand rises above the one that stays on, and how much a foot under it pushes.
     const rise = Math.max(0, target.v - p[other].v) / 100;
@@ -789,7 +806,7 @@ class Context {
     return {
       d,
       dynamic,
-      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push) + (matched ? SPLIT : 0) + SMEARED * smeared) * hold,
+      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push) + (matched ? SPLIT : 0) + SMEARED * smeared + DANGLE * dangling) * hold,
       parts: {
         kind: 'hand',
         angle: handsAngle,
