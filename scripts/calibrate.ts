@@ -365,6 +365,20 @@ export const ANCHORS: Anchor[] = [
   // (V7-8 at 45°).
   { name: 'vertical steep macro slopers', angle: 0, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 3, pitch: 50 },
   { name: '25° steep macro slopers', angle: 25, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 6, pitch: 50 },
+  // Pinch blocks by span (model.ts PINCH_SPAN xl, 9-15 cm): until now the one macro pinch row (40°,
+  // TB2 above) graded off its seeds, so the narrow and wide blocks every pinch block now comes as
+  // (f278172) were unpinned, and no row set a pinch block on a gentle overhang.
+  // TB2 Mirror "Pinchachu" (90 ascents at 40°) on boardsesh.com (found via search on 2026-10-14; the
+  // site can't be fetched from this run) is V2 at 20°, V3 at 25° (V4 at 40°, the row above).
+  { name: '20° macro pinches', angle: 20, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 2 },
+  // Wide: Atomik Climbing Holds' "XXL Granite Pinch", 5-1/2" wide at the bottom (14 cm) and 4" off
+  // the wall, is V2/3 on a 25° wall (V4+ at 45°, where the reference start can't be held on
+  // macros here). V3 with Pinchachu at 25°: the TB2's blocks run about as wide.
+  { name: '25° wide pinch blocks', angle: 25, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 3, span: 14 },
+  // Narrow: Atomik's "5 XL Wide Font Pinches Set #3 (Positive)", 3-1/2" to 4" wide (9.5 cm) with
+  // "a hint of an incut", is V2 on vertical (V7 at 45°). Atomik gives no overhang grade for a
+  // block this narrow, so this takes its vertical one, which may run soft (see the pinches above).
+  { name: 'vertical narrow pinch blocks', angle: 0, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 2, span: 9.5 },
 ];
 
 const TOP = 400;

@@ -25,6 +25,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   easier than it is. Bare faces stay there for palming when nothing is bolted onto them.
 
 **Grades**
+- Pinch blocks: grades on big pinch blocks are now checked against real board and hold-maker
+  grades for narrow and wide blocks on vertical and gently overhanging walls. They already
+  matched, so no grades change.
 - Macro slopers: a giant sloper that's a blank, steep dome is now graded about as hard as a large
   sloper of the same shape, since there's nowhere to sit the hand on it however big it is; a
   flat-topped macro you can cup keeps its big-hold bonus. Checked against real hold-maker grades
