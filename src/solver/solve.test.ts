@@ -494,6 +494,36 @@ describe('solver', () => {
     expect(pressed).toHaveLength(0);
   });
 
+  it('keeps its feet apart on separate holds instead of standing both on one jug', () => {
+    // A player's route on day 8's slab: a ladder of jugs and edges up the right, slopers and
+    // edges up the left, a jib and foot chips low down.
+    const slab: Wall = { width: 400, panels: [{ length: 473, angle: -11 }], seed: 1099590421 };
+    const jug: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 173, v: 158, rot: 0, role: 'start' }];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 155, v: 439, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h1', type: 'jug', size: 's', u: 156, v: 188.8, rot: 0.03, seed: 3 },
+      { id: 'h2', type: 'jug', size: 'l', u: 194.3, v: 201.5, rot: 0.05, seed: 6 },
+      { id: 'h3', type: 'sloper', size: 'l', u: 135.7, v: 222, rot: -0.33, seed: 8 },
+      { id: 'h4', type: 'jug', size: 'l', u: 196.6, v: 245.1, rot: 0.03, seed: 7 },
+      { id: 'h5', type: 'crimp', size: 's', u: 130.3, v: 273.3, rot: 0.2, seed: 3 },
+      { id: 'h6', type: 'edge', size: 'l', u: 199.5, v: 289.9, rot: -0.06, seed: 2 },
+      { id: 'h7', type: 'edge', size: 'm', u: 125, v: 313.3, rot: 0.05, seed: 1 },
+      { id: 'h8', type: 'sloper', size: 'l', u: 193.4, v: 337.7, rot: 0.34, seed: 10 },
+      { id: 'h9', type: 'edge', size: 's', u: 139.9, v: 375.1, rot: -0.16, seed: 11 },
+      { id: 'h10', type: 'crimp', size: 'l', u: 178, v: 400.2, rot: -0.33, seed: 11 },
+      { id: 'f0', type: 'jib', size: 'm', u: 153.3, v: 55, rot: 0, seed: 6 },
+      { id: 'f2', type: 'foot', size: 'm', u: 195, v: 115.8, rot: 0, seed: 9 },
+      { id: 'f3', type: 'jib', size: 'm', u: 215.7, v: 229.1, rot: 0, seed: 5 },
+    ];
+    const r = solve(slab, jug, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to make 7 of its hand moves standing both feet on one jug (the start jug, then
+    // each jug up the right) with the small jug and the jib beside them free. Now it splits
+    // its feet, and matches them only where a reach is too hard off any other foothold.
+    const matched = r.moves.filter((m) => m.limb <= 1 && m.from.limbs[2] >= 0 && m.from.limbs[2] === m.from.limbs[3]);
+    expect(matched.length).toBeLessThanOrEqual(4);
+  });
+
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {
     // A player's route on day 78's vertical corner: a small pyramid volume halfway up, a crimp
     // bolted onto its right face, pinches and edges round it.

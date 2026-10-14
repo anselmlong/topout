@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-14
 
 **Climber**
+- Feet apart: the climber keeps each foot on its own hold as it climbs, instead of walking both
+  feet onto the same jug and making move after move standing on it with another foothold free
+  beside it. It still matches feet when one hold is the only place a hard reach goes from.
 - High steps: with a foot up on a hold by the hip and the other foot still low, the knee comes
   up toward the shoulder, the way a climber drives a high step, instead of lying flat out
   sideways with the leg folded like a split.

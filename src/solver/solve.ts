@@ -103,6 +103,19 @@ const TOE_PRESS = 0.5;
  */
 const UNDER = 0.8;
 
+/**
+ * What each hand move made with both feet on one hold costs the beta on top of its
+ * difficulty: this share of its hanging term. Climbers keep their feet apart, each on its own
+ * hold, as a wide base the body balances over and pivots on as it reaches; both feet on one
+ * hold is a narrow base, stood on briefly to swap feet or when there's nothing else (The
+ * Self-Coached Climber, Hague & Hunter, on balance and the base of support). The difficulty
+ * only prices how good the footholds are, so the second pass walked both feet up onto
+ * whichever jug was best and made hand move after hand move standing matched on it, with a
+ * second foothold free beside it. Ledges and volume faces have room for both feet. Like
+ * UNDER, footwork the move's difficulty leaves out.
+ */
+const SPLIT = 1;
+
 /** A move within this share of the crux is a hard one: it pumps (hardStreak). */
 const HARD = 0.85;
 
@@ -735,10 +748,12 @@ class Context {
     // How far the hand rises above the one that stays on, and how much a foot under it pushes.
     const rise = Math.max(0, target.v - p[other].v) / 100;
     const push = Math.max(0, ...onFeet.map((f) => (lw[f] >= 0 && !this.hookOf(lw, f as 2 | 3, p) ? legPush(p[f], target) : 0)));
+    // Both feet on one hold, not a ledge or a volume face with room for two.
+    const matched = lw[2] >= 0 && lw[2] === lw[3] && !this.holds[lw[2]].id.includes(':');
     return {
       d,
       dynamic,
-      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push)) * hold,
+      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push) + (matched ? SPLIT : 0)) * hold,
       parts: {
         kind: 'hand',
         angle: handsAngle,
