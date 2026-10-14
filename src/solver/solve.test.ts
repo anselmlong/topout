@@ -93,10 +93,19 @@ describe('solver', () => {
       expect(g[0]).toBeGreaterThan(g[1] + 0.2);
       expect(g[1]).toBeGreaterThan(g[2]);
     }
-    // Every size's own seeds cover a spread of spans; macros (pinch blocks) and other types have none.
-    for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => spanOf(size, v))).size).toBe(4);
-    expect(spanOf('xl', 0)).toBeNull();
+    // Every size's own seeds cover a spread of spans, pinch blocks all wider than a hand; other types have none.
+    for (const size of ['s', 'm', 'l', 'xl'] as const) expect(new Set([0, 1, 2, 3].map((v) => spanOf(size, v))).size).toBe(4);
+    expect(Math.min(...[0, 1, 2, 3].map((v) => spanOf('xl', v)!))).toBeGreaterThanOrEqual(9);
     expect(pinchSpan({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a narrow pinch block grades easier than a wide one', () => {
+    const blocks = (span: number) => ladder('pinch', 55).map((h) => (h.type === 'pinch' ? { ...h, size: 'xl' as const, span, incut: 0.5, rot: Math.PI / 2 } : h));
+    for (const angle of [0, 30]) {
+      const g = [9, 12, 15].map((cm) => grade(wall(angle), blocks(cm)));
+      expect(g[0]).toBeLessThan(g[1]);
+      expect(g[1]).toBeLessThan(g[2]);
+    }
   });
 
   it('a deeper crimp grades easier than a shallow one of the same size and lip', () => {

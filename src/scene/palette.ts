@@ -107,13 +107,14 @@ export function fingerEffect(fingers: number): string | null {
   return fingers <= 1 ? 'one finger: much harder' : fingers === 2 ? 'two fingers: harder' : null;
 }
 
-/** A pinch's span in words (model.ts pinchSpan), or null for one about a hand's width. */
-export function spanWord(cm: number): string | null {
+/** A pinch's span in words (model.ts pinchSpan), or null for one about a hand's width (or a middling pinch block). */
+export function spanWord(cm: number, size: HoldSize = 'm'): string | null {
+  if (size === 'xl') return cm <= 10 ? 'Narrow block' : cm >= 14 ? 'Wide block' : null;
   return cm < 4.5 ? 'Thin pinch' : cm > 7.5 ? 'Wide pinch' : null;
 }
-/** What a pinch's span does: a thin fin gives the thumb little to squeeze. */
+/** What a pinch's span does: a thin fin gives the thumb little to squeeze, a wide block stretches it. */
 export function spanEffect(cm: number): string | null {
-  return cm < 4.5 ? 'thin: harder to squeeze' : cm < 5.5 ? 'narrow: a bit harder' : null;
+  return cm < 4.5 ? 'thin: harder to squeeze' : cm < 5.5 ? 'narrow: a bit harder' : cm >= 14 ? 'wide: a stretch for the thumb' : null;
 }
 
 /** A crimp's or edge's shelf depth in words (model.ts edgeDepth), or null for a middling one. */

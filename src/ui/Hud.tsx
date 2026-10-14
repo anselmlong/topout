@@ -192,7 +192,7 @@ function Lip({ hold }: { hold: Hold }) {
     (pitch !== null && pitchEffect(pitch)) ||
     lipEffect(hold.type, rank);
   const prefix =
-    fingers !== null ? fingerWord(fingers) : span !== null ? spanWord(span) : depth !== null ? depthWord(hold.type, depth) : pitch !== null ? pitchWord(pitch, hold.size) : null;
+    fingers !== null ? fingerWord(fingers) : span !== null ? spanWord(span, hold.size) : depth !== null ? depthWord(hold.type, depth) : pitch !== null ? pitchWord(pitch, hold.size) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

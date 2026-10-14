@@ -248,9 +248,12 @@ export function fingerFactor(hold: Hold): number {
  * "Mechanics and muscular activity characteristics of the pinch grip across varying hold widths"
  * (ISBS 2025, 22 climbers): pulling on a narrow pinch lost 31-46% of the force a jug allows, a
  * broad pinch only 6-19%. Coaching material says the same past a hand's width: too wide and
- * the thumb strains (grip-training guidance on pinch blocks). Macros (pinch blocks) keep one span.
+ * the thumb strains (grip-training guidance on pinch blocks).
+ * Macros (pinch blocks) are all wider than a hand, 9-15 cm: the narrow ones take the thumb pad
+ * against the fingers' first joints, while across the widest the thumb barely meets the far
+ * flank and the hand opens toward the limit of its span (the same spanGrip curve, its wide end).
  */
-export const PINCH_SPAN: Partial<Record<HoldSize, number[]>> = { s: [3, 4, 5, 6], m: [3.5, 5, 6.5, 8], l: [4.5, 6, 7.5, 9] };
+export const PINCH_SPAN: Partial<Record<HoldSize, number[]>> = { s: [3, 4, 5, 6], m: [3.5, 5, 6.5, 8], l: [4.5, 6, 7.5, 9], xl: [9, 11, 13, 15] };
 
 export function spanOf(size: HoldSize, variant: number): number | null {
   const list = PINCH_SPAN[size];
@@ -276,7 +279,7 @@ export function spanFactor(hold: Hold): number {
   const list = PINCH_SPAN[hold.size];
   if (cm === null || !list || hold.grip !== undefined) return 1;
   const mean = list.reduce((a, n) => a + spanGrip(n), 0) / list.length;
-  return spanGrip(Math.max(2, Math.min(10, cm))) / mean;
+  return spanGrip(Math.max(2, Math.min(18, cm))) / mean;
 }
 
 /**

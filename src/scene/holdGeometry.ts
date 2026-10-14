@@ -1134,6 +1134,10 @@ const MACRO_STRETCH: Partial<Record<HoldType, [number, number, number]>> = {
   edge: [2.5, 1.55, 1.75],
   pinch: [2.6, 1.25, 1.7],
 };
+/** A pinch's span as built before macroMesh stretches it across, so a pinch block is drawn at its own. */
+function macroSpan(size: HoldSize, span: number | null): number | null {
+  return span !== null && size === 'xl' ? span / MACRO_STRETCH.pinch![0] : span;
+}
 const VARIANTS = 4;
 /**
  * Jug families, picked by variant: deep buckets most often, then a flat-topped
@@ -1222,7 +1226,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
       type === 'pocket'
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v))
         : type === 'pinch'
-          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), spanOf(size, v))
+          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)))
           : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);

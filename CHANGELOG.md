@@ -30,6 +30,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   half a grade of them, so no grades change.
 
 **Holds**
+- Pinch blocks come narrow or wide: the big pinch blocks now come in four widths, from a block
+  a little wider than a hand to one so wide the thumb barely reaches round it. The narrow ones
+  squeeze better, so they're a touch easier, and the hold bar names the narrowest and widest.
 - Macro slopers come flat-topped or steep: the big dual-texture slopers now come in four builds,
   from a proud, flat-topped dish the whole hand sits on to a low, round dome that the palm only
   smears. The flatter ones hold better, especially on overhangs, and the hold bar names them.
