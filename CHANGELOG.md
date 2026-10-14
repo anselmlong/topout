@@ -37,6 +37,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   half a grade of them, so no grades change.
 
 **Holds**
+- Macro ledges come shallow or deep: the big ledges now come in four builds, from a long rail
+  about two finger pads deep to a shelf the whole hand sits on, drawn as deep as they are. The
+  rails are a little harder to hang, and the hold bar names the rails and the deepest shelves.
 - Pinch blocks come narrow or wide: the big pinch blocks now come in four widths, from a block
   a little wider than a hand to one so wide the thumb barely reaches round it. The narrow ones
   squeeze better, so they're a touch easier, and the hold bar names the narrowest and widest.

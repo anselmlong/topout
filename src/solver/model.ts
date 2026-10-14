@@ -292,11 +292,14 @@ export function spanFactor(hold: Hold): number {
  * forces in rock climbing" (J. Sports Sci. 2012): maximal finger force climbs steeply from a
  * 1 cm to a 2 cm edge and levels off by 3-4 cm. Hangboards are built on the same curve
  * (hangboards step their edges from about 6 mm to 25 mm for the same reason).
- * The lists centre on the depth each build has always been drawn at. Macro ledges keep one.
+ * The lists centre on the depth each build has always been drawn at. Macro ledges run from a
+ * long rail about two pads deep (24 mm, an open-hand rail like a campus rung, where the hand
+ * drapes and the fingers still pull) to a shelf the whole hand sits on (60 mm); past 3-4 cm the
+ * study's curve is flat, so most of a ledge's spread is in its shallow half.
  */
 export const EDGE_DEPTH: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
   crimp: { s: [9, 12, 15, 18], m: [11, 15, 19, 23], l: [14, 19, 24, 29] },
-  edge: { s: [16, 21, 27, 32], m: [20, 27, 34, 40], l: [25, 33, 41, 50] },
+  edge: { s: [16, 21, 27, 32], m: [20, 27, 34, 40], l: [25, 33, 41, 50], xl: [24, 34, 46, 60] },
 };
 
 export function depthOf(type: HoldType, size: HoldSize, variant: number): number | null {
