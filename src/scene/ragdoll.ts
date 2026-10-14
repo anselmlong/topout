@@ -51,6 +51,8 @@ export interface EndDrive {
   /** A foot's swing out round its hip (bowRoundHip), at its fullest `bowAt` of the way along. */
   bow: THREE.Vector3;
   bowAt: number;
+  /** A foot easing off a hold it was stretched to (see letGo): free once it gets there. */
+  release: boolean;
 }
 
 const GRAVITY = -9.8;
@@ -97,6 +99,17 @@ const BOW_LATEST = 0.7;
 const UP = new THREE.Vector3(0, 1, 0);
 /** Knees bent less than this far off the leg's line (m) have no bend to turn. */
 const KNEE_BENT = 0.03;
+/**
+ * How fast (m/s) a stretched leg takes up its slack when its foot comes off. Stood at full
+ * span (day 79: left hand on a pocket 2.1 m above the left foot), the bones stretch 5 cm at
+ * the hip and shoulder between the pinned hand and foot; cut loose, the constraints shut that
+ * in one physics step and threw the foot and knee up 11 cm (12.5 m/s) and the hip 7 cm.
+ */
+const SLACK_SPEED = 1;
+/** Longest (s) a foot spends taking up slack before it swings free anyway. */
+const SLACK_TIME = 0.5;
+/** Hip to foot (m) with the leg straight: the thigh and shin. */
+const LEG_SPAN = 0.85;
 const LEGS = [
   [J.hipL, J.kneeL, J.footL, 2],
   [J.hipR, J.kneeR, J.footR, 3],
@@ -176,6 +189,7 @@ export class Ragdoll {
       lift: 0,
       bow: new THREE.Vector3(),
       bowAt: 0.5,
+      release: false,
     }));
   }
 
@@ -187,7 +201,7 @@ export class Ragdoll {
   /** Current kinematic position of an end, or null if it's free. */
   private endTarget(e: EndDrive): THREE.Vector3 | null {
     if (e.mode === 'free') return null;
-    if (e.mode === 'pinned') return e.to;
+    if (e.mode === 'pinned' || e.release) return e.to;
     const k = Math.min(1, e.t / e.duration);
     // Smootherstep: zero velocity and acceleration at both ends of a reach.
     const s = k * k * k * (k * (k * 6 - 15) + 10);
@@ -202,9 +216,11 @@ export class Ragdoll {
   drive(end: number, to: THREE.Vector3 | null, normal: THREE.Vector3, duration: number, lift: number) {
     const e = this.ends[end];
     if (!to) {
-      e.mode = 'free';
+      if (end >= 2 && e.mode !== 'free') this.letGo(e, end === 2 ? J.hipL : J.hipR, ENDS[end]);
+      else e.mode = 'free';
       return;
     }
+    e.release = false;
     const here = this.pos[ENDS[end]];
     if (here.distanceTo(to) < 0.01 && e.mode !== 'free') {
       e.mode = 'pinned';
@@ -247,6 +263,38 @@ export class Ragdoll {
     const dir = Math.abs(sideways) > 0.04 ? Math.sign(sideways) : side * Math.sign(across.x || 1);
     e.bow.copy(across).multiplyScalar(dir * (FOOT_CLEAR - gap));
     e.bowAt = Math.min(BOW_LATEST, Math.max(1 - BOW_LATEST, k));
+  }
+
+  /**
+   * A foot coming off a hold it could only just reach (the leg stretched past its length)
+   * first draws in along the leg, at most SLACK_SPEED, until the leg is straight, then swings
+   * free (see takeSlack).
+   */
+  private letGo(e: EndDrive, hip: number, foot: number) {
+    if (this.pos[foot].distanceTo(this.pos[hip]) <= LEG_SPAN + 0.01) {
+      e.mode = 'free';
+      return;
+    }
+    e.mode = 'moving';
+    e.release = true;
+    e.to.copy(this.pos[foot]);
+    e.t = 0;
+    e.duration = SLACK_TIME;
+  }
+
+  /**
+   * One step of a stretched leg taking up its slack. The hip rises as the foot comes in (the
+   * arm above was stretched too), so the slack is measured afresh each step until it's gone.
+   */
+  private takeSlack(e: EndDrive, hip: number, dt: number) {
+    const leg = this.tmp.subVectors(e.to, this.pos[hip]);
+    const slack = leg.length() - LEG_SPAN;
+    if (slack <= 0.005 || e.t >= e.duration) {
+      e.mode = 'free';
+      e.release = false;
+      return;
+    }
+    e.to.addScaledVector(leg.normalize(), -Math.min(slack, SLACK_SPEED * dt));
   }
 
   /** Push the whole body (e.g. the launch of a dyno). Units: m/s. */
@@ -335,11 +383,12 @@ export class Ragdoll {
     }
     this.burst = Math.max(0, this.burst - dt);
     // 3. Advance kinematic ends.
-    for (const e of this.ends) {
-      if (e.mode !== 'moving') continue;
+    this.ends.forEach((e, n) => {
+      if (e.mode !== 'moving') return;
       e.t += dt;
-      if (e.t >= e.duration) e.mode = 'pinned';
-    }
+      if (e.release) this.takeSlack(e, n === 2 ? J.hipL : J.hipR, dt);
+      else if (e.t >= e.duration) e.mode = 'pinned';
+    });
     // 4. Constraints.
     for (let iter = 0; iter < 10; iter++) {
       for (const [a, b, len, rigid] of this.sticks) {
