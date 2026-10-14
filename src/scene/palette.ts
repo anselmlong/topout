@@ -1,4 +1,5 @@
 import type { Day, HoldSize, HoldType } from '../solver/types';
+import { widthFingers } from '../solver/model';
 
 /** Muted, neutral scene palette. UI colors mirror these in styles.css. */
 export const PALETTE = {
@@ -129,6 +130,16 @@ export function depthEffect(type: HoldType, mm: number, size: HoldSize = 'm'): s
   if (mm < 12) return 'fingertips only: much harder';
   if (mm < 16) return 'shallow: harder';
   return type === 'edge' && mm < 22 ? 'shallow: a bit harder' : null;
+}
+
+/** A crimp's or edge's length in fingers (model.ts edgeWidth), or null for one the whole hand fits on. */
+export function widthWord(cm: number): string | null {
+  const f = widthFingers(cm);
+  return f < 2.6 ? 'Two-finger' : f < 3.6 ? 'Three-finger' : null;
+}
+/** What a short lip does: two fingers pull alone; a three-finger edge only drops the little finger. */
+export function widthEffect(cm: number): string | null {
+  return widthFingers(cm) < 2.6 ? 'two fingers wide: harder' : null;
 }
 
 /** A sloper's pitch in words (model.ts sloperPitch), or null for a middling one. */

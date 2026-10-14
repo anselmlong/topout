@@ -17,6 +17,12 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Big ledges are now checked against real ones: three reference problems from Atomik's split
   ledges and granite rails (flat and slopey ledges on vertical, a flat rail on a 25° wall).
 
+**Holds**
+- Short crimps: small crimps and edges now come in lengths, from a stub only two fingers fit on
+  to a rail the whole hand lines up along. You can see it on the wall, the tray names a
+  "Two-finger" or "Three-finger" crimp, and a two-finger crimp climbs harder than a full-hand
+  one of the same depth. Most medium and large ones fit the whole hand.
+
 ## 2026-10-14
 
 **Climber**

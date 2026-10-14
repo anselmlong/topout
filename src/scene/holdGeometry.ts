@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, incutOf, meanDepth, meanPitch, pitchOf, spanOf } from '../solver/model';
+import { depthOf, fingersOf, incutOf, meanDepth, meanPitch, pitchOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -186,7 +186,7 @@ function incutProfile(pts: [number, number][], incut: number): [number, number][
  * melts into the wall instead of a cut-off end. Columns bunch up toward the
  * ends where the shape turns fastest. Returns the bolt square to the face.
  */
-function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null) {
+function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null, length: number | null = null) {
   const M = 14;
   const NU = 18;
   // How far out of the wall: a crimp's or edge's shelf depth against its size's mean (model.ts
@@ -197,7 +197,9 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   // Pin the ends to the wall exactly.
   prof[0].x = 0;
   prof[M - 1].x = 0;
-  const width = pr.width * scale * (0.9 + 0.2 * k);
+  // How long the lip runs: a crimp's or edge's own length (model.ts widthOf, life-size cm, drawn
+  // 20% large like everything), so a two-finger crimp reads as a stub; else a little play.
+  const width = length !== null ? length * 0.012 : pr.width * scale * (0.9 + 0.2 * k);
   const yMin = Math.min(...prof.map((p) => p.y));
   const yMax = Math.max(...prof.map((p) => p.y));
   const outMax = Math.max(...prof.map((p) => p.x));
@@ -1243,7 +1245,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   const profile = PROFILES[type];
   if (profile) {
     const mm = depthOf(type, size, v);
-    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!);
+    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!, size === 'xl' ? null : widthOf(type, size, v));
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), profile.grip ?? spec.grip ?? TOP_GRIP);
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;

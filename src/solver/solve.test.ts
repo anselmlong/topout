@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -124,6 +124,23 @@ describe('solver', () => {
     expect(new Set([0, 1, 2, 3].map((v) => depthOf('edge', 'xl', v))).size).toBe(4);
     expect(depthOf('crimp', 'xl', 0)).toBeNull();
     expect(edgeDepth({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a crimp the whole hand fits on grades easier than a two-finger one of the same depth and lip', () => {
+    const withWidth = (holds: Hold[], width: number) => holds.map((h) => (h.type === 'crimp' ? { ...h, width, depth: 14, incut: 0.5 } : h));
+    for (const angle of [0, 30]) {
+      const g = [4.5, 6.5, 9].map((cm) => grade(wall(angle), withWidth(ladder('crimp', 45), cm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.2);
+      expect(g[1]).toBeGreaterThan(g[2]);
+      // Past four fingers' width, a longer lip changes nothing.
+      expect(grade(wall(angle), withWidth(ladder('crimp', 45), 14))).toBeCloseTo(g[2], 5);
+    }
+    // Small crimps and edges come short and long; every size has a spread; macros and other types have none.
+    for (const type of ['crimp', 'edge'] as const)
+      for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => widthOf(type, size, v))).size).toBe(4);
+    expect(Math.min(...[0, 1, 2, 3].map((v) => widthOf('crimp', 's', v)!))).toBeLessThan(5);
+    expect(edgeWidth({ id: 'x', type: 'edge', size: 'xl', u: 0, v: 0, rot: 0 })).toBeNull();
+    expect(edgeWidth({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it('a rail ledge grades harder than a deep shelf of the same lip, by under a grade', () => {

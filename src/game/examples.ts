@@ -105,7 +105,7 @@ export const EXAMPLES: Example[] = [
     grade: 3,
     title: 'Slab, no feet',
     note: 'A slab is easy on the arms, but with crimps and no footholds you balance on smears.',
-    ...route(wallDay(-15, 3), { type: 'crimp', size: 'm', spacing: 50, swing: 28, feet: false }),
+    ...route(wallDay(-15, 3), { type: 'crimp', size: 'm', spacing: 52, swing: 28, feet: false }),
   },
   {
     id: 'overhang-edges',

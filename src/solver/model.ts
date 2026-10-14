@@ -342,6 +342,62 @@ export function depthFactor(hold: Hold): number {
 }
 
 /**
+ * How long a crimp's or edge's lip runs along the wall (cm, life size), from its seed and size,
+ * on its own cycle (independent of its depth and its incut). A small crimp is often too short
+ * for the whole hand: on a two-finger crimp the index and middle (or middle and ring) pull
+ * alone, on a three-finger one the little finger drops off, while past about 8.5 cm all four
+ * fingers line up along it. The fingers aren't equal (Vigouroux et al., J. Biomech. 2006, as
+ * FINGER_GRIP: the middle and ring fingers carry over half the hand's pull, the little finger
+ * the least), so losing the little finger costs little and losing two costs a lot. Coaching
+ * material says the same: Eric Hörst, "Training for Climbing" (the three-finger drag, little
+ * finger off, as the grip for short edges; two-finger holds are among the most stressful);
+ * Climbing.com, "How to Climb Crimps" (fit as many fingers as the edge allows, stacking the
+ * little finger or thumb where it can't). Medium and large edges are long enough for the hand
+ * whatever the build, so only small crimps and edges, and the shortest medium crimps, read short.
+ */
+export const EDGE_WIDTH: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
+  crimp: { s: [4.5, 6.5, 8.5, 10.5], m: [6, 8, 10, 12], l: [8, 10.5, 13, 15.5] },
+  edge: { s: [6, 8, 10, 12], m: [8, 10.5, 13, 15.5], l: [10, 13, 16, 19] },
+};
+/** How much lip one finger takes (cm): four fingers side by side need about 8.5 cm. */
+export const FINGER_WIDTH = 2.1;
+
+export function widthOf(type: HoldType, size: HoldSize, variant: number): number | null {
+  const list = EDGE_WIDTH[type]?.[size];
+  return list ? list[(3 * variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 1) % list.length] : null;
+}
+
+export function edgeWidth(hold: Hold): number | null {
+  return (hold.type === 'crimp' || hold.type === 'edge') && hold.size !== 'xl' ? (hold.width ?? widthOf(hold.type, hold.size, holdVariant(hold))) : null;
+}
+
+/** How many fingers fit along a lip this long (2 .. 4, fractional between). */
+export function widthFingers(cm: number): number {
+  return Math.max(2, Math.min(4, cm / FINGER_WIDTH));
+}
+
+/** An edge's grip by its length (cm): FINGER_GRIP for the fingers that fit, interpolated. */
+export function widthGrip(cm: number): number {
+  const f = widthFingers(cm);
+  const lo = Math.floor(f);
+  return FINGER_GRIP[lo] + (FINGER_GRIP[Math.min(4, lo + 1)] - FINGER_GRIP[lo]) * (f - lo);
+}
+
+/**
+ * An edge's or crimp's grip multiplier for its length against its size's typical build (1
+ * otherwise), normalised as depthFactor is (a line of mixed crimps grades off its shortest),
+ * so a mixed set of a size climbs as it always has.
+ */
+export function widthFactor(hold: Hold): number {
+  const cm = edgeWidth(hold);
+  const list = EDGE_WIDTH[hold.type]?.[hold.size];
+  if (cm === null || !list || hold.grip !== undefined) return 1;
+  const grips = list.map(widthGrip);
+  const mean = (3 * grips.reduce((a, n) => a + n, 0) / grips.length + Math.min(...grips)) / 4;
+  return widthGrip(cm) / mean;
+}
+
+/**
  * How far a sloper's palm surface slopes away from level (degrees, on a vertical wall), from its
  * seed and size, on its own cycle (one build off its dish, so the steepest build is never also
  * the roundest). Pitch is what grades a sloper: it's held by friction alone, and friction
@@ -692,7 +748,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold) * pitchFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold);
   return base * orient * steepFactor;
 }
 

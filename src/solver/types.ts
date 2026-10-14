@@ -54,6 +54,8 @@ export interface Hold {
   span?: number;
   /** Crimp or edge shelf depth override (mm); otherwise read off the seed (see edgeDepth). */
   depth?: number;
+  /** Crimp or edge length override (cm along the lip); otherwise read off the seed (see edgeWidth). */
+  width?: number;
   /** Sloper pitch override (degrees its palm surface slopes off level); otherwise read off the seed (see sloperPitch). */
   pitch?: number;
 }
