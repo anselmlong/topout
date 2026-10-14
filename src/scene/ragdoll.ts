@@ -108,6 +108,15 @@ const KNEE_BENT = 0.03;
 const SLACK_SPEED = 1;
 /** Longest (s) a foot spends taking up slack before it swings free anyway. */
 const SLACK_TIME = 0.5;
+/**
+ * Room (m) a hip keeps from its own foot, and how fast (m/s) the body moves out of the way of a
+ * foot coming inside it. The bones only stop a foot 22 cm from its hip (a leg folded shut), and
+ * a high step to a hold level with the hip got there at 4-6 m/s: the stick shoved that one hip
+ * out from the wall in two or three steps (day 71: 11 cm, 6.4 m/s), twisting the pelvis 16°
+ * a step. A climber's hips move out and over before the foot comes up under them.
+ */
+const HIP_ROOM = 0.3;
+const ROOM_SPEED = 1.5;
 /** Hip to foot (m) with the leg straight: the thigh and shin. */
 const LEG_SPAN = 0.85;
 const LEGS = [
@@ -389,6 +398,7 @@ export class Ragdoll {
       if (e.release) this.takeSlack(e, n === 2 ? J.hipL : J.hipR, dt);
       else if (e.t >= e.duration) e.mode = 'pinned';
     });
+    if (posture && this.tone > 0) this.makeRoom(dt);
     // 4. Constraints.
     for (let iter = 0; iter < 10; iter++) {
       for (const [a, b, len, rigid] of this.sticks) {
@@ -419,6 +429,36 @@ export class Ragdoll {
     }
     // 5. NaN guard: snap back to the posed skeleton.
     if (pos.some((p) => !Number.isFinite(p.x + p.y + p.z)) && posture) this.reset(posture);
+  }
+
+  /**
+   * The body eases away from a foot on the wall that's come inside HIP_ROOM of its hip, all of it
+   * together (pos and prev, so it carries no swing out of it), at most ROOM_SPEED: the hips move
+   * out and over a high step instead of one hip being kicked out by the leg's bones.
+   */
+  private makeRoom(dt: number) {
+    const { pos, prev } = this;
+    for (const [hip, , foot, end] of LEGS) {
+      const e = this.ends[end];
+      if (e.mode === 'free' || e.release) continue;
+      // Measured to the nearest point on the rest of the foot's way, not just where it is, so
+      // the hips start moving as the foot leaves: a high step's foot comes up at 4-6 m/s, far
+      // quicker than they can, and on day 71 one swept past just over the hip to a hold beyond.
+      const now = this.endTarget(e);
+      if (!now) continue;
+      const way = this.tmp2.subVectors(e.to, now);
+      const len2 = way.lengthSq();
+      const k = len2 > 1e-6 ? Math.min(1, Math.max(0, this.tmp3.subVectors(pos[hip], now).dot(way) / len2)) : 0;
+      const away = this.tmp.subVectors(pos[hip], now).addScaledVector(way, -k);
+      const d = away.length();
+      if (d >= HIP_ROOM || d < 1e-4) continue;
+      away.multiplyScalar(Math.min(HIP_ROOM - d, ROOM_SPEED * dt) / d);
+      for (let i = 0; i < JOINTS; i++) {
+        if (i === foot || this.invMass(i) === 0) continue;
+        pos[i].add(away);
+        prev[i].add(away);
+      }
+    }
   }
 
   /** Swing a knee round its hip-foot line, at most `max` radians, toward the side the pose bends it. */

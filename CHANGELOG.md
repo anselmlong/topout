@@ -7,6 +7,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-14
 
 **Climber**
+- High steps: the climber's hips move out and over as a foot comes up high beside them,
+  instead of one hip getting kicked out from the wall by the leg as the foot lands.
 - Smears: the climber stands on a free jug or foothold instead of smearing the bare wall a
   few centimetres beside it, as it often did just after its hands left the start jugs.
 - Cutting a foot at full stretch: when the climber is stretched out tall between a high hand
