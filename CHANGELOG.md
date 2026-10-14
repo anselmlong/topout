@@ -10,6 +10,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Slabs and vertical walls: the climber keeps both feet on, walking a smearing foot up or
   stepping it onto a hold, instead of lifting it off the wall and climbing on with the leg
   dangling. It still flags a leg to stop a barn door and cuts loose on steep ground or a jump.
+- Feet: the climber places a foot on a far hold steadily, no quicker than a hand reaches,
+  instead of flicking it across in a third of a second on long or busy routes.
 
 ## 2026-10-14
 

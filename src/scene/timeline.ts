@@ -38,6 +38,8 @@ export interface Keyframe {
    */
   prep?: number;
   travel?: number;
+  /** How far (m) the moving limb goes, along the wall. */
+  reach?: number;
 }
 
 export interface Timeline {
@@ -65,6 +67,22 @@ export const WINDUP = 0.8;
 export const CLIMB_BUDGET = 18;
 /** The quickest easy moves get on a long route, as a share of their full pace. */
 export const MIN_TEMPO = 0.68;
+/**
+ * Top speed (m/s) a foot travels to its hold at. A foot's move eases in and out (its peak is
+ * 1.875x its average), so a long step needs this long at least: `FOOT_PEAK * reach / FOOT_TOP`.
+ * Capped at 0.52 s and quickened with the easy moves on a long route, a foot went 0.77 m in
+ * 0.35 s (day 50's high step, 4.1 m/s) and 1.34 m in 0.37 s (day 92's drop knee, 6.9 m/s),
+ * flicked onto the hold two or three times as fast as the hands reach (2-2.5 m/s). Climbers
+ * place feet slowly and precisely, eyes on the foothold, more so on a long step ("quiet feet").
+ */
+export const FOOT_TOP = 3;
+const FOOT_PEAK = 1.875;
+
+/** Shortest travel (s) for a foot going `reach` m to its hold (see FOOT_TOP). */
+export function footPace(reach: number): number {
+  return (FOOT_PEAK * reach) / FOOT_TOP;
+}
+
 /** Standing on the start before the first move (s). */
 export const PREROLL = 0.8;
 
@@ -76,7 +94,7 @@ export const PREROLL = 0.8;
  */
 export function beats(limb: number, dynamic: boolean, strain: number, reach: number): { prep: number; travel: number; settle: number } {
   if (dynamic) return { prep: 0, travel: 0.45, settle: 0.5 };
-  if (limb >= 2) return { prep: 0.18, travel: 0.32 + Math.min(0.2, reach * 0.25), settle: 0.2 };
+  if (limb >= 2) return { prep: 0.18, travel: Math.max(0.32 + Math.min(0.2, reach * 0.25), footPace(reach)), settle: 0.2 };
   return {
     prep: 0.24 + 0.16 * strain,
     travel: 0.38 + Math.min(0.3, reach * 0.4) + 0.2 * strain,
@@ -150,6 +168,7 @@ export function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Tim
         duration: beat.prep + beat.travel + beat.settle,
         prep: beat.prep,
         travel: beat.travel,
+        reach,
         dynamic: m.dynamic,
         strain,
         grade: moveGrade(m.difficulty),
@@ -161,13 +180,27 @@ export function buildTimeline(result: SolveResult, day: Day, holds: Hold[]): Tim
     const moves = frames.filter((f) => f.limb >= 0);
     const easy = moves.filter((f) => f.strain < 0.98 && !f.dynamic);
     const fixed = frames.reduce((s, f) => s + (easy.includes(f) ? 0 : f.limb >= 0 && f.strain >= 0.98 ? f.duration / CRUX_SLOWMO : f.duration), 0);
-    const flex = easy.reduce((s, f) => s + f.duration, 0);
-    const tempo = flex > 0 ? Math.max(MIN_TEMPO, Math.min(1, (CLIMB_BUDGET - fixed) / flex)) : 1;
+    // A foot still travels no faster than FOOT_TOP: its prep and settle quicken, not the step,
+    // and the rest of the easy moves quicken that much more to stay in the budget.
+    const travelAt = (f: Keyframe, k: number) => (f.limb >= 2 ? Math.max(f.travel! * k, footPace(f.reach ?? 0)) : f.travel! * k);
+    const flexAt = (k: number) => easy.reduce((s, f) => s + (f.duration - f.travel!) * k + travelAt(f, k), 0);
+    let tempo = 1;
+    if (easy.length && fixed + flexAt(1) > CLIMB_BUDGET) {
+      let lo = MIN_TEMPO;
+      let hi = 1;
+      for (let i = 0; i < 20; i++) {
+        const mid = (lo + hi) / 2;
+        if (fixed + flexAt(mid) > CLIMB_BUDGET) hi = mid;
+        else lo = mid;
+      }
+      tempo = lo;
+    }
     if (tempo < 1)
       for (const f of easy) {
-        f.duration *= tempo;
+        const travel = travelAt(f, tempo);
+        f.duration = (f.duration - f.travel!) * tempo + travel;
         f.prep! *= tempo;
-        f.travel! *= tempo;
+        f.travel = travel;
       }
     // The top-out (see topOut) sets the real end once the climber lands; this is a backstop.
     const over = wallHeight(day.wall) - day.finish.v <= TOPOUT_REACH;
