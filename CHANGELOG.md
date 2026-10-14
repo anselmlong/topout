@@ -7,6 +7,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-14
 
 **Climber**
+- Smears: the climber stands on a free jug or foothold instead of smearing the bare wall a
+  few centimetres beside it, as it often did just after its hands left the start jugs.
 - Cutting a foot at full stretch: when the climber is stretched out tall between a high hand
   and a low foot and takes that foot off, the leg draws in smoothly instead of the foot and
   knee jerking up in a single frame.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
 import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
-import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
+import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
 const wall = (angle: number): Wall => ({ width: 400, panels: [{ length: 420, angle }], seed: 1 });
 
@@ -547,6 +547,34 @@ describe('solver', () => {
     // its feet, and matches them only where a reach is too hard off any other foothold.
     const matched = r.moves.filter((m) => m.limb <= 1 && m.from.limbs[2] >= 0 && m.from.limbs[2] === m.from.limbs[3]);
     expect(matched.length).toBeLessThanOrEqual(4);
+  });
+
+  it('stands on a free jug instead of smearing the wall beside it', () => {
+    // Day 70's reference route (V0, a 105° corner leaning out 5°): pocket, edge and small jug
+    // up the right face, foot chips under the start jugs.
+    const corner: Wall = { width: 360, panels: [{ length: 439, angle: 5 }], seed: 1154681019, fold: { u: 156, angle: 105 } };
+    const start: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 130, v: 145, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 175, v: 154, rot: 0, role: 'start' },
+    ];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 240, v: 408, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h3', type: 'pocket', size: 'l', u: 132.4, v: 221, rot: 0.18 },
+      { id: 'h5', type: 'edge', size: 'l', u: 161.7, v: 279.5, rot: 0.21 },
+      { id: 'h7', type: 'jug', size: 's', u: 184.8, v: 333.3, rot: -0.11 },
+      { id: 'f2', type: 'foot', size: 'm', u: 186.9, v: 101.3, rot: 0 },
+      { id: 'f7', type: 'foot', size: 'm', u: 143.8, v: 93.1, rot: 0 },
+    ];
+    const r = solve(corner, start, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // With the hands matched on the edge, it used to smear its right foot 10 cm from the right
+    // start jug, then reach to the small jug off the smear. Now it steps onto the jug.
+    const smearBesideJug = r.moves.filter(
+      (m) => m.limb <= 1 && m.to.limbs.slice(2).some((f, i) => f === SMEAR && start.some((j, k) => !m.to.limbs.includes(k) && Math.hypot(j.u - m.to.points[2 + i].u, j.v - m.to.points[2 + i].v) < 25)),
+    );
+    expect(smearBesideJug).toHaveLength(0);
+    expect(r.moves.some((m) => m.limb >= 2 && m.to.limbs[m.limb] === 1)).toBe(true);
+    expect(Math.round(r.grade)).toBe(1);
   });
 
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {

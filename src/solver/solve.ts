@@ -116,6 +116,21 @@ const UNDER = 0.8;
  */
 const SPLIT = 1;
 
+/**
+ * What a hand move made with a foot smearing beside a free foothold costs the beta on top of
+ * its difficulty: this share of its hanging term per such foot. Smears are placed relative to
+ * the hands, so once the hands are up off the start jugs the smear often lands within a shoe's
+ * length (SMEAR_CLEAR) of one: the climber smeared the fibreglass beside a jug instead of
+ * standing on it. A smear is the last resort, for where there's nothing to edge on (REI Expert
+ * Advice, "Climbing Techniques and Moves"; Climbing.com, "How to Smear"). Its lower quality
+ * barely moves the beta, because a smear rides up with the hands for next to nothing while a
+ * step onto the hold is a move of its own. Not a hold in a corner's crease or across it,
+ * where the smear stems and the hold can't. Like TOE_PRESS, footwork the move's difficulty
+ * leaves out: the crux and every move's grade stay as they are.
+ */
+const SMEARED = 1;
+const SMEAR_CLEAR = 25;
+
 /** A move within this share of the crux is a hard one: it pumps (hardStreak). */
 const HARD = 0.85;
 
@@ -288,7 +303,7 @@ class Context {
   /**
    * Every legal move out of each stance the first pass expanded, in visit order, so the
    * second pass reuses them instead of re-scoring: a move's cost (d, and the footwork w the
-   * second pass adds, RESTEP, TOE_PRESS and UNDER) depends only on the
+   * second pass adds, RESTEP, TOE_PRESS, UNDER, SPLIT and SMEARED) depends only on the
    * stance and the move. Entry i is limb `code[i] & 3` to hold `(code[i] >> 2) - 2`.
    */
   private moves = new Map<number, { code: Int32Array; d: Float64Array; w: Float64Array }>();
@@ -469,6 +484,23 @@ class Context {
     if (val >= 0) return footQuality(this.holds[val]);
     if (val === SMEAR) return angleAt(this.wall, p.v) < -2 ? SMEAR_QUALITY.slab : SMEAR_QUALITY.vertical;
     return 0;
+  }
+
+  /**
+   * Foot `f` is smearing within SMEAR_CLEAR of a free foothold better than the smear, on the
+   * same face of a corner and out of its crease (SMEARED).
+   */
+  smearBeside(l: Limbs, p: Point[], f: 2 | 3): boolean {
+    if (l[f] !== SMEAR) return false;
+    const q = this.footQ(SMEAR, p[f]);
+    const fold = this.wall.fold;
+    return this.at.some(
+      (a, j) =>
+        !l.includes(j) &&
+        flatDist(p[f], a) < SMEAR_CLEAR &&
+        footQuality(this.holds[j]) > q &&
+        !(fold && ((a.u - fold.u) * (p[f].u - fold.u) <= 0 || Math.abs(a.u - fold.u) <= 8)),
+    );
   }
 
   /**
@@ -750,10 +782,14 @@ class Context {
     const push = Math.max(0, ...onFeet.map((f) => (lw[f] >= 0 && !this.hookOf(lw, f as 2 | 3, p) ? legPush(p[f], target) : 0)));
     // Both feet on one hold, not a ledge or a volume face with room for two.
     const matched = lw[2] >= 0 && lw[2] === lw[3] && !this.holds[lw[2]].id.includes(':');
+    // Feet smearing beside a free foothold once the hand is on (SMEARED).
+    const next = [...lw] as Limbs;
+    next[limb] = to;
+    const smeared = onFeet.filter((f) => this.smearBeside(next, np, f as 2 | 3)).length;
     return {
       d,
       dynamic,
-      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push) + (matched ? SPLIT : 0)) * hold,
+      w: (RESTEP * restep + TOE_PRESS * pressed + UNDER * rise * (1 - push) + (matched ? SPLIT : 0) + SMEARED * smeared) * hold,
       parts: {
         kind: 'hand',
         angle: handsAngle,
