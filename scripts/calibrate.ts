@@ -347,6 +347,24 @@ export const ANCHORS: Anchor[] = [
   // The adjustable sloper set its hardest way, its top at 0 degrees of incut, so it slopes off as
   // steeply as it can: V3-V7+ on a 25° wall. V5, two grades over its easiest setting.
   { name: '25° steep slopers', angle: 25, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 5, pitch: 48 },
+  // Macro slopers by pitch (model.ts SLOPER_PITCH xl, 20-50 degrees): until now the macro rows (the
+  // Tension Board 2 ones above) graded off their seeds, so the flat-topped dishes and steep domes
+  // every macro now comes as (7389299) were unpinned. Atomik Climbing Holds' grade guides (found via
+  // search on 2026-10-14; the site can't be fetched from this run). Their XXL limestone line is cast
+  // at nearly one size (about 8" x 5-1/2", 2-3/4" to 3-1/2" off the wall) and runs from a sloper jug
+  // to a blank dome, so it's the shape, not the size, that grades it: these take the ends of the
+  // macro range, 20 degrees (flat-topped) and 50 (steep).
+  // Flat-topped: "XXL Golfus Sloper (Steep Wall Model #1)", 14" x 10" and 5" off the wall, shaped to
+  // stay level on steep walls, is V1 on vertical (V6 at 45°, where the reference start can't be
+  // held on macro slopers here, so left out).
+  { name: 'vertical flat-topped macro slopers', angle: 0, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 1, pitch: 20 },
+  // "XXL Limestone Sloper #1", the line's easiest, a sloper jug: V2 on a 25° wall (V0 on vertical,
+  // V4 at 45°).
+  { name: '25° flat-topped macro slopers', angle: 25, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 2, pitch: 20 },
+  // Steep: "XXL Limestone Sloper #6", the line's second-hardest: V3 on vertical, V6 on a 25° wall
+  // (V7-8 at 45°).
+  { name: 'vertical steep macro slopers', angle: 0, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 3, pitch: 50 },
+  { name: '25° steep macro slopers', angle: 25, type: 'sloper', size: 'xl', spacing: 55, feet: true, expect: 6, pitch: 50 },
 ];
 
 const TOP = 400;

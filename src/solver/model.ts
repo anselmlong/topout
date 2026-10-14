@@ -101,6 +101,25 @@ export const MACRO_GRIP: Partial<Record<HoldType, number>> = { sloper: 1.3, edge
  */
 export const MACRO_STEEP: Partial<Record<HoldType, number>> = { sloper: 0.5 };
 
+/**
+ * The pitches (degrees) over which a macro sloper loses what makes it a macro: up to the first,
+ * it has a dish the whole palm sits in and a rim to wrap (MACRO_GRIP, MACRO_STEEP); by the
+ * second it's a blank dome, held only by the skin pressed on it like any large sloper, however
+ * big it is. Atomik Climbing Holds' XXL limestone slopers show it: cast at nearly one size (about
+ * 8" x 5-1/2"), the sloper jug is V0 on vertical and V2 at 25°, the blank one V3 and V6
+ * (scripts/calibrate.ts, the macro pitch rows). Climbing.com, "How to Climb Slopers": as much skin
+ * on the hold as you can, so a hold with nowhere to sit the hand is hard however much of it there is.
+ */
+export const MACRO_BLANK: [number, number] = [40, 50];
+
+/** How much of its macro bonus a macro keeps (1 all, 0 none: a large hold), from its pitch. */
+export function macroShare(hold: Hold): number {
+  const deg = hold.size === 'xl' ? sloperPitch(hold) : null;
+  if (deg === null || hold.grip !== undefined) return 1;
+  const [from, to] = MACRO_BLANK;
+  return Math.max(0, Math.min(1, (to - deg) / (to - from)));
+}
+
 /** Size multiplier on a hold's grip: SIZE_GRIP, or its type's MACRO_GRIP for a macro. */
 export function sizeGrip(type: HoldType, size: HoldSize): number {
   return size === 'xl' ? (MACRO_GRIP[type] ?? SIZE_GRIP.xl) : SIZE_GRIP[size];
@@ -660,13 +679,14 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   // Holds on a volume use that face's angle rather than the panel's.
   const steep = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v)))) + areteYaw(hold, pullTo, wall);
   const incut = incutFactors(hold);
-  const macro = hold.size === 'xl' ? (MACRO_STEEP[hold.type] ?? 1) : 1;
+  const share = macroShare(hold);
+  const macro = hold.size === 'xl' ? 1 - (1 - (MACRO_STEEP[hold.type] ?? 1)) * share : 1;
   const loss =
     hold.type === 'jug' && hold.grip === undefined
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * sizeGrip(hold.type, hold.size) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold) * pitchFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold) * pitchFactor(hold);
   return base * orient * steepFactor;
 }
 

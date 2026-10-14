@@ -21,6 +21,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   easier than it is. Bare faces stay there for palming when nothing is bolted onto them.
 
 **Grades**
+- Macro slopers: a giant sloper that's a blank, steep dome is now graded about as hard as a large
+  sloper of the same shape, since there's nowhere to sit the hand on it however big it is; a
+  flat-topped macro you can cup keeps its big-hold bonus. Checked against real hold-maker grades
+  for flat-topped and steep macros on vertical and 25° walls.
 - Slopers are checked against real hold-maker grades: flat-topped and steep large slopers on
   vertical and 25° walls now anchor how much harder a steep sloper is. Topout lands within about
   half a grade of them, so no grades change.

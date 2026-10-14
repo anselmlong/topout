@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -146,6 +146,22 @@ describe('solver', () => {
     });
     expect(gap[0]).toBeGreaterThan(0.2);
     expect(gap[1]).toBeGreaterThan(gap[0]);
+  });
+
+  it('a blank macro dome holds like a large sloper; a dished one keeps its macro bonus', () => {
+    const body = { u: 200, v: 150 };
+    const at = (size: 'l' | 'xl', pitch: number, angle: number) => handGrip({ id: 's', type: 'sloper', size, u: 200, v: 200, rot: 0, pitch, incut: 0.15 }, body, wall(angle));
+    for (const angle of [0, 25]) {
+      // At the steep end, the macro's size buys nothing over a large sloper of the same pitch.
+      expect(at('xl', 50, angle) / at('l', 50, angle)).toBeCloseTo(1, 1);
+      // Up to 40 degrees, it keeps all of it.
+      expect(at('xl', 40, angle)).toBeGreaterThan(at('l', 40, angle) * 1.1);
+    }
+    // So the macro pitch spread is wider than a large sloper's: blank to dished, it's 1.8 grades or more.
+    const macros = (pitch: number) => ladder('sloper', 55).map((h) => (h.type === 'sloper' ? { ...h, size: 'xl' as const, pitch, incut: 0.15 } : h));
+    expect(grade(wall(25), macros(50)) - grade(wall(25), macros(20))).toBeGreaterThan(1.8);
+    // Pinch blocks and ledges have no pitch and keep their bonus.
+    expect(macroShare({ id: 'p', type: 'pinch', size: 'xl', u: 0, v: 0, rot: 0 })).toBe(1);
   });
 
   it("a slopey jug rolls off steep ground; a bucket's lip holds at any angle", () => {
