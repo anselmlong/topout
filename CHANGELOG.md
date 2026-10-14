@@ -13,6 +13,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Feet: the climber places a foot on a far hold steadily, no quicker than a hand reaches,
   instead of flicking it across in a third of a second on long or busy routes.
 
+**Grades**
+- Big ledges are now checked against real ones: three reference problems from Atomik's split
+  ledges and granite rails (flat and slopey ledges on vertical, a flat rail on a 25° wall).
+
 ## 2026-10-14
 
 **Climber**

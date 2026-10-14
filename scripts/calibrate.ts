@@ -379,6 +379,25 @@ export const ANCHORS: Anchor[] = [
   // "a hint of an incut", is V2 on vertical (V7 at 45°). Atomik gives no overhang grade for a
   // block this narrow, so this takes its vertical one, which may run soft (see the pinches above).
   { name: 'vertical narrow pinch blocks', angle: 0, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 2, span: 9.5 },
+  // Macro ledges (model.ts EDGE_DEPTH edge xl, 24-60 mm; MACRO_GRIP edge): until now no row set a
+  // macro ledge, so the rail ledges and deep shelves every ledge now comes as (f0ce530) were
+  // unpinned. Atomik Climbing Holds' grade guides (found via search on 2026-10-14; the site can't
+  // be fetched from this run). Their ledges are cast "neutral to barely slopey", so the rows take
+  // the flat end of an edge's incut; Atomik gives no ledge depth, only how far the holds stand off.
+  // "3 XXL Split Ledges (Series 2.0)", 12" x 8" to 17" x 8" and 3-1/4" to 4" off the wall, are V1
+  // on vertical (V8+ at 45°, where the reference start can't be held on macros here): a shelf on a
+  // hold that stands 4" off takes the deepest ledge.
+  { name: 'vertical neutral macro ledges', angle: 0, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 1, depth: 60, incut: 0.15 },
+  // "XXL Split Ledge #3 (Series 2.0)", the same build with ledges 2° incut and 7° and 3° slopey, is
+  // V2/3 on vertical, against the V1 of #2 (9° slopey, 3° and 7° incut). Slopier than any edge the
+  // game makes (incut 0, under the edge range's 0.15): V2, the lower grade, since only one of its
+  // three ledges slopes off more than #2's worst.
+  { name: 'vertical slopey macro ledges', angle: 0, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 2, depth: 60, incut: 0 },
+  // "XXXL Granite Rail #2 (Neutral Incut)": on a 25° wall "no easier than a V3 feeling hold"; Rail #1
+  // (neutral incut with crimps, 31-1/2" x 6-1/2" and 3-1/2" off the wall) is V3/4 at its easiest
+  // there. A rail standing 3-1/2" off: a mid-depth ledge. Grades V2.3, soft; see the commit (the
+  // 45° grades suggest macro ledges harden faster on an overhang than the model has them).
+  { name: '25° neutral macro rails', angle: 25, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 3, depth: 46, incut: 0.15 },
 ];
 
 const TOP = 400;
