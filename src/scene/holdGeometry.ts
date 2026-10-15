@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, incutOf, meanDepth, meanPitch, pitchOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, meanDepth, meanFootDepth, meanPitch, pitchOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -875,12 +875,15 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
  * Its incut (0 .. 1) is how positive that shelf is: a flat chip's top edge barely stands
  * proud and rolls over into the crown, a smeary nub; a deep one's lip juts out over a
  * shadowed shelf, a sharp step the toe stands on (solver/model.ts FOOT_INCUT).
+ * Its depth (against its size's mean, model.ts footDepthOf) is how far the shelf stands out
+ * from the wall, and its outline grows with it: a tiny chip is a low, narrow nub the rand barely catches, a big one a fat
+ * block the front of the shoe sits on.
  */
-function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45) {
+function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45, depth = 1) {
   const N = 24;
-  const W = 0.028 * (0.92 + 0.16 * k);
-  const H = 0.021 * (1.04 - 0.08 * k);
-  const Z = 0.017;
+  const W = 0.028 * (0.92 + 0.16 * k) * (0.45 + 0.55 * depth);
+  const H = 0.021 * (1.04 - 0.08 * k) * (0.6 + 0.4 * depth);
+  const Z = 0.017 * depth;
   // Screw hole: centre and countersink radius.
   const hy = -0.002;
   const rh = 0.0042;
@@ -1246,7 +1249,8 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   }
   if (type === 'foot' || type === 'jib') {
     const build = type === 'foot' ? footChipGeometry : jibGeometry;
-    const p = build(SIZE[size], k, r, incutOf(type, size, v));
+    const mm = type === 'foot' ? footDepthOf(size, v) : null;
+    const p = build(SIZE[size], k, r, incutOf(type, size, v), mm === null ? 1 : mm / meanFootDepth(size)!);
     const data = finish(p.geometry, r, false, (_x, _y, _z, i) => p.shade(i), spec.grip!);
     data.screw = { at: p.screw, size: p.screwSize };
     cache.set(key, data);

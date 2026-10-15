@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -244,6 +244,32 @@ describe('solver', () => {
     const chip: Hold = { id: 'c', type: 'foot', size: 'm', u: 200, v: 100, rot: 0 };
     expect(footQuality({ ...chip, incut: 0.9 })).toBeGreaterThan(footQuality({ ...chip, incut: 0 }));
     expect(footQuality({ ...chip, incut: 0 })).toBeGreaterThan(SMEAR_QUALITY.vertical);
+  });
+
+  it('big foot chips grade easier than tiny ones of the same incut', () => {
+    const feet = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, depth, incut: 0.45 } : h));
+    // On a slab the feet carry the climb, so the chips' size shows in the grade.
+    for (const [type, angle] of [['edge', -15], ['crimp', -10]] as const) {
+      const tiny = grade(wall(angle), feet(ladder(type, 45), 11));
+      const mid = grade(wall(angle), feet(ladder(type, 45), 19));
+      const big = grade(wall(angle), feet(ladder(type, 45), 29));
+      expect(tiny).toBeGreaterThan(mid);
+      expect(mid).toBeGreaterThanOrEqual(big);
+      expect(tiny).toBeGreaterThan(big + 0.1);
+    }
+    const chip: Hold = { id: 'c', type: 'foot', size: 'm', u: 200, v: 100, rot: 0, incut: 0.45 };
+    expect(footQuality({ ...chip, depth: 29 })).toBeGreaterThan(footQuality({ ...chip, depth: 11 }));
+    expect(footQuality({ ...chip, depth: 11 })).toBeGreaterThan(SMEAR_QUALITY.vertical);
+    // Every build of a size is a different depth, and the smallest chip is never also the roundest.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const depths = [0, 1, 2, 3].map((v) => footDepthOf(size, v)!);
+      expect(new Set(depths).size).toBe(4);
+      const smallest = depths.indexOf(Math.min(...depths));
+      const roundest = [0, 1, 2, 3].map((v) => incutOf('foot', size, v)).indexOf(Math.min(...[0, 1, 2, 3].map((v) => incutOf('foot', size, v))));
+      expect(smallest).not.toBe(roundest);
+    }
+    // Only foot chips: an edge stood on keeps its quality.
+    expect(footDepth({ ...chip, type: 'edge' })).toBeNull();
   });
 
   it('a macro sloper or ledge grades easier than a medium one, and a sloper macro still rolls off steep', () => {

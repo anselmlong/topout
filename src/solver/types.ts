@@ -52,7 +52,7 @@ export interface Hold {
   fingers?: number;
   /** Pinch span override (cm between thumb and fingers); otherwise read off the seed (see pinchSpan). */
   span?: number;
-  /** Crimp or edge shelf depth, or pocket depth, override (mm); otherwise read off the seed (see edgeDepth). */
+  /** Crimp or edge shelf depth, pocket depth, or foot chip depth, override (mm); otherwise read off the seed (see edgeDepth, footDepth). */
   depth?: number;
   /** Crimp or edge length override (cm along the lip); otherwise read off the seed (see edgeWidth). */
   width?: number;

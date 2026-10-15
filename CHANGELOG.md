@@ -41,6 +41,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   the rim and only takes your first finger pads; a deep one is a dark hole the fingers sink
   into. The tray says "Shallow" or "Deep", and a shallow pocket climbs harder than a deep one
   with the same number of fingers.
+- Foot chips come tiny or big: a foot chip is now anything from a little nub only the edge of
+  your shoe catches to a fat block the front of the shoe sits on, and you can see which on the
+  wall. The hold bar says "Tiny chip" or "Big chip", and tiny chips make a slab a little harder.
 
 ## 2026-10-14
 

@@ -523,6 +523,54 @@ export function incutFactors(hold: Hold): { grip: number; steep: number } {
 export const FOOT_INCUT = 0.4;
 const FOOT_INCUT_TYPES: HoldType[] = ['foot', 'jib', 'edge', 'crimp'];
 
+/**
+ * How far a foot chip's shelf stands out from the wall (mm, life size: how much of the shoe's
+ * toe it takes), from its seed and size, on its own cycle (two builds off its incut's, so the
+ * smallest chip is never also the roundest). A big chip takes the front of the shoe and the
+ * weight goes straight down through it; on a tiny one only the very edge of the rand bites, so
+ * the heel has to stay low and still, the toe placed exactly, and any twist or hip swing pops it
+ * off. Coaching material: Earth Treks, "What is edging in climbing" (tiny footholds give the
+ * shoe minimal surface, so a low, still heel and a precise edge hold it); Atomik Climbing Holds,
+ * "How proper footwork transforms your climbing skills" (progress from large footholds to
+ * smaller and smaller ones; routes on small screw-on chips are the test of precise feet).
+ * The medium list centres on the 20 mm the chip has always been drawn at.
+ */
+export const FOOT_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [9, 13, 18, 23], m: [11, 16, 22, 29], l: [14, 20, 27, 34] };
+
+export function footDepthOf(size: HoldSize, variant: number): number | null {
+  const list = FOOT_DEPTH[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
+}
+
+/** A foot chip's shelf depth (mm); null for other types. */
+export function footDepth(hold: Hold): number | null {
+  return hold.type === 'foot' ? (hold.depth ?? footDepthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean depth foot chips of this size come in (mm), what the mesh is drawn at. */
+export function meanFootDepth(size: HoldSize): number | null {
+  const list = FOOT_DEPTH[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/** A shoe's hold on a shelf by its depth (mm), against a deep one: steep under 15 mm, flat past 30. */
+export function footDepthGrip(mm: number): number {
+  return 1 - 0.45 * Math.exp(-(mm - 4) / 8);
+}
+
+/**
+ * A foot chip's quality multiplier for its depth against its size's typical build (1 for other
+ * holds). The climber picks the best foot in reach, so the typical build is the average one: a
+ * mixed set of chips stands as chips always have.
+ */
+export function footDepthFactor(hold: Hold): number {
+  const mm = footDepth(hold);
+  const list = FOOT_DEPTH[hold.size];
+  if (mm === null || !list || hold.foot !== undefined) return 1;
+  const mean = list.map(footDepthGrip).reduce((a, n) => a + n, 0) / list.length;
+  return footDepthGrip(Math.max(4, Math.min(40, mm))) / mean;
+}
+
 export const SMEAR_QUALITY = { slab: 0.62, vertical: 0.38 };
 
 /** Wall angle (degrees, + overhang) at height v. */
@@ -870,7 +918,7 @@ export function footQuality(hold: Hold): number {
   const up = (1 + Math.cos(hold.rot)) / 2;
   const facing = 1 - spec.footFacing * (1 - up);
   const incut = FOOT_INCUT_TYPES.includes(hold.type) ? 1 + FOOT_INCUT * (holdIncut(hold) - typicalIncut(hold.type)) : 1;
-  return Math.min(1, spec.foot * { s: 0.85, m: 1, l: 1.05, xl: 1.12 }[hold.size] * facing * incut + tilt);
+  return Math.min(1, spec.foot * { s: 0.85, m: 1, l: 1.05, xl: 1.12 }[hold.size] * facing * incut * footDepthFactor(hold) + tilt);
 }
 
 /**
