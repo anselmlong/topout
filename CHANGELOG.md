@@ -21,6 +21,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 **Grades**
 - Big ledges are now checked against real ones: three reference problems from Atomik's split
   ledges and granite rails (flat and slopey ledges on vertical, a flat rail on a 25° wall).
+- Crimp length is now checked against real holds: three reference problems from Atomik's
+  straight, flat dripstone and granite crimps, sized by how long their lips really are.
 
 **Holds**
 - Short crimps: small crimps and edges now come in lengths, from a stub only two fingers fit on

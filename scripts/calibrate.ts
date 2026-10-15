@@ -40,6 +40,8 @@ export interface Anchor {
   span?: number;
   /** Every hand hold's shelf depth (mm) if it's a crimp or an edge; default from its seed. */
   depth?: number;
+  /** Every hand hold's lip length (cm along the wall) if it's a crimp or an edge; default from its seed. */
+  width?: number;
   /** Every hand hold's pitch (degrees its top slopes off level) if it's a sloper; default from its seed. */
   pitch?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
@@ -324,14 +326,32 @@ export const ANCHORS: Anchor[] = [
   // only their overhanging grades are used.
   // Fingertip strips: "10 Small Simple Crimps Set #1", sold by depth as 10 mm to 14 mm, V4+ on a
   // 20° wall (V2 on vertical, V7+ at 45°).
-  { name: '20° shallow small crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, depth: 12 },
+  { name: '20° shallow small crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, depth: 12, width: 9.5 },
   // "5 Small Granite Crimps Set #3", the low-profile set, 1/2" to 3/4" off the wall (13-19 mm):
   // V4 on a 25° wall (V2+ on vertical, V6/10 at 45°).
   { name: '25° low small crimps', angle: 25, type: 'crimp', size: 's', spacing: 55, feet: true, expect: 4, depth: 16 },
   // Full-pad crimps: "5 Medium Steep Wall Oval Crimps Set #2", 7/8" to 1" off the wall (22-25 mm),
   // incut for steep walls: V2+ on a 20° wall (V1+ on vertical). Two grades under the 10-14 mm
   // strips at the same angle.
-  { name: '20° deep incut crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.8 },
+  { name: '20° deep incut crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.8, width: 11.7 },
+  // Crimps by lip length (model.ts EDGE_WIDTH, widthGrip; a47af35): until now no row set how long a
+  // crimp's lip runs, so every crimp row graded off its seed's length, which can come out a two- or
+  // three-finger build. Atomik Climbing Holds' grade guides give each set's width (found via search
+  // on 2026-10-15; the site can't be fetched from this run), so the Atomik crimp rows above now pin
+  // it too: "10 Small Simple Crimps Set #1" 3" to 4-1/2" (9.5 cm), "5 Medium Steep Wall Oval Crimps
+  // Set #2" 4-5/8" at the largest (11.7 cm). No graded set is sold short enough for two fingers (the
+  // Yaniro Slot Crimps are, but carry no grade), so these pin the three-and-a-half to four finger end.
+  // "10 Straight Crimps", 3" wide (7.6 cm, the little finger half on) and 1/2" off the wall, "a bit
+  // in-cut", "positive" with a distinct edge: V3 on a 20° wall (V1 on vertical).
+  { name: '20° straight crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 3, depth: 13, width: 7.6, incut: 0.65 },
+  // "10 Dripstone Flat Crimps #2", 3-3/8" wide (8.6 cm) with about 3/4" of flat to slightly incut
+  // edge: V4 on a 20° wall in the page's grade list (its text says V3), with Atomik's other 3/4"
+  // small crimps (Simple Set #1, Granite Set #3, V4 at 20° and 25°).
+  { name: '20° flat dripstone crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, depth: 19, width: 8.6, incut: 0.2 },
+  // "5 Small Granite Crimps Set #2", 3" to 3-5/8" wide (8.4 cm) and 1/2" to 7/8" off the wall,
+  // neutral to 45° incut: V4/5 on a 25° wall (V2+ on vertical, V6/9 at 45°). V4, the lower grade,
+  // as with the split ledges.
+  { name: '25° small granite crimps', angle: 25, type: 'crimp', size: 's', spacing: 55, feet: true, expect: 4, depth: 17, width: 8.4 },
   // Slopers by pitch (model.ts SLOPER_PITCH, pitchGrip, pitchSteep): until now no reference problem
   // set a sloper's pitch, so the flat-topped and steep builds every sloper now comes as were graded
   // off their seeds. Atomik Climbing Holds' grade guides (found via search on 2026-10-13; the site
@@ -441,14 +461,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
