@@ -44,6 +44,8 @@ export interface Anchor {
   width?: number;
   /** Every hand hold's pitch (degrees its top slopes off level) if it's a sloper; default from its seed. */
   pitch?: number;
+  /** Every foot chip's shelf depth (mm, how far it stands out from the wall); default the typical chip. */
+  footDepth?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -438,6 +440,20 @@ export const ANCHORS: Anchor[] = [
   // there. A rail standing 3-1/2" off: a mid-depth ledge. Grades V2.3, soft; see the commit (the
   // 45° grades suggest macro ledges harden faster on an overhang than the model has them).
   { name: '25° neutral macro rails', angle: 25, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 3, depth: 46, incut: 0.15 },
+  // Foot chips by depth (model.ts FOOT_DEPTH, footDepthFactor): until now every row stood on the
+  // typical chip, so the tiny and big chips foot chips now come as (b073b98) were unpinned. Atomik
+  // Climbing Holds grades footholds by the problems they're set for (found via search on 2026-10-15;
+  // the site can't be fetched from this run), so each row pairs the feet with hand holds of the
+  // same grade on the same wall, and pins how far the chips stand off the wall as their depth.
+  // "5 Protons Steep Wall Feet", 2-1/2" x 2-3/4" and 1-1/2" off the wall (38 mm), are "V2 as
+  // footholds on vertical": a fat foot block under the vertical edges.
+  { name: 'vertical edges, big foot blocks', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 2, footDepth: 38 },
+  // "10 Super Small Scaled Tech Feet", 3/4" off the wall (19 mm), sharp-edged: "V4 footholds on
+  // vertical", under the vertical small crimps (Kilter crimp+, V4 at 0-15°, above).
+  { name: 'vertical small crimps, tech feet', angle: 0, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, footDepth: 19 },
+  // "20 Super Small Low Angle Feet", granite, 3/4" to 1" off the wall (22 mm): on a vertical wall
+  // they "challenge a beginner". V0, under the vertical jug ladder.
+  { name: 'vertical jugs, small foot chips', angle: 0, type: 'jug', size: 'm', spacing: 45, feet: true, expect: 0, footDepth: 22 },
 ];
 
 const TOP = 400;
@@ -492,7 +508,7 @@ export function anchorRoute(a: Anchor) {
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
-      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: typicalIncut('foot') });
+      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: typicalIncut('foot'), ...(a.footDepth ? { depth: a.footDepth } : {}) });
   return { wall, holds, finish: anchorFinish(a) };
 }
 

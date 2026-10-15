@@ -14,6 +14,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - At full stretch the climber goes up on the toes of its standing foot, heel lifting off the
   hold, instead of its arm and leg stretching longer than they are.
 
+**Grades**
+- Foot chips: three new reference problems check that big foot blocks, small chips and sharp
+  little tech feet grade like the holdmakers' own grades for them, so routes on tiny or fat
+  footholds stay graded fairly.
+
 ## 2026-10-15
 
 **Climber**
