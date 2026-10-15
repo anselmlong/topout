@@ -110,6 +110,9 @@ over about half a second instead of firing the hips up; a dyno's launch, a fall 
 the top aren't held back. It also picks that speed up at no more than ~6 m/s² and brakes or turns
 at no more than ~20 m/s² (`BODY_ACCEL`, `BODY_TURN`), so the hips ease into each weight shift
 instead of lurching off at full speed when a move starts or a hand lands.
+A hand or foot travelling between holds arcs out just far enough to pass over the wall's face, any
+volume and an arête's corner, at least 4 cm clear (`clearPath` in `src/scene/ragdoll.ts`), instead
+of cutting straight through a volume between two holds on either side of it.
 Knees bend the way the pose bends them: a standing leg's knee swings round the hip-foot line toward
 the pose's side at up to ~3.5 rad/s (`KNEE_SWING` in `src/scene/ragdoll.ts`), so it never sticks
 bent backwards. On an overhang a frog knee is aimed level or up across the leg, never down (the

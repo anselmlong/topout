@@ -134,6 +134,16 @@ const SLACK_TIME = 0.5;
  */
 const HIP_ROOM = 0.3;
 const ROOM_SPEED = 1.5;
+/**
+ * Room (m) a hand or foot keeps off the wall's face, a volume's included, on its way between
+ * holds, and the most (m) its arc is lifted out to keep it. The path is a straight line plus a
+ * small lift, and between two holds on either side of a volume that line runs through it: on
+ * day 83's slab a foot stepping up to a pocket on the wedge's flank went 5.6 cm inside the
+ * volume, the shoe and shin vanishing into it for a sixth of a second (the hand above, 4 cm).
+ * Hands sit 7 cm and feet 6 cm off their holds, so 4 cm stays inside what a hold already gets.
+ */
+const PATH_CLEAR = 0.04;
+const PATH_LIFT = 0.3;
 /** Hip to foot (m) with the leg straight: the thigh and shin. */
 const LEG_SPAN = 0.85;
 const LEGS = [
@@ -266,6 +276,52 @@ export class Ragdoll {
     e.lift = lift;
     e.bow.set(0, 0, 0);
     if (end >= 2) this.bowRoundHip(e, end === 2 ? J.hipL : J.hipR, end === 2 ? -1 : 1);
+    this.clearPath(e);
+  }
+
+  /**
+   * Lift a move's arc out just far enough that the hand or foot passes over the wall and any
+   * volume in its way (PATH_CLEAR) instead of through them, pushing it out along the face it
+   * would cut (round an arête that isn't the target hold's own face). Set once per move, so the
+   * path stays one smooth arc; the lift peaks mid-move, where it costs nothing at either hold.
+   */
+  private clearPath(e: EndDrive) {
+    const arcV = this.tmp.copy(e.normal).multiplyScalar(e.lift);
+    const p = this.tmp3;
+    let added = 0;
+    for (let pass = 0; pass < 4 && added < PATH_LIFT; pass++) {
+      let worst = 0;
+      let push: THREE.Vector3 | null = null;
+      for (let i = 1; i < 20; i++) {
+        const s = i / 20;
+        const arc = Math.sin(Math.PI * s);
+        p.copy(e.from).lerp(e.to, s).addScaledVector(arcV, arc).addScaledVector(e.bow, bowShape(s, e.bowAt));
+        const gap = this.surfaceGap(p);
+        if (!gap || gap.gap >= PATH_CLEAR) continue;
+        // Metres of lift along that face's normal it takes to clear it here.
+        const need = (PATH_CLEAR - gap.gap) / arc;
+        if (need > worst) [worst, push] = [need, gap.normal];
+      }
+      if (!push) break;
+      const k = Math.min(PATH_LIFT - added, worst + 0.005);
+      arcV.addScaledVector(push, k);
+      added += k;
+    }
+    if (added === 0) return;
+    e.lift = arcV.length();
+    e.normal.copy(arcV).divideScalar(e.lift);
+  }
+
+  /** How far (m) a point stands off the wall's surface (volumes included), and that facet's normal; null if it's over none. */
+  private surfaceGap(p: THREE.Vector3): { gap: number; normal: THREE.Vector3 } | null {
+    let best: { gap: number; normal: THREE.Vector3 } | null = null;
+    for (const f of this.frames) {
+      const local = frameLocal(f, p);
+      if (local.v < 0 || local.v > f.v1 - f.v0 || local.u < 0 || local.u > f.u1 - f.u0 || local.out < -0.4) continue;
+      const gap = local.out - this.relief(f.u0 + local.u, f.v0 + local.v);
+      if (!best || gap < best.gap) best = { gap, normal: f.normal };
+    }
+    return best;
   }
 
   /**

@@ -20,6 +20,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Arêtes and volumes: the climber reaches straight to a jug it can reach instead of first
   slapping the bare arête, a volume face or the lip on the way, when that saves next to nothing.
   A few routes lose a move or two; no grade changes by a whole V.
+- Volumes: a hand or foot moving past a volume or round an arête swings out over it instead of
+  passing through it, so a shoe no longer vanishes into the volume on the way to a hold.
 
 **Grades**
 - Big ledges are now checked against real ones: three reference problems from Atomik's split
