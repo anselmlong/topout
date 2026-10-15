@@ -271,10 +271,13 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
  * rim is a sharp rolled edge, the hole has real walls and a floor, and the
  * top of the hole is hooded: the cavity runs up behind the lip, which is what
  * makes a good pocket incut. The hole is as wide as the fingers it takes
- * (model.ts fingersOf): a mono is a round dimple, a four-finger slot a long letterbox.
+ * (model.ts fingersOf): a mono is a round dimple, a four-finger slot a long letterbox. It goes
+ * as deep as the fingers do (model.ts depthOf, `depth` against its size's mean): a shallow dish
+ * shows its pale floor just under the rim, a deep one stands a little prouder and its hole
+ * drops into shadow.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, fingers = 2) {
+function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, fingers = 2, depth = 1) {
   const N = 28;
   // The body widens to frame a long slot.
   const W = (0.056 + 0.0065 * fingers) * (0.94 + 0.1 * k);
@@ -283,8 +286,12 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   const hy = 0.012 + 0.006 * k;
   const a = 0.006 + 0.0085 * fingers;
   const b = Math.min(0.012, 0.85 * a);
-  const Z = 0.028;
-  const floorZ = 0.008;
+  // The hole's depth below the rim; a deep one lifts the body so the floor stays off the wall.
+  const holeD = 0.02 * Math.max(0.4, Math.min(1.8, depth));
+  const Z = 0.028 + 0.6 * Math.max(0, holeD - 0.02);
+  const floorZ = Math.max(0.003, Z - holeD);
+  // How dark the hole gets: a shallow floor catches the light, a deep one is in shadow.
+  const dark = Math.max(0.3, Math.min(1.6, 1 + 1.4 * (depth - 1)));
   // How far the cavity runs up behind the lip: a deep hood wraps over the fingers.
   const undercut = 0.002 + 0.015 * incut;
   // Each ring: (θ) => [x, y, z] in unscaled metres, plus its colour shade.
@@ -326,10 +333,11 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   for (const f of [0.35, 0.7, 1]) {
     rings.push({
       at: (c, s) => {
-        const [x, y] = hole(c, s, 1 + 0.12 * f);
+        // A shallow dish's walls close in toward its floor; a deep hole's run straight down.
+        const [x, y] = hole(c, s, 1 + f * (0.12 - 0.6 * Math.max(0, 1 - depth)));
         return [x, y + undercut * f * Math.max(0, s), rimZ(s) - (rimZ(s) - floorZ) * f];
       },
-      shade: 0.5 - 0.22 * f,
+      shade: Math.max(0.1, 1 - (0.5 + 0.22 * f) * dark),
       jitter: 0,
     });
   }
@@ -338,7 +346,7 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
       const [x, y] = hole(c, s, 0.55);
       return [x, y + 0.5 * undercut * Math.max(0, s), floorZ - 0.0015];
     },
-    shade: 0.26,
+    shade: Math.max(0.1, 1 - 0.74 * dark),
     jitter: 0,
   });
 
@@ -366,7 +374,7 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   const last = (rings.length - 1) * N;
   const centre = pos.length / 3;
   pos.push(0, hy + 0.4 * undercut, floorZ - 0.0025);
-  shade.push(0.24);
+  shade.push(Math.max(0.09, 1 - 0.76 * dark));
   for (let j = 0; j < N; j++) index.push(last + j, last + ((j + 1) % N), centre);
   // Base against the wall, so the mesh is closed.
   const base = pos.length / 3;
@@ -378,9 +386,11 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
     ...indexedToFlat(pos, shade, index, S),
     // Chalk rings the hole: its bottom lip and floor take the fingers, the
     // hood a little; the rest of the body only where it faces up.
+    // Down a deep hole the chalk sits in shadow; a shallow one shows it on its floor.
     grip: ((n, c) => {
       const d = Math.hypot(c.x / S / a, (c.y / S - hy) / b);
-      return d < 1.4 ? 0.45 + 0.55 * smooth(-0.2, 0.6, n.y) : d < 2 ? 0.3 * smooth(0.2, 0.8, n.y) : 0.2 * TOP_GRIP(n, c);
+      const inside = c.z / S < Z * 0.82 && d < 1.2 ? Math.max(0.3, Math.min(1, 1.7 - dark)) : 1;
+      return d < 1.4 ? (0.45 + 0.55 * smooth(-0.2, 0.6, n.y)) * inside : d < 2 ? 0.3 * smooth(0.2, 0.8, n.y) : 0.2 * TOP_GRIP(n, c);
     }) as GripFn,
   };
 }
@@ -1226,7 +1236,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   if (type === 'pocket' || type === 'sloper' || type === 'pinch') {
     const p =
       type === 'pocket'
-        ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v))
+        ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!)
         : type === 'pinch'
           ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)))
           : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12);

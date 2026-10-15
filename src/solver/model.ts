@@ -300,6 +300,15 @@ export function spanFactor(hold: Hold): number {
 export const EDGE_DEPTH: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
   crimp: { s: [9, 12, 15, 18], m: [11, 15, 19, 23], l: [14, 19, 24, 29] },
   edge: { s: [16, 21, 27, 32], m: [20, 27, 34, 40], l: [25, 33, 41, 50], xl: [24, 34, 46, 60] },
+  // A pocket's depth is how far the fingers go in: a shallow dish takes only the first pads,
+  // like a shallow crimp turned into the wall, where a deep one swallows them to the first
+  // joint or past it and the hood closes over the knuckles. It's the same finger-pad contact
+  // as an edge's shelf, so the same curve (depthGrip). Coaching material: Eric Hörst, "Training
+  // for Climbing" (a shallow pocket is held like a crimp, on the pads, and is far harder than
+  // one the fingers sink into); Climbing.com, "How to Climb Pockets" (get as much of each
+  // finger in as the pocket takes). Its cycle sits two builds off the finger count's
+  // (fingersOf), so a mono is never also the shallowest build.
+  pocket: { s: [10, 14, 18, 22], m: [12, 17, 22, 28], l: [14, 20, 27, 34], xl: [16, 23, 30, 38] },
 };
 
 export function depthOf(type: HoldType, size: HoldSize, variant: number): number | null {
@@ -307,8 +316,9 @@ export function depthOf(type: HoldType, size: HoldSize, variant: number): number
   return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
 }
 
+/** A crimp's or edge's shelf depth, or how deep a pocket goes (mm); null for other types. */
 export function edgeDepth(hold: Hold): number | null {
-  return hold.type === 'crimp' || hold.type === 'edge' ? (hold.depth ?? depthOf(hold.type, hold.size, holdVariant(hold))) : null;
+  return hold.type === 'crimp' || hold.type === 'edge' || hold.type === 'pocket' ? (hold.depth ?? depthOf(hold.type, hold.size, holdVariant(hold))) : null;
 }
 
 /** The mean depth an edge of this type and size comes in (mm), what its mesh is drawn at; null for none. */
@@ -327,7 +337,7 @@ export function depthGrip(mm: number): number {
 }
 
 /**
- * An edge's or crimp's grip multiplier for its depth against its size's typical build (1
+ * An edge's, crimp's or pocket's grip multiplier for its depth against its size's typical build (1
  * otherwise). A line of mixed crimps grades off its shallowest, so the typical build sits a
  * quarter of the way from the average down to the shallowest: a mixed set of a size climbs
  * as that size always has (the board-graded reference problems were fitted to it).

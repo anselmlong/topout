@@ -182,6 +182,13 @@ function edgeWord(hold: Hold, depth: number, width: number | null): string | nul
   return `${w} ${d ? d.charAt(0).toLowerCase() + d.slice(1) : HOLD_NAME[hold.type].toLowerCase()}`;
 }
 
+/** A pocket's finger count and depth in words ("Shallow two-finger", "Deep mono"). */
+function pocketWord(fingers: number, depth: number | null): string {
+  const d = depth !== null ? depthWord('pocket', depth) : null;
+  const f = fingerWord(fingers);
+  return d ? `${d} ${f.charAt(0).toLowerCase() + f.slice(1)}` : f;
+}
+
 /** A hold's lip in words (and what it does), or null for one with none to read. */
 function Lip({ hold }: { hold: Hold }) {
   const rank = incutRank(hold);
@@ -204,7 +211,7 @@ function Lip({ hold }: { hold: Hold }) {
     (pitch !== null && pitchEffect(pitch)) ||
     lipEffect(hold.type, rank);
   const prefix =
-    fingers !== null ? fingerWord(fingers) : span !== null ? spanWord(span, hold.size) : depth !== null ? edgeWord(hold, depth, width) : pitch !== null ? pitchWord(pitch, hold.size) : null;
+    fingers !== null ? pocketWord(fingers, depth) : span !== null ? spanWord(span, hold.size) : depth !== null ? edgeWord(hold, depth, width) : pitch !== null ? pitchWord(pitch, hold.size) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

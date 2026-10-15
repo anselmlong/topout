@@ -86,6 +86,23 @@ describe('solver', () => {
     expect(pocketFingers({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
+  it('a deep pocket grades easier than a shallow one with the same fingers and hood', () => {
+    const withDepth = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'pocket' ? { ...h, depth, fingers: 3, incut: 0.55 } : h));
+    for (const angle of [0, 30]) {
+      const g = [11, 18, 30].map((mm) => grade(wall(angle), withDepth(ladder('pocket', 45), mm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.2);
+      expect(g[1]).toBeGreaterThan(g[2]);
+    }
+    // Every size's own seeds cover a spread of depths, and a mono is never the shallowest build.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const depths = [0, 1, 2, 3].map((v) => depthOf('pocket', size, v)!);
+      expect(new Set(depths).size).toBe(4);
+      const shallowest = depths.indexOf(Math.min(...depths));
+      expect(fingersOf(size, shallowest)).toBeGreaterThan(1);
+    }
+    expect(edgeDepth({ id: 'p', type: 'pocket', size: 'm', u: 0, v: 0, rot: 0, depth: 25 })).toBe(25);
+  });
+
   it('a broad pinch grades easier than a thin fin of the same size and sculpting', () => {
     const withSpan = (holds: Hold[], span: number) => holds.map((h) => (h.type === 'pinch' ? { ...h, span, incut: 0.5, rot: Math.PI / 2 } : h));
     for (const angle of [0, 30]) {

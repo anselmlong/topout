@@ -29,6 +29,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   to a rail the whole hand lines up along. You can see it on the wall, the tray names a
   "Two-finger" or "Three-finger" crimp, and a two-finger crimp climbs harder than a full-hand
   one of the same depth. Most medium and large ones fit the whole hand.
+- Pocket depth: pockets now come shallow or deep. A shallow one shows a pale dish just under
+  the rim and only takes your first finger pads; a deep one is a dark hole the fingers sink
+  into. The tray says "Shallow" or "Deep", and a shallow pocket climbs harder than a deep one
+  with the same number of fingers.
 
 ## 2026-10-14
 
