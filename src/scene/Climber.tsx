@@ -1270,6 +1270,9 @@ interface RigHandle {
 }
 
 const Y = V(0, 1, 0);
+const X = V(1, 0, 0);
+/** Ankle to the tip of the shoe (m), along it: the shoe box's far end. */
+const TOE_TIP = 0.135;
 const STRAIGHT = new THREE.Quaternion();
 const none = () => null;
 
@@ -1298,7 +1301,7 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
   const head = useRef<THREE.Group>(null);
   const bag = useRef<THREE.Mesh>(null);
   const tmp = useMemo(
-    () => ({ m: new THREE.Matrix4(), up: V(), right: V(), fwd: V(), a: V(), b: V(), c: V() }),
+    () => ({ m: new THREE.Matrix4(), q: new THREE.Quaternion(), up: V(), right: V(), fwd: V(), a: V(), b: V(), c: V() }),
     [],
   );
   /** The head's gaze turn, eased toward its target so the eyes don't snap between holds. */
@@ -1337,8 +1340,14 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
       setSeg(forearms.current[1], p.elbows[1], p.hands[1]);
       setSeg(thighs.current[0], p.pelvis[0], p.knees[0]);
       setSeg(thighs.current[1], p.pelvis[1], p.knees[1]);
-      setSeg(shins.current[0], p.knees[0], p.feet[0]);
-      setSeg(shins.current[1], p.knees[1], p.feet[1]);
+      // A foot up on its toes (the ragdoll's tiptoe) sits past the shin's end: the shin stops at
+      // the ankle and the shoe points down from there to the hold.
+      const ankles = ([0, 1] as const).map((i) => {
+        const shin = p.feet[i].clone().sub(p.knees[i]);
+        return shin.length() > LEG[1] ? p.knees[i].clone().addScaledVector(shin.normalize(), LEG[1]) : p.feet[i];
+      });
+      setSeg(shins.current[0], p.knees[0], ankles[0]);
+      setSeg(shins.current[1], p.knees[1], ankles[1]);
       [...p.elbows, ...p.knees, ...p.shoulders].forEach((j, i) => joints.current[i]?.position.copy(j));
       if (torso.current) setSeg(torso.current, p.hip, p.chest);
       if (hips.current) {
@@ -1393,9 +1402,17 @@ const Rig = forwardRef<RigHandle>(function Rig(_, ref) {
       [0, 1].forEach((i) => {
         const m = shoes.current[i];
         if (!m) return;
-        const shin = p.feet[i].clone().sub(p.knees[i]).normalize();
-        m.position.copy(p.feet[i]).addScaledVector(fwd, 0.04);
+        const shin = p.feet[i].clone().sub(p.knees[i]);
+        // Up on its toes, the heel lifts: the shoe pivots down about the ankle (its origin) so
+        // the toe points down the leg toward the hold, TOE_TIP from the ankle along the shoe.
+        const tip = Math.max(0, shin.length() - LEG[1]);
+        shin.normalize();
+        m.position.copy(ankles[i]).addScaledVector(fwd, 0.04);
         orient(m, shin.negate(), fwd);
+        if (tip > 0.002) {
+          const pitch = Math.asin(Math.min(1, tip / TOE_TIP));
+          m.quaternion.multiply(tmp.q.setFromAxisAngle(X, pitch));
+        }
         const h = p.hooks?.[i];
         if (h) shoe.hook[i] = h;
         shoe.w[i] += ((h ? 1 : 0) - shoe.w[i]) * ease;

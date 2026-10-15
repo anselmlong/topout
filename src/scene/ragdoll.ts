@@ -146,6 +146,16 @@ const PATH_CLEAR = 0.04;
 const PATH_LIFT = 0.3;
 /** Hip to foot (m) with the leg straight: the thigh and shin. */
 const LEG_SPAN = 0.85;
+/**
+ * Reach (m) a standing foot gains going up on its toes, the heel lifting off its hold, and how
+ * fast (m/s) it rises or settles. The solver lets a hand go up to 2.05 m from a foot (BODY.reach),
+ * but straight arm, torso and leg here span 1.95 m: at full stretch the pinned hand and foot
+ * pulled the bones apart instead (day 72's last reach: upper arm 5 cm, thigh 5 cm and the
+ * shoulder 11 cm off the hip, for 2 s; day 108's thigh 8 cm). A climber at full stretch stands
+ * on the tip of the toe, heel up, which gives ~10 cm; the shin's stick takes it (see tiptoe).
+ */
+const TIPTOE = 0.1;
+const TIPTOE_SPEED = 0.4;
 const LEGS = [
   [J.hipL, J.kneeL, J.footL, 2],
   [J.hipR, J.kneeR, J.footR, 3],
@@ -180,6 +190,11 @@ export class Ragdoll {
   private velIn = Array.from({ length: JOINTS }, () => new THREE.Vector3());
   /** How fast (m/s) the body is moving out of each foot's way (makeRoom), picking up from rest. */
   private roomSpeed = [0, 0];
+  /** How far (m) each foot is up on its toes (see TIPTOE): its shin's stick is that much longer. */
+  tiptoe = [0, 0];
+  private shins: Stick[] = [];
+  /** Rest distance (m) from each shoulder (L, R) to each hip (L, R): the torso's span between a hand and a foot. */
+  private trunk: number[][] = [];
 
   constructor(
     init: THREE.Vector3[],
@@ -213,6 +228,8 @@ export class Ragdoll {
     this.sticks.push([J.shoulderR, J.elbowR, 0.3, true], [J.elbowR, J.handR, 0.29, true]);
     this.sticks.push([J.hipL, J.kneeL, 0.43, true], [J.kneeL, J.footL, 0.42, true]);
     this.sticks.push([J.hipR, J.kneeR, 0.43, true], [J.kneeR, J.footR, 0.42, true]);
+    this.shins = [this.sticks[this.sticks.length - 3], this.sticks[this.sticks.length - 1]];
+    this.trunk = [J.shoulderL, J.shoulderR].map((s) => [J.hipL, J.hipR].map((h) => d(s, h)));
     // Joints can't fold completely shut.
     min(J.shoulderL, J.handL, 0.16);
     min(J.shoulderR, J.handR, 0.16);
@@ -483,6 +500,7 @@ export class Ragdoll {
       else if (e.t >= e.duration) e.mode = 'pinned';
     });
     if (posture && this.tone > 0) this.makeRoom(dt);
+    this.rise(dt);
     // 4. Constraints.
     for (let iter = 0; iter < 10; iter++) {
       for (const [a, b, len, rigid] of this.sticks) {
@@ -549,6 +567,29 @@ export class Ragdoll {
         pos[i].add(away);
         prev[i].add(away);
       }
+    }
+  }
+
+  /**
+   * A standing foot goes up on its toes as far as a hand's reach outruns the straight arm, torso
+   * and leg between them (at most TIPTOE), and settles back as the stretch eases or the foot
+   * comes off: the heel lifts instead of the bones stretching.
+   */
+  private rise(dt: number) {
+    for (let f = 0; f < 2; f++) {
+      const e = this.ends[f + 2];
+      let want = 0;
+      if (e.mode !== 'free' && !e.release) {
+        for (let h = 0; h < 2; h++) {
+          if (this.ends[h].mode === 'free') continue;
+          const span = 0.59 + this.trunk[h][f] + LEG_SPAN;
+          want = Math.max(want, this.pos[ENDS[h]].distanceTo(this.pos[ENDS[f + 2]]) - span);
+        }
+      }
+      want = Math.min(TIPTOE, Math.max(0, want));
+      const step = TIPTOE_SPEED * dt;
+      this.tiptoe[f] += Math.max(-step, Math.min(step, want - this.tiptoe[f]));
+      this.shins[f][2] = 0.42 + this.tiptoe[f];
     }
   }
 

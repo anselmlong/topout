@@ -113,6 +113,9 @@ instead of lurching off at full speed when a move starts or a hand lands.
 A hand or foot travelling between holds arcs out just far enough to pass over the wall's face, any
 volume and an arête's corner, at least 4 cm clear (`clearPath` in `src/scene/ragdoll.ts`), instead
 of cutting straight through a volume between two holds on either side of it.
+At full stretch (a hand nearly 2 m above a foot) the standing foot goes up on its toes: the heel
+lifts and the shoe points down onto the hold, giving up to ~10 cm more (`TIPTOE` in
+`src/scene/ragdoll.ts`), so the arm and leg no longer stretch past their length to make the reach.
 Knees bend the way the pose bends them: a standing leg's knee swings round the hip-foot line toward
 the pose's side at up to ~3.5 rad/s (`KNEE_SWING` in `src/scene/ragdoll.ts`), so it never sticks
 bent backwards. On an overhang a frog knee is aimed level or up across the leg, never down (the

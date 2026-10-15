@@ -11,6 +11,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   hold just above a ledge or an overlap no longer turns the rest of the climb into a slab. The
   climber takes the ledge's lip on the way up instead of jumping from the start to a hold
   above it, and a few routes on ledge and overlap walls climb up to a grade harder.
+- At full stretch the climber goes up on the toes of its standing foot, heel lifting off the
+  hold, instead of its arm and leg stretching longer than they are.
 
 ## 2026-10-15
 
