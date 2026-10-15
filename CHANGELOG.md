@@ -12,6 +12,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   dangling. It still flags a leg to stop a barn door and cuts loose on steep ground or a jump.
 - Feet: the climber places a foot on a far hold steadily, no quicker than a hand reaches,
   instead of flicking it across in a third of a second on long or busy routes.
+- High steps: the climber steps a foot straight up onto the next hold instead of first taking
+  it off the wall and then putting it back on. A step up is now judged from the foot it stands
+  on, so a few routes lose a pointless move and none changes grade by a whole V.
 
 **Grades**
 - Big ledges are now checked against real ones: three reference problems from Atomik's split

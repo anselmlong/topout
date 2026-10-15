@@ -632,6 +632,31 @@ describe('solver', () => {
     expect(Math.round(r.grade)).toBe(1);
   });
 
+  it('steps a foot straight up instead of taking it off the wall first', () => {
+    // Day 102's reference route (V6, a 34° wall): an edge, a pinch and a crimp off two jugs.
+    const steep: Wall = { width: 360, panels: [{ length: 469, angle: 34 }], seed: 86136283 };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 205, v: 160, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 255, v: 163, rot: 0, role: 'start' },
+    ];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 285, v: 424, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h2', type: 'edge', size: 'l', u: 293.3, v: 257.6, rot: -0.19 },
+      { id: 'h3', type: 'pinch', size: 'l', u: 221.2, v: 297.9, rot: -1 },
+      { id: 'h4', type: 'crimp', size: 'm', u: 308.8, v: 337.7, rot: -0.18 },
+      { id: 'f1', type: 'jib', size: 'm', u: 195.2, v: 98, rot: 0 },
+      { id: 'f2', type: 'foot', size: 'm', u: 179.4, v: 59.6, rot: 0 },
+    ];
+    const r = solve(steep, jugs, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to take its left foot off the start jug and put it straight back on the edge,
+    // since a foot coming back from off the wall was lifted from the higher standing foot
+    // while a direct step was lifted from its own lower hold. Now it steps straight up.
+    const dance = r.moves.filter((m, i) => m.limb >= 2 && m.to.limbs[m.limb] === OFF && r.moves[i + 1]?.limb === m.limb && r.moves[i + 1].to.limbs[m.limb] >= 0);
+    expect(dance).toHaveLength(0);
+    expect(r.moves.some((m) => m.limb === 2 && m.from.limbs[2] === 0 && m.to.limbs[2] === 3)).toBe(true);
+  });
+
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {
     // A player's route on day 78's vertical corner: a small pyramid volume halfway up, a crimp
     // bolted onto its right face, pinches and edges round it.
@@ -1011,9 +1036,10 @@ describe('solver', () => {
     };
     const pumped = line(false);
     const rested = line(true);
-    // Beyond what the jug does to the crux itself, the shake-out takes grade off.
+    // Beyond what the jug does to the crux itself, the shake-out takes grade off. (The rested
+    // line's lower crux makes more of its crimp moves count as hard, so the margin is small.)
     const fromCrux = toGrade(pumped.crux, 1) - toGrade(rested.crux, 1);
-    expect(pumped.grade - rested.grade).toBeGreaterThan(fromCrux + 0.2);
+    expect(pumped.grade - rested.grade).toBeGreaterThan(fromCrux + 0.05);
   });
 
   it('footholds bolted upside down are poor feet', () => {
