@@ -134,12 +134,14 @@ export function depthEffect(type: HoldType, mm: number, size: HoldSize = 'm'): s
   return type === 'edge' && mm < 22 ? 'shallow: a bit harder' : null;
 }
 
-/** A foot chip's depth in words (model.ts footDepth), or null for a middling one. */
-export function chipWord(mm: number): string | null {
+/** A foot chip's depth, or how far a jib stands proud, in words (model.ts footDepth), or null for a middling one. */
+export function chipWord(mm: number, type: HoldType = 'foot'): string | null {
+  if (type === 'jib') return mm < 10 ? 'Low jib' : mm >= 20 ? 'Tall jib' : null;
   return mm < 13 ? 'Tiny chip' : mm >= 26 ? 'Big chip' : null;
 }
-/** What a foot chip's depth does: on a tiny one only the edge of the shoe bites. */
-export function chipEffect(mm: number): string | null {
+/** What a foot chip's or jib's depth does: on a tiny one only the edge of the shoe bites. */
+export function chipEffect(mm: number, type: HoldType = 'foot'): string | null {
+  if (type === 'jib') return mm < 10 ? 'low: only the shoe edge bites, harder' : mm >= 20 ? 'tall: the toe sits on it' : null;
   return mm < 13 ? 'tiny: only the shoe edge bites, harder' : mm >= 26 ? 'big: the shoe sits on it' : null;
 }
 

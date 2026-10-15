@@ -210,10 +210,10 @@ function Lip({ hold }: { hold: Hold }) {
     (width !== null && widthEffect(width)) ||
     (depth !== null && depthEffect(hold.type, depth, hold.size)) ||
     (pitch !== null && pitchEffect(pitch)) ||
-    (chip !== null && chipEffect(chip)) ||
+    (chip !== null && chipEffect(chip, hold.type)) ||
     lipEffect(hold.type, rank);
   const prefix =
-    fingers !== null ? pocketWord(fingers, depth) : span !== null ? spanWord(span, hold.size) : depth !== null ? edgeWord(hold, depth, width) : pitch !== null ? pitchWord(pitch, hold.size) : chip !== null ? chipWord(chip) : null;
+    fingers !== null ? pocketWord(fingers, depth) : span !== null ? spanWord(span, hold.size) : depth !== null ? edgeWord(hold, depth, width) : pitch !== null ? pitchWord(pitch, hold.size) : chip !== null ? chipWord(chip, hold.type) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

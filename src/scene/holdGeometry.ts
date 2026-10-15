@@ -981,12 +981,14 @@ function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut
  * facet with a countersunk screw through it. Returns the screw head's spot.
  * Its incut (0 .. 1) is how sharp that edge is: a blunt jib's girdle barely leans out, a
  * sharp one's juts over the footprint with a shadowed step under it.
+ * Its depth (against its size's mean, model.ts footDepthOf) is how far it stands proud, and
+ * its footprint grows with it: a low jib is a flat pebble, a tall one a knobbly stone.
  */
-function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45) {
+function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45, depth = 1) {
   const N = r.chance(0.5) ? 6 : 7;
-  const W = 0.019 * (0.85 + 0.3 * k);
-  const H = 0.015 * (1.1 - 0.2 * k);
-  const Z = 0.013;
+  const W = 0.019 * (0.85 + 0.3 * k) * (0.55 + 0.45 * depth);
+  const H = 0.015 * (1.1 - 0.2 * k) * (0.65 + 0.35 * depth);
+  const Z = 0.013 * depth;
   const rh = 0.0026;
   const spin = r.range(0, 6.3);
   // The top side stands taller, so the crown tips down toward the bottom.
@@ -1249,8 +1251,8 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   }
   if (type === 'foot' || type === 'jib') {
     const build = type === 'foot' ? footChipGeometry : jibGeometry;
-    const mm = type === 'foot' ? footDepthOf(size, v) : null;
-    const p = build(SIZE[size], k, r, incutOf(type, size, v), mm === null ? 1 : mm / meanFootDepth(size)!);
+    const mm = footDepthOf(size, v, type);
+    const p = build(SIZE[size], k, r, incutOf(type, size, v), mm === null ? 1 : mm / meanFootDepth(size, type)!);
     const data = finish(p.geometry, r, false, (_x, _y, _z, i) => p.shade(i), spec.grip!);
     data.screw = { at: p.screw, size: p.screwSize };
     cache.set(key, data);

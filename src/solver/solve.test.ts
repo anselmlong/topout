@@ -272,6 +272,30 @@ describe('solver', () => {
     expect(footDepth({ ...chip, type: 'edge' })).toBeNull();
   });
 
+  it('tall jibs grade easier than low ones of the same incut', () => {
+    const jibs = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, type: 'jib' as const, depth, incut: 0.45 } : h));
+    // On a slab the climber smears past a jib anyway; near vertical it stands on them.
+    for (const [type, angle] of [['edge', -5], ['crimp', 10]] as const) {
+      const low = grade(wall(angle), jibs(ladder(type, 45), 8));
+      const mid = grade(wall(angle), jibs(ladder(type, 45), 14));
+      const tall = grade(wall(angle), jibs(ladder(type, 45), 23));
+      expect(low).toBeGreaterThanOrEqual(mid);
+      expect(mid).toBeGreaterThanOrEqual(tall);
+      expect(low).toBeGreaterThan(tall + 0.1);
+    }
+    const jib: Hold = { id: 'j', type: 'jib', size: 'm', u: 200, v: 100, rot: 0, incut: 0.45 };
+    expect(footQuality({ ...jib, depth: 23 })).toBeGreaterThan(footQuality({ ...jib, depth: 8 }));
+    // A jib is still a worse foot than a chip of the same depth.
+    expect(footQuality({ ...jib, depth: 16 })).toBeLessThan(footQuality({ ...jib, type: 'foot', depth: 16 }));
+    for (const size of ['s', 'm', 'l'] as const) {
+      const depths = [0, 1, 2, 3].map((v) => footDepthOf(size, v, 'jib')!);
+      expect(new Set(depths).size).toBe(4);
+      const incuts = [0, 1, 2, 3].map((v) => incutOf('jib', size, v));
+      expect(depths.indexOf(Math.min(...depths))).not.toBe(incuts.indexOf(Math.min(...incuts)));
+    }
+    expect(footDepth(jib)).not.toBeNull();
+  });
+
   it('a macro sloper or ledge grades easier than a medium one, and a sloper macro still rolls off steep', () => {
     const macro = (holds: Hold[]) => holds.map((h) => (h.type === 'foot' ? h : { ...h, size: 'xl' as const }));
     for (const type of ['sloper', 'edge'] as const) {

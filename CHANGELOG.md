@@ -19,6 +19,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   little tech feet grade like the holdmakers' own grades for them, so routes on tiny or fat
   footholds stay graded fairly.
 
+**Holds**
+- Jibs come low or tall: a jib is now anything from a flat pebble barely sticking out of the
+  wall to a knobbly stone your toe sits on, and you can see which. The hold bar says "Low jib"
+  or "Tall jib", and low jibs make a route a little harder to stand up on.
+
 ## 2026-10-15
 
 **Climber**

@@ -537,19 +537,34 @@ const FOOT_INCUT_TYPES: HoldType[] = ['foot', 'jib', 'edge', 'crimp'];
  */
 export const FOOT_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [9, 13, 18, 23], m: [11, 16, 22, 29], l: [14, 20, 27, 34] };
 
-export function footDepthOf(size: HoldSize, variant: number): number | null {
-  const list = FOOT_DEPTH[size];
+/**
+ * How far a jib stands proud of the wall (mm, to its sharp top edge), from its seed and size, on
+ * the same cycle as a foot chip's depth (two builds off its incut's). A jib is a little stone, so
+ * it runs smaller than a chip: from a flat pebble barely proud of the plywood, which only the
+ * very edge of the rand catches and which the toe has to be pressed onto and kept still, to a
+ * knobbly stone the toe of the shoe sits on. Coaching material: Earth Treks, "What is edging in
+ * climbing" (the smaller the foothold, the less shoe on it and the more precise and still the
+ * foot has to be); Atomik Climbing Holds, "How proper footwork transforms your climbing skills"
+ * (progress from large footholds to smaller and smaller ones). The medium list centres on the
+ * 15 mm the jib has always been drawn at.
+ */
+export const JIB_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [6, 9, 13, 17], m: [8, 12, 17, 23], l: [10, 15, 21, 28] };
+
+const footDepths = (type: HoldType) => (type === 'jib' ? JIB_DEPTH : type === 'foot' ? FOOT_DEPTH : {});
+
+export function footDepthOf(size: HoldSize, variant: number, type: HoldType = 'foot'): number | null {
+  const list = footDepths(type)[size];
   return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
 }
 
-/** A foot chip's shelf depth (mm); null for other types. */
+/** A foot chip's shelf depth, or how far a jib stands proud (mm); null for other types. */
 export function footDepth(hold: Hold): number | null {
-  return hold.type === 'foot' ? (hold.depth ?? footDepthOf(hold.size, holdVariant(hold))) : null;
+  return hold.type === 'foot' || hold.type === 'jib' ? (hold.depth ?? footDepthOf(hold.size, holdVariant(hold), hold.type)) : null;
 }
 
-/** The mean depth foot chips of this size come in (mm), what the mesh is drawn at. */
-export function meanFootDepth(size: HoldSize): number | null {
-  const list = FOOT_DEPTH[size];
+/** The mean depth foot chips (or jibs) of this size come in (mm), what the mesh is drawn at. */
+export function meanFootDepth(size: HoldSize, type: HoldType = 'foot'): number | null {
+  const list = footDepths(type)[size];
   return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
 }
 
@@ -559,13 +574,13 @@ export function footDepthGrip(mm: number): number {
 }
 
 /**
- * A foot chip's quality multiplier for its depth against its size's typical build (1 for other
+ * A foot chip's or jib's quality multiplier for its depth against its size's typical build (1 for other
  * holds). The climber picks the best foot in reach, so the typical build is the average one: a
  * mixed set of chips stands as chips always have.
  */
 export function footDepthFactor(hold: Hold): number {
   const mm = footDepth(hold);
-  const list = FOOT_DEPTH[hold.size];
+  const list = footDepths(hold.type)[hold.size];
   if (mm === null || !list || hold.foot !== undefined) return 1;
   const mean = list.map(footDepthGrip).reduce((a, n) => a + n, 0) / list.length;
   return footDepthGrip(Math.max(4, Math.min(40, mm))) / mean;
