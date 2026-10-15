@@ -860,6 +860,42 @@ describe('solver', () => {
     expect(lipV(overlap)).toBe(245);
   });
 
+  it('prices a move at the face under the lower hand, not at a ledge or lip the hands straddle', () => {
+    // Day 29's reference route (V2, a vertical wall with a ledge band between v 198 and 229).
+    const ledge: Wall = { width: 380, panels: [{ length: 198, angle: 7 }, { length: 31, angle: -75 }, { length: 188, angle: 5 }], seed: 3819285912, lip: true };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 230, v: 157, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 270, v: 150, rot: 0, role: 'start' },
+    ];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 160, v: 374, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h3', type: 'sloper', size: 'l', u: 157.08, v: 259.85, rot: -0.25, seed: 5 },
+      { id: 'h5', type: 'edge', size: 'l', u: 118.65, v: 329.92, rot: 0.136, seed: 0 },
+      { id: 'f1', type: 'jib', size: 'm', u: 242.62, v: 61.37, rot: 0, seed: 8 },
+    ];
+    const r = solve(ledge, jugs, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // Its hands' mean height used to set the angle: a jump from the start jug (v 150) to the
+    // sloper above the ledge (v 260) has its mean on the shelf, so it was priced as a -75°
+    // slab, next to free. Now each move hangs from the face under the lower hand.
+    const onShelf = (v: number) => v >= 198 && v < 229;
+    for (const m of r.moves) {
+      const parts = moveParts(ledge, jugs, finish, holds, m)!;
+      if (!onShelf(Math.min(m.to.points[0].v, m.to.points[1].v))) expect(parts.angle).toBeGreaterThan(0);
+    }
+    // The same on an overlap: a hand on a sloper just over the roof's lip leaves the body
+    // hanging under the roof from the other hand (day 17, -11/52/-6).
+    const overlap: Wall = { width: 360, panels: [{ length: 199, angle: -11 }, { length: 40, angle: 52 }, { length: 247, angle: -6 }], seed: 1, lip: true };
+    const jug: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 195, v: 153, rot: 0, role: 'start' }];
+    const top: Hold = { id: 'finish', type: 'jug', size: 'l', u: 196, v: 444, rot: 0, role: 'finish' };
+    const sloper: Hold[] = [{ id: 'h1', type: 'sloper', size: 's', u: 145, v: 252, rot: 0, seed: 0 }];
+    const ids = contactList(jug, top, sloper, undefined, overlap).map((h) => h.id);
+    const lip3 = ids.indexOf('lip:3');
+    // Left hand on the sloper, the right hand comes off the start jug onto the lip.
+    const move: Move = { limb: 1, from: { limbs: [2, 0, SMEAR, SMEAR], points: [] as never }, to: { limbs: [2, lip3, SMEAR, SMEAR], points: [] as never }, difficulty: 0, dynamic: false };
+    expect(moveParts(overlap, jug, top, sloper, move)?.angle).toBe(52);
+  });
+
   it('mantles onto a volume top: presses it out, a foot comes up beside the hands, stands up and reaches', () => {
     const holds: Hold[] = [
       { id: 'e', type: 'edge', size: 'm', u: 230, v: 200, rot: 0, seed: 1 },

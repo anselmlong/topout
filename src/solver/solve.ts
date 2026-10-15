@@ -547,6 +547,19 @@ class Context {
   }
 
   /**
+   * The wall angle the body hangs from: the face under the lower hand. The body hangs below
+   * both hands, so with one hand still under a roof, or below a ledge, it hangs against that
+   * face until the other hand is over too. (Read at the hands' mean height, a hand on a poor
+   * hold just over a roof's lip made the next move a slab move, and a jump from below a
+   * ledge to above it was priced as the ledge's flat shelf: the climber dynoed to a small
+   * sloper over the lip instead of taking the lip. Turning the lip is the hard part of a roof,
+   * not a way round it: Hörst, "Training for Climbing", on roof technique.)
+   */
+  handsAngle(p: Point[]): number {
+    return angleAt(this.wall, Math.min(p[0].v, p[1].v));
+  }
+
+  /**
    * How hard it is to hang off the better hand in this stance, feet on, so the other
    * hand can let go and shake out: the load on one arm over that hold's grip, on the
    * same scale as a move's hanging term. Infinity with both feet off.
@@ -556,7 +569,7 @@ class Context {
     const on = [2, 3].filter((f) => l[f] !== OFF);
     if (!on.length) return Infinity;
     const feet = { u: on.reduce((s, f) => s + p[f].u, 0) / on.length, v: on.reduce((s, f) => s + p[f].v, 0) / on.length };
-    const load = handLoad(angleAt(this.wall, (p[0].v + p[1].v) / 2), this.feetQ(l, p));
+    const load = handLoad(this.handsAngle(p), this.feetQ(l, p));
     const g = Math.max(this.gripOf(this.holds[l[0]], feet, null, on.length, false), this.gripOf(this.holds[l[1]], feet, null, on.length, false));
     return g < MIN_GRIP ? Infinity : (0.72 * load) / g;
   }
@@ -646,7 +659,7 @@ class Context {
     next[limb] = to;
     const np = this.points(next);
     if (!this.valid(next, BODY.dynoLimit, np)) return null;
-    const handsAngle = angleAt(this.wall, (np[0].v + np[1].v) / 2);
+    const handsAngle = this.handsAngle(np);
 
     if (limb <= 1) {
       // No walking a hand up the arête: each slap on the edge must go back to a real hold.

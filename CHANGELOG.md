@@ -4,6 +4,14 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-16
+
+**Climber**
+- Roofs and ledges: a move counts as steep until both hands are over the lip, so a hand on a
+  hold just above a ledge or an overlap no longer turns the rest of the climb into a slab. The
+  climber takes the ledge's lip on the way up instead of jumping from the start to a hold
+  above it, and a few routes on ledge and overlap walls climb up to a grade harder.
+
 ## 2026-10-15
 
 **Climber**
