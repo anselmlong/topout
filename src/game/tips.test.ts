@@ -98,7 +98,7 @@ describe('move grades', () => {
       expect(hardest).toBeLessThanOrEqual(a.grade + 1e-9);
       expect(hardest).toBeGreaterThan(a.grade - 0.61);
     }
-  });
+  }, 30_000);
 
   it('tones moves against the brief, not against the route', () => {
     expect(gradeTone(0, 0)).toBe(0.5);

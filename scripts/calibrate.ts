@@ -303,6 +303,26 @@ export const ANCHORS: Anchor[] = [
   // hand nearly fits: large three-finger pockets.
   { name: '30° large pockets', angle: 30, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 3, fingers: 3 },
   { name: '40° large pockets', angle: 40, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 4, fingers: 3 },
+  // Pockets by depth (model.ts EDGE_DEPTH pocket, depthGrip): until now no reference problem set
+  // how deep a pocket goes. Atomik Climbing Holds' Golfus pocket line steps it, sets #5 to #1
+  // (grade guides found via search on 2026-10-15; the site can't be fetched from this run).
+  // Atomik measures in finger pads: set #1's "two to three finger pads" is 1-3/4" to 2", and its
+  // flip side's "full finger pad" 3/4" to 1", so a pad is about 19 mm.
+  // Set #5: shallow two-finger pockets, three-quarters of a pad deep (14 mm), neutral incut, the
+  // smallest 3-1/2" x 3-3/4": V3 on vertical, V5 on a 20° wall ("110 yields V5"). (Its V7 at 30°
+  // and V9 at 45° are left out: the Kilter two-finger board problem above is V5 at 30° and 40°.)
+  { name: 'vertical shallow two-finger pockets', angle: 0, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 3, fingers: 2, depth: 14, incut: 0.35 },
+  { name: '20° shallow two-finger pockets', angle: 20, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 5, fingers: 2, depth: 14, incut: 0.35 },
+  // Set #4: three-finger pockets one pad deep (19 mm), 4-1/2" x 4-3/4": "easy V2" on vertical.
+  { name: 'vertical one-pad pockets', angle: 0, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 2, fingers: 3, depth: 19 },
+  // Set #2: "comfortable one and a half finger-pad deep pockets" (28 mm): V1 on vertical.
+  { name: 'vertical pad-and-a-half pockets', angle: 0, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 1, fingers: 3, depth: 28 },
+  // Set #1: "roomy two and three-finger pockets", 1-3/4" to 2" deep (45 mm), incut about 45°: V0
+  // on vertical.
+  {
+    name: 'vertical roomy pockets', angle: 0, type: 'pocket', size: 'l', spacing: 55, feet: true, expect: 0, fingers: 3, depth: 45, incut: 0.85,
+    miss: 'grades V1.4: past 3-4 cm depthGrip is flat (an edge study), and a pocket is as direction-fussy as an edge (tolerance 0.4), where a pocket the fingers sink into to the second joint is held like a jug from any side',
+  },
   // Pinches by span (model.ts pinchSpan, spanGrip): until now no reference problem set a pinch's
   // width, so the thin fins and wide pinches every pinch now comes as were graded off their seeds.
   // No board benchmark gives a pinch's width, so these take Atomik Climbing Holds' per-angle grade

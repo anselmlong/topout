@@ -57,7 +57,12 @@ interface GripSpec {
 export const GRIP: Record<HoldType, GripSpec> = {
   jug: { grip: 0.95, tolerance: 0.7, steepLoss: 0, hand: true, foot: 0.95, footFacing: 0.55 },
   edge: { grip: 0.74, tolerance: 0.42, steepLoss: 0.06, hand: true, foot: 0.85, footFacing: 0.8 },
-  pocket: { grip: 0.66, tolerance: 0.4, steepLoss: 0.1, hand: true, foot: 0.7, footFacing: 0.6 },
+  // Pockets were 0.66 and 0.1 (until 2026-10-15), which put Atomik's Golfus pocket line a grade
+  // hard at every depth on a vertical wall while the Kilter pocket boards at 30-40° sat near
+  // target: the fingers are held in on a vertical wall, but on an overhang the pull swings out
+  // and levers the fingertips out of the hole as it does off a crimp's shelf (Hörst, "Training
+  // for Climbing": pockets get much harder as the wall steepens and the pull turns outward).
+  pocket: { grip: 0.75, tolerance: 0.4, steepLoss: 0.25, hand: true, foot: 0.7, footFacing: 0.6 },
   // Pinches squeeze: good pulled along their axis, poor across it. The thumb opposes the
   // fingers whichever way gravity pulls, so an overhang costs a pinch little (board
   // climbers live on them); a sloper is pure friction under the palm and rolls off as

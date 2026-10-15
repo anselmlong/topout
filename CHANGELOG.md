@@ -28,6 +28,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   ledges and granite rails (flat and slopey ledges on vertical, a flat rail on a 25° wall).
 - Crimp length is now checked against real holds: three reference problems from Atomik's
   straight, flat dripstone and granite crimps, sized by how long their lips really are.
+- Pockets on vertical walls grade about half a grade easier, and a little harder as the wall
+  steepens: checked against five sets of Atomik pockets, from shallow two-finger dishes to
+  deep roomy ones.
 
 **Holds**
 - Short crimps: small crimps and edges now come in lengths, from a stub only two fingers fit on
