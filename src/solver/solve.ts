@@ -149,6 +149,20 @@ const DANGLE_ANGLE = 20;
 /** A move within this share of the crux is a hard one: it pumps (hardStreak). */
 const HARD = 0.85;
 
+/**
+ * How much harder a hand slap onto a bare feature (the arête, a bare volume face, the lip:
+ * a contact, not a hold) counts in the search than its difficulty: this share. The bottleneck
+ * search takes any intermediate that makes the hardest move even 1% easier, so the climber
+ * slapped the bare arête, a volume face or the lip on the way to a jug it could reach straight
+ * away (0.85 and 0.83 via the arête against 0.86 direct). Climbers use a feature with no edge
+ * to curl as a hand when it pays, and skip it when the hold above is in reach: catching
+ * fibreglass is a slap that can skid off, one more catch and more time on the arms (Hörst,
+ * "Training for Climbing", on economy of movement; The Self-Coached Climber, Hague & Hunter:
+ * don't waste moves). Only in the search: each move's difficulty, and so the grade, is the
+ * beta's own.
+ */
+const SLAP = 0.03;
+
 type Limbs = [number, number, number, number];
 
 export function solve(
@@ -207,10 +221,12 @@ export function solve(
       dynamic: m.dynamic,
     });
   }
+  // The beta's own hardest move: the search's crux counts bare-feature slaps SLAP harder.
+  const hardest = moves.length ? Math.max(...moves.map((m) => m.difficulty)) : crux;
   return {
     ok: true,
-    crux,
-    grade: toGrade(crux, hardStreak(moves, crux, path.slice(0, -1).map((l) => ctx.hangCost(l)))),
+    crux: hardest,
+    grade: toGrade(hardest, hardStreak(moves, hardest, path.slice(0, -1).map((l) => ctx.hangCost(l)))),
     moves,
     start: ctx.stance(path[0]),
   };
@@ -878,7 +894,8 @@ class Context {
         if (!m) continue;
         const n = [...l] as Limbs;
         n[limb] = to;
-        visit(n, m.d, m.w, limb);
+        // A hand slapping a bare feature counts SLAP harder in the search, never in the beta.
+        visit(n, limb <= 1 && h[to].id.includes(':') ? m.d * (1 + SLAP) : m.d, m.w, limb);
       }
     }
   }

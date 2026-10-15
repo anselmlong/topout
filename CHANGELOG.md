@@ -17,6 +17,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   on, so a few routes lose a pointless move and none changes grade by a whole V.
 - Weight shifts: the climber's hips and chest ease into each move instead of lurching off at
   full speed the instant a move starts or a hand lands.
+- Arêtes and volumes: the climber reaches straight to a jug it can reach instead of first
+  slapping the bare arête, a volume face or the lip on the way, when that saves next to nothing.
+  A few routes lose a move or two; no grade changes by a whole V.
 
 **Grades**
 - Big ledges are now checked against real ones: three reference problems from Atomik's split

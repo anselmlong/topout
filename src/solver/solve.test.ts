@@ -674,6 +674,28 @@ describe('solver', () => {
     expect(r.moves.some((m) => m.limb === 2 && m.from.limbs[2] === 0 && m.to.limbs[2] === 3)).toBe(true);
   });
 
+  it('reaches straight to a jug in reach instead of slapping the bare arête on the way', () => {
+    // Day 22's reference route (V1, a 10° wall beside an arête): a jug ladder up the edge.
+    const arete: Wall = { width: 360, panels: [{ length: 483, angle: 10 }], seed: 630802827, fold: { u: 169, angle: -85 } };
+    const jug: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 145, v: 145, rot: 0, role: 'start' }];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 136, v: 449, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h2', type: 'jug', size: 'l', u: 187.25, v: 211.2, rot: -0.257, seed: 0 },
+      { id: 'h4', type: 'jug', size: 'm', u: 176.49, v: 288.45, rot: 0.048, seed: 11 },
+      { id: 'h6', type: 'jug', size: 's', u: 188.33, v: 356.02, rot: -0.084, seed: 9 },
+    ];
+    const r = solve(arete, jug, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    // Its left hand used to go from the first jug to the arête and on to the second jug: 0.85
+    // and 0.83, against 0.86 straight there, since the search took any intermediate that eased
+    // the crux at all. Now it reaches straight up, two moves shorter, and still grades V1.
+    const ids = contactList(jug, finish, holds, undefined, arete).map((h) => h.id);
+    const slaps = r.moves.filter((m) => m.limb <= 1 && ids[m.to.limbs[m.limb]].startsWith('arete:'));
+    expect(slaps).toHaveLength(0);
+    expect(r.moves.some((m) => m.limb === 0 && ids[m.from.limbs[0]] === 'h2' && ids[m.to.limbs[0]] === 'h4')).toBe(true);
+    expect(Math.round(r.grade)).toBe(1);
+  });
+
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {
     // A player's route on day 78's vertical corner: a small pyramid volume halfway up, a crimp
     // bolted onto its right face, pinches and edges round it.
