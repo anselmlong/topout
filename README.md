@@ -107,7 +107,9 @@ a campus move) is swung by the leg: it moves with the hips, damped, at no more t
 While a hand holds on, the body carries itself at no more than ~1.5 m/s (`BODY_SPEED` in
 `src/scene/ragdoll.ts`): a low foot letting go under a high step stands the climber up onto it
 over about half a second instead of firing the hips up; a dyno's launch, a fall and the drop off
-the top aren't held back.
+the top aren't held back. It also picks that speed up at no more than ~6 m/s² and brakes or turns
+at no more than ~20 m/s² (`BODY_ACCEL`, `BODY_TURN`), so the hips ease into each weight shift
+instead of lurching off at full speed when a move starts or a hand lands.
 Knees bend the way the pose bends them: a standing leg's knee swings round the hip-foot line toward
 the pose's side at up to ~3.5 rad/s (`KNEE_SWING` in `src/scene/ragdoll.ts`), so it never sticks
 bent backwards. On an overhang a frog knee is aimed level or up across the leg, never down (the

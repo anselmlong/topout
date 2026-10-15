@@ -78,6 +78,23 @@ const FREE_HAND_SPEED = 5;
  * second or so. A dyno's launch (see impulse) isn't held back, nor is a fall or a drop.
  */
 const BODY_SPEED = 1.5;
+/**
+ * How quickly (m/s²) the body may pick up speed toward BODY_SPEED under its own drive. The
+ * muscles pull the torso a share of the way to its pose each step, so when the pose moves on
+ * (a new move winding up, a hand landing, a foot settling) the hips went from standing still
+ * to the full 1.5 m/s in one physics step, 180 m/s² (18 g), and coasted there: on day 77's
+ * slab the hips jolted like that 15 times in 16 moves. A climber's centre of
+ * mass eases into a weight shift; even a brisk one gets going over a quarter of a second, about
+ * 0.6 g (braking is quicker, BODY_TURN).
+ */
+const BODY_ACCEL = 6;
+/**
+ * How sharply (m/s²) the body's own drive may brake or turn it. Stopping dead was free too: on
+ * day 77 the hips going 1.5 m/s up a slab reversed in one step when a foot landed and the pose
+ * moved on. About 2 g: the muscles' own easing onto a pose stays well inside it, so the body
+ * still stops on its pose instead of overshooting.
+ */
+const BODY_TURN = 20;
 const BODY = [J.head, J.chest, J.pelvis, J.shoulderL, J.shoulderR, J.hipL, J.hipR, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
 /** The joints in the middle of the limbs, which swing on their own once the torso moves. */
 const LIMB_JOINTS = [J.elbowL, J.elbowR, J.kneeL, J.kneeR];
@@ -149,6 +166,10 @@ export class Ragdoll {
   private tmp3 = new THREE.Vector3();
   private hipsV = new THREE.Vector3();
   private chestV = new THREE.Vector3();
+  /** Each joint's velocity (m per step) over the last step, before this step's damping and muscles. */
+  private velIn = Array.from({ length: JOINTS }, () => new THREE.Vector3());
+  /** How fast (m/s) the body is moving out of each foot's way (makeRoom), picking up from rest. */
+  private roomSpeed = [0, 0];
 
   constructor(
     init: THREE.Vector3[],
@@ -329,6 +350,7 @@ export class Ragdoll {
     const damp = this.drag ?? (this.tone > 0 ? 0.965 : 0.999);
     for (let i = 0; i < JOINTS; i++) {
       const p = pos[i];
+      this.velIn[i].subVectors(p, prev[i]);
       const vx = (p.x - prev[i].x) * damp;
       const vy = (p.y - prev[i].y) * damp;
       const vz = (p.z - prev[i].z) * damp;
@@ -350,10 +372,16 @@ export class Ragdoll {
       // A weight shift is something the body does, not a cut: cap how fast it carries itself.
       const hanging = this.ends[0].mode !== 'free' || this.ends[1].mode !== 'free';
       if (hanging && this.drag === null && this.burst <= 0) {
-        const max = BODY_SPEED * dt;
         for (const i of BODY) {
+          const vin = this.velIn[i];
           const v = this.tmp.subVectors(pos[i], prev[i]);
-          if (v.lengthSq() > max * max) pos[i].copy(prev[i]).addScaledVector(v, max / v.length());
+          // Turning or braking is quicker than speeding up, but not instant either.
+          const turn = this.tmp2.subVectors(v, vin);
+          const most = BODY_TURN * dt * dt;
+          if (turn.lengthSq() > most * most) v.copy(vin).addScaledVector(turn, most / turn.length());
+          const max = Math.min(BODY_SPEED * dt, vin.length() + BODY_ACCEL * dt * dt);
+          if (v.lengthSq() > max * max) v.multiplyScalar(max / v.length());
+          pos[i].copy(prev[i]).add(v);
         }
       } else if (hanging && this.drag === null) {
         // A launch throws the torso, and the knees and elbows ride along with the hips, but
@@ -440,6 +468,8 @@ export class Ragdoll {
     const { pos, prev } = this;
     for (const [hip, , foot, end] of LEGS) {
       const e = this.ends[end];
+      const was = this.roomSpeed[end - 2];
+      this.roomSpeed[end - 2] = 0;
       if (e.mode === 'free' || e.release) continue;
       // Measured to the nearest point on the rest of the foot's way, not just where it is, so
       // the hips start moving as the foot leaves: a high step's foot comes up at 4-6 m/s, far
@@ -452,7 +482,12 @@ export class Ragdoll {
       const away = this.tmp.subVectors(pos[hip], now).addScaledVector(way, -k);
       const d = away.length();
       if (d >= HIP_ROOM || d < 1e-4) continue;
-      away.multiplyScalar(Math.min(HIP_ROOM - d, ROOM_SPEED * dt) / d);
+      // Picking up speed from rest like any weight shift (BODY_ACCEL): at the full ROOM_SPEED
+      // from the first step, the hips and chest lurched out at 1.5 m/s as a high step began.
+      const speed = Math.min(ROOM_SPEED, was + BODY_ACCEL * dt);
+      const shift = Math.min(HIP_ROOM - d, speed * dt);
+      this.roomSpeed[end - 2] = shift / dt;
+      away.multiplyScalar(shift / d);
       for (let i = 0; i < JOINTS; i++) {
         if (i === foot || this.invMass(i) === 0) continue;
         pos[i].add(away);

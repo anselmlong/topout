@@ -15,6 +15,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - High steps: the climber steps a foot straight up onto the next hold instead of first taking
   it off the wall and then putting it back on. A step up is now judged from the foot it stands
   on, so a few routes lose a pointless move and none changes grade by a whole V.
+- Weight shifts: the climber's hips and chest ease into each move instead of lurching off at
+  full speed the instant a move starts or a hand lands.
 
 **Grades**
 - Big ledges are now checked against real ones: three reference problems from Atomik's split
