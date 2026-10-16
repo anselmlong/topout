@@ -7,6 +7,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-16
 
 **Climber**
+- A standing knee turns round smoothly to point the new way between moves, instead of snapping
+  across in a blink or folding through the straight leg.
 - Roofs and ledges: a move counts as steep until both hands are over the lip, so a hand on a
   hold just above a ledge or an overlap no longer turns the rest of the climb into a slab. The
   climber takes the ledge's lip on the way up instead of jumping from the start to a hold

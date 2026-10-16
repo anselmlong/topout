@@ -184,6 +184,7 @@ export class Ragdoll {
   private tmp = new THREE.Vector3();
   private tmp2 = new THREE.Vector3();
   private tmp3 = new THREE.Vector3();
+  private aim = new THREE.Vector3();
   private hipsV = new THREE.Vector3();
   private chestV = new THREE.Vector3();
   /** Each joint's velocity (m per step) over the last step, before this step's damping and muscles. */
@@ -440,7 +441,8 @@ export class Ragdoll {
         const freeKnee = (i === J.kneeL && this.ends[2].mode === 'free') || (i === J.kneeR && this.ends[3].mode === 'free');
         const soft = i === J.elbowL || i === J.elbowR || i === J.kneeL || i === J.kneeR;
         const k = (freeKnee ? 0.16 : soft ? 0.05 : 0.11) * this.tone;
-        pos[i].lerp(posture[i], k);
+        const standing = (i === J.kneeL && this.ends[2].mode !== 'free') || (i === J.kneeR && this.ends[3].mode !== 'free');
+        pos[i].lerp(standing ? this.kneeAim(i === J.kneeL ? 0 : 1, posture) : posture[i], k);
       }
       // A weight shift is something the body does, not a cut: cap how fast it carries itself.
       const hanging = this.ends[0].mode !== 'free' || this.ends[1].mode !== 'free';
@@ -593,6 +595,30 @@ export class Ragdoll {
     }
   }
 
+  /**
+   * Where a standing knee's muscle pulls: the posed knee turned round the hip-foot line onto the
+   * side the knee bends now, so the pull sets how far it bends and turnKnee alone decides which
+   * way, at KNEE_SWING. Pulled straight at a posed knee on the far side of the line, a nearly
+   * straight knee folded through it: on day 102 (34°) the standing left knee flipped from
+   * pointing down to up and out, 130° in 0.15 s (up to 24 rad/s), with every limb pinned.
+   */
+  private kneeAim(leg: 0 | 1, posture: THREE.Vector3[]) {
+    const [hip, knee, foot] = LEGS[leg];
+    const { pos } = this;
+    const axis = this.tmp.subVectors(pos[foot], pos[hip]);
+    const span = axis.length();
+    if (span < 1e-3) return posture[knee];
+    axis.divideScalar(span);
+    const now = this.tmp2.subVectors(pos[knee], pos[hip]);
+    now.addScaledVector(axis, -now.dot(axis));
+    const aim = this.aim.subVectors(posture[knee], pos[hip]);
+    const along = aim.dot(axis);
+    const want = this.tmp3.copy(aim).addScaledVector(axis, -along);
+    const r = want.length();
+    if (now.length() < KNEE_BENT || r < KNEE_BENT) return posture[knee];
+    return aim.copy(pos[hip]).addScaledVector(axis, along).addScaledVector(now.normalize(), r);
+  }
+
   /** Swing a knee round its hip-foot line, at most `max` radians, toward the side the pose bends it. */
   private turnKnee(hip: number, knee: number, foot: number, posture: THREE.Vector3[], max: number) {
     const { pos } = this;
@@ -615,7 +641,12 @@ export class Ragdoll {
     // Rotate round the line, keeping the knee's distance from it (so the bones keep their length).
     const side = out.clone().cross(want).dot(axis) < 0 ? -1 : 1;
     out.applyAxisAngle(axis, side * Math.min(angle, max));
+    // The prior position turns with it, so the swing carries no speed into the next step: left
+    // in pos alone, each step's turn became velocity that the next step's added to, and the
+    // knee wound up to ~15 rad/s, four times KNEE_SWING (day 102: 130° in 0.15 s).
+    const was = this.aim.copy(pos[knee]);
     pos[knee].copy(pos[hip]).addScaledVector(axis, along).add(out);
+    this.prev[knee].add(was.subVectors(pos[knee], was));
   }
 
   private invMass(i: number) {

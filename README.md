@@ -118,7 +118,8 @@ lifts and the shoe points down onto the hold, giving up to ~10 cm more (`TIPTOE`
 `src/scene/ragdoll.ts`), so the arm and leg no longer stretch past their length to make the reach.
 Knees bend the way the pose bends them: a standing leg's knee swings round the hip-foot line toward
 the pose's side at up to ~3.5 rad/s (`KNEE_SWING` in `src/scene/ragdoll.ts`), so it never sticks
-bent backwards. On an overhang a frog knee is aimed level or up across the leg, never down (the
+bent backwards. Its muscle only sets how far it bends, never which way, and the swing builds no speed of
+its own, so the knee never folds through a straight leg or whips round faster than that. On an overhang a frog knee is aimed level or up across the leg, never down (the
 wall's "out" points down there), and a knee posed near the mat comes up, as on a sit start; only a
 drop knee and a bridged leg point the knee down (`kneeOff` in `src/scene/Climber.tsx`).
 Before a dyno the climber pumps: a shallow dip and a deep one, arms locked straight and
