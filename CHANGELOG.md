@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-17
 
 **Climber**
+- Holding on, the climber's elbows stay out to the sides the way its arms are bent, instead of
+  sagging down under the arms against the wall: matched on a hold above its head, the elbows
+  no longer collapse in front of its face for a couple of seconds.
 - The climber steps up through the feet it's standing on instead of walking a foot back down
   to a low jug and up again: stood far below its hands, the leg is stretched straight and the
   arms hold the weight. A few routes climb in fewer moves.
