@@ -27,6 +27,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   whose setter's route no longer climbed at the day's grade were set again.
 
 **Holds**
+- Pinches come low or deep: some pinches barely stand out from the wall, so your fingers only
+  squeeze the sides with their tips, and others stand tall enough to get your whole thumb on.
+  You can see which from the side. The hold bar says "Low pinch" or "Deep pinch", and low ones
+  make a route a little harder.
 - Jibs come low or tall: a jib is now anything from a flat pebble barely sticking out of the
   wall to a knobbly stone your toe sits on, and you can see which. The hold bar says "Low jib"
   or "Tall jib", and low jibs make a route a little harder to stand up on.

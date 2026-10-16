@@ -118,6 +118,15 @@ export function spanEffect(cm: number): string | null {
   return cm < 4.5 ? 'thin: harder to squeeze' : cm < 5.5 ? 'narrow: a bit harder' : cm >= 14 ? 'wide: a stretch for the thumb' : null;
 }
 
+/** A pinch's flank depth in words (model.ts pinchDepth), or null for a middling one. */
+export function pinchDepthWord(mm: number): string | null {
+  return mm < 22 ? 'Low' : mm >= 40 ? 'Deep' : null;
+}
+/** What a pinch's flank depth does: on a low one the fingers squeeze with their first pads. */
+export function pinchDepthEffect(mm: number): string | null {
+  return mm < 22 ? 'low sides: first pads only, harder' : mm >= 40 ? 'deep sides: the whole thumb on' : null;
+}
+
 /** A crimp's or edge's shelf depth, or a pocket's depth, in words (model.ts edgeDepth), or null for a middling one. */
 export function depthWord(type: HoldType, mm: number, size: HoldSize = 'm'): string | null {
   if (type === 'pocket') return mm < 15 ? 'Shallow' : mm >= 26 ? 'Deep' : null;

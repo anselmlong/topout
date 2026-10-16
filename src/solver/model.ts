@@ -288,6 +288,47 @@ export function spanFactor(hold: Hold): number {
 }
 
 /**
+ * How deep a pinch's flanks are (mm, life size: how much of the fingers and the thumb pad the
+ * sides take, from the rolled skirt at the wall to the crest), from its seed and size, on its
+ * own cycle (one build off its span's, so a thin fin comes with deep flanks and the shallowest
+ * build is never also the thinnest). A low-profile pinch, its sides barely proud of the wall,
+ * gives the fingers only their first pads to squeeze with, like a shallow edge turned on its
+ * side, where a deep one takes the fingers to the second joint and the whole thumb pad. It's
+ * the same finger-pad contact as an edge's shelf, so the same curve (depthGrip: Amca et al.,
+ * J. Sports Sci. 2012). Coaching material: Climbing.com, "How to Climb Pinches" (get as much
+ * thumb and finger on the sides as the hold allows; thin, low pinches are squeezed with the
+ * pads and are the hardest); Eric Hörst, "Training for Climbing" (pinch strength is about
+ * thumb opposition, which a low pinch barely lets in). The lists centre on the flank each size
+ * has always been drawn with. Pinch blocks (macros) are a hand's span thick by design: none.
+ */
+export const PINCH_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [16, 22, 29, 36], m: [20, 28, 37, 46], l: [24, 34, 45, 56] };
+
+export function pinchDepthOf(size: HoldSize, variant: number): number | null {
+  const list = PINCH_DEPTH[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 1) % list.length] : null;
+}
+
+/** How deep a pinch's flanks are (mm); null for other types and for pinch blocks. */
+export function pinchDepth(hold: Hold): number | null {
+  return hold.type === 'pinch' && PINCH_DEPTH[hold.size] ? (hold.depth ?? pinchDepthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean flank depth pinches of this size come in (mm), what the mesh is drawn at; null for none. */
+export function meanPinchDepth(size: HoldSize): number | null {
+  const list = PINCH_DEPTH[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/** A pinch's grip multiplier for its flank depth against the average of its size (1 otherwise), as spanFactor. */
+export function pinchDepthFactor(hold: Hold): number {
+  const mm = pinchDepth(hold);
+  const list = PINCH_DEPTH[hold.size];
+  if (mm === null || !list || hold.grip !== undefined) return 1;
+  const mean = list.reduce((a, n) => a + depthGrip(n), 0) / list.length;
+  return depthGrip(Math.max(8, Math.min(70, mm))) / mean;
+}
+
+/**
  * How deep a crimp's or an edge's shelf is (mm, life size: how much of the finger pads it
  * takes), from its seed and size, on its own cycle (two builds off the lip's, like a pinch's
  * span, so the shallowest build is never also the flattest). Depth is what grades an edge
@@ -826,7 +867,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold);
   return base * orient * steepFactor;
 }
 

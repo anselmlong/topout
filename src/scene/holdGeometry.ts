@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, meanDepth, meanFootDepth, meanPitch, pitchOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, meanDepth, meanFootDepth, meanPinchDepth, meanPitch, pinchDepthOf, pitchOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -771,14 +771,16 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
  * dimple for the thumb pad. The outline is a lozenge, fuller at the bottom.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null) {
+function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null, depth = 1) {
   const N = 40;
   // Half its width. Its span (model.ts spanOf, cm in life, drawn 20% large like the rest) is
   // what the thumb and fingers squeeze across, so a thin fin reads thin and a broad one broad.
   const W = span === null ? 0.031 * (0.9 + 0.2 * k) : (span * 0.006) / S;
   const H = 0.081;
   const oy0 = 0.003;
-  const Z = 0.048 * (1.04 - 0.08 * k);
+  // How far it stands proud: its flank depth (model.ts pinchDepthOf) against its size's mean, so a
+  // low-profile pinch reads squat and a deep one tall.
+  const Z = 0.048 * (1.04 - 0.08 * k) * depth;
   // Spine: how far it leans across the hold over its length, and how much it bows.
   const lean = r.range(-0.18, 0.18) * W;
   const bow = r.range(-0.12, 0.12) * W;
@@ -1243,7 +1245,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
       type === 'pocket'
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!)
         : type === 'pinch'
-          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)))
+          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1))
           : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -114,6 +114,26 @@ describe('solver', () => {
     for (const size of ['s', 'm', 'l', 'xl'] as const) expect(new Set([0, 1, 2, 3].map((v) => spanOf(size, v))).size).toBe(4);
     expect(Math.min(...[0, 1, 2, 3].map((v) => spanOf('xl', v)!))).toBeGreaterThanOrEqual(9);
     expect(pinchSpan({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a deep-sided pinch grades easier than a low one of the same span and sculpting', () => {
+    const withDepth = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'pinch' ? { ...h, depth, span: 5.5, incut: 0.5, rot: Math.PI / 2 } : h));
+    for (const angle of [0, 30]) {
+      const g = [18, 30, 46].map((mm) => grade(wall(angle), withDepth(ladder('pinch', 45), mm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.1);
+      expect(g[1]).toBeGreaterThan(g[2]);
+    }
+    // Every size's own seeds cover four depths, and the lowest build is never also the thinnest;
+    // pinch blocks and other types have none.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const depths = [0, 1, 2, 3].map((v) => pinchDepthOf(size, v)!);
+      expect(new Set(depths).size).toBe(4);
+      const lowest = depths.indexOf(Math.min(...depths));
+      const spans = [0, 1, 2, 3].map((v) => spanOf(size, v)!);
+      expect(spans[lowest]).toBeGreaterThan(Math.min(...spans));
+    }
+    expect(pinchDepthOf('xl', 0)).toBeNull();
+    expect(pinchDepth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0, depth: 20 })).toBeNull();
   });
 
   it('a narrow pinch block grades easier than a wide one', () => {
