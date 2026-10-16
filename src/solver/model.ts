@@ -703,10 +703,12 @@ export function stemBonus(wall: Wall, footU: [number, number]): number {
 export function backBridge(wall: Wall, hands: [Point, Point], feet: (Point | null)[]): { side: -1 | 1; bonus: number } | null {
   if (!wall.fold || wall.fold.angle < 75) return null;
   const f = wall.fold.u;
-  const on = feet.filter((p): p is Point => !!p);
+  // A foot stood in the crease is on neither face: it neither struts nor stops the other
+  // foot strutting (it stood on a hold there, the climber stood on a jug beside the start).
+  const on = feet.filter((p): p is Point => !!p && Math.abs(p.u - f) >= 8);
   if (!on.length) return null;
   const side = Math.sign(on[0].u - f);
-  if (!side || on.some((p) => Math.sign(p.u - f) !== side || Math.abs(p.u - f) < 8)) return null;
+  if (on.some((p) => Math.sign(p.u - f) !== side)) return null;
   // Straight-line distance from each foot across to the other face's plane.
   const open = Math.sin(rad(180 - wall.fold.angle));
   if (on.some((p) => Math.abs(p.u - f) * open < 35 || Math.abs(p.u - f) * open > 95)) return null;

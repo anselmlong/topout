@@ -17,6 +17,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   hold, instead of its arm and leg stretching longer than they are.
 - On slabs and vertical walls the climber keeps a smearing foot on the wall while it reaches,
   letting it trail behind like a flag, instead of lifting the foot off and putting it back after.
+- In a corner the climber stands on a start jug sitting in the corner's crease and still leans its
+  back across with the other foot, instead of squeezing both feet onto the other jug for a reach.
 
 **Grades**
 - Foot chips: three new reference problems check that big foot blocks, small chips and sharp

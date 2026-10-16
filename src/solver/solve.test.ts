@@ -515,6 +515,10 @@ describe('solver', () => {
     expect(backBridge(corner(0, 60), hands, [{ u: 250, v: 120 }, { u: 262, v: 150 }])).toBeNull();
     expect(backBridge(corner(0, 90), [{ u: 290, v: 250 }, { u: 320, v: 290 }], [{ u: 250, v: 120 }, { u: 262, v: 150 }])).toBeNull();
     expect(backBridge(corner(30, 90), hands, [{ u: 250, v: 120 }, { u: 262, v: 150 }])).toBeNull();
+    // A foot stood in the crease neither struts nor stops the other foot strutting.
+    const one = backBridge(corner(0, 90), hands, [{ u: 262, v: 150 }]);
+    expect(backBridge(corner(0, 90), hands, [{ u: 204, v: 120 }, { u: 262, v: 150 }])).toEqual(one);
+    expect(one?.side).toBe(-1);
 
     // Crimps up the crease, footholds only on the right face: the climber leans back into
     // the corner on the way up, and it climbs easier than the same holds in a wide corner.
@@ -534,6 +538,28 @@ describe('solver', () => {
     expect(tight.grade).toBeLessThan(bridged(corner(0, 60)).grade);
     // Overhanging, the back can't hold the body in: no back-and-foot.
     expect(bridged(corner(30, 90)).n).toBe(0);
+  });
+
+  it('in a corner, stands on the start jug in the crease rather than both feet on the other one', () => {
+    // Day 14's 11° corner, as curated: one start jug out on the left face, the other in the
+    // crease. A foot in the crease used to stop the left foot leaning the back across, so the
+    // climber stood both feet on the left jug for the reach and shuffled a foot over after.
+    const corner: Wall = { width: 380, panels: [{ length: 456, angle: 11 }], seed: 4119164483, fold: { u: 158, angle: 90 } };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 108, v: 148, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 159, v: 152, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'edge', size: 'l', u: 189.1, v: 216.0, rot: -0.048, seed: 8 },
+      { id: 'h3', type: 'pinch', size: 'l', u: 107.4, v: 259.7, rot: -1.011, seed: 4 },
+      { id: 'h4', type: 'pocket', size: 's', u: 178.2, v: 310.7, rot: -0.301, seed: 1 },
+      { id: 'h5', type: 'pinch', size: 'l', u: 120.9, v: 345.2, rot: -0.96, seed: 5 },
+    ];
+    const r = solve(corner, jugs, { id: 'finish', type: 'jug', size: 'l', u: 162, v: 415, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    // No hand move made with both feet on one start jug.
+    expect(r.moves.some((m) => m.limb <= 1 && m.from.limbs[2] === m.from.limbs[3] && m.from.limbs[2] >= 0)).toBe(false);
+    expect(Math.round(r.grade)).toBe(2);
   });
 
   it('in a corner, steps up onto the jugs rather than stemming smears past them', () => {
