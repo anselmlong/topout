@@ -6,6 +6,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-17
 
+**Grades**
+- A medium sloper wide enough for both hands (11 cm or more across) can now be matched,
+  so a line of them on a vertical wall grades about half a grade easier, closer to how gyms grade
+  medium slopers. Narrow medium slopers and small ones still only take one hand at a time.
+
 **Climber**
 - Holding on, the climber's elbows stay out to the sides the way its arms are bent, instead of
   sagging down under the arms against the wall: matched on a hold above its head, the elbows

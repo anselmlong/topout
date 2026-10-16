@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -220,8 +220,9 @@ describe('solver', () => {
       const g = [8, 13, 19].map((cm) => grade(wall(angle), withWidth(ladder('sloper', 45), cm)));
       expect(g[0]).toBeGreaterThan(g[1] + 0.1);
       expect(g[1]).toBeGreaterThan(g[2]);
-      // Skin, not the lip: well under a grade from three fingers to a splayed hand.
-      expect(g[0] - g[2]).toBeLessThan(1);
+      // Skin, not the lip, plus room to match past SLOPER_MATCH_WIDTH: under a grade and a half
+      // from three fingers to a splayed hand.
+      expect(g[0] - g[2]).toBeLessThan(1.5);
     }
     // Every size's seeds cover four widths, and the narrowest build is never also the steepest.
     for (const size of ['s', 'm', 'l'] as const) {
@@ -233,6 +234,15 @@ describe('solver', () => {
     // Macros and other types have none.
     expect(sloperWidth({ id: 'x', type: 'sloper', size: 'xl', u: 0, v: 0, rot: 0 })).toBeNull();
     expect(sloperWidth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a medium sloper takes both hands only when it is wide enough', () => {
+    const sloper = (size: 's' | 'm' | 'l', width: number) => ({ id: 'x', type: 'sloper' as const, size, u: 0, v: 0, rot: 0, width });
+    expect(handMatchable(sloper('m', 10))).toBe(false);
+    expect(handMatchable(sloper('m', 13))).toBe(true);
+    // Large slopers always take two; a small one never does, however wide.
+    expect(handMatchable(sloper('l', 14))).toBe(true);
+    expect(handMatchable(sloper('s', 13))).toBe(false);
   });
 
   it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {

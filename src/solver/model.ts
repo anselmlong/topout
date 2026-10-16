@@ -1016,10 +1016,19 @@ export function handTechnique(hold: Hold, pullTo: { u: number; v: number }): Han
   return null;
 }
 
+/**
+ * How wide a medium sloper must be (cm) for both hands: two hands' fingers side by side, each
+ * squeezed to about 5.5 cm (four fingers' widths). Narrower, the second hand only gets a couple of
+ * fingers on and has to wait for the first to move off. Large slopers always take two; a small
+ * one is a short nub, too low top to bottom for a second hand's fingers even where it's wide.
+ */
+export const SLOPER_MATCH_WIDTH = 11;
+
 /** Room for both hands on it? Finish (and a single start) are always matchable. */
 export function handMatchable(hold: Hold): boolean {
   if (hold.role || hold.type === 'volume') return true;
   if (hold.type === 'jug') return true;
+  if (hold.type === 'sloper' && hold.size === 'm') return (sloperWidth(hold) ?? 0) >= SLOPER_MATCH_WIDTH;
   if (hold.type === 'edge' || hold.type === 'sloper') return isBig(hold.size);
   return hold.size === 'xl';
 }

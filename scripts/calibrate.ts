@@ -487,6 +487,25 @@ export const ANCHORS: Anchor[] = [
   { name: '25° flat loaf pinches', angle: 25, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 4, span: 8.3, depth: 43, incut: 0.2 },
   // "5 Small Divot Pinches", 3" wide (7.6 cm) and 1-1/4" off the wall (32 mm): V3 on vertical.
   { name: 'vertical divot pinches', angle: 0, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 3, span: 7.6, depth: 32 },
+  // Slopers by width (model.ts SLOPER_WIDTH, skinGrip; e29e147): until now no row set how wide a
+  // sloper is, so the narrow and wide builds every sloper now comes as were graded off their seeds,
+  // and no row set a medium sloper at all. Atomik Climbing Holds' grade guides, which give each
+  // set's width (found via search on 2026-10-16; the site can't be fetched from this run). Each
+  // takes a set from the middle of its line, at its cited width: the lines' ends (Medium Basic
+  // #1 V1 and #3 V3 on vertical, both 4" wide; Large Basic Steep Wall #2 V0) differ by a shape
+  // the model only sees as pitch.
+  // "5 Medium Basic Slopers Set #2 (Series 2.0)", 4-5/8" wide (11.7 cm) and 2-1/4" off the wall:
+  // V2 on vertical.
+  { name: 'vertical medium basic slopers', angle: 0, type: 'sloper', size: 'm', spacing: 50, feet: true, expect: 2, width: 11.7 },
+  // "5 Medium Limestone Slopers Set #1", 4-1/2" wide (11.4 cm) and 2" off the wall: V2 on
+  // vertical, V5 on a 25° wall.
+  { name: 'vertical medium limestone slopers', angle: 0, type: 'sloper', size: 'm', spacing: 50, feet: true, expect: 2, width: 11.4 },
+  { name: '25° medium limestone slopers', angle: 25, type: 'sloper', size: 'm', spacing: 50, feet: true, expect: 5, width: 11.4 },
+  // "5 Large Basic Steep Wall Slopers Set #5 (Series 2.0)", 5-1/4" to 5-1/2" wide (13.7 cm),
+  // shaped to stay level on steep walls (the flat end of a large sloper's pitch): V2+ on vertical,
+  // V4 on a 25° wall.
+  { name: 'vertical large steep wall slopers', angle: 0, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 2, width: 13.7, pitch: 24 },
+  { name: '25° large steep wall slopers', angle: 25, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 4, width: 13.7, pitch: 24 },
 ];
 
 const TOP = 400;
