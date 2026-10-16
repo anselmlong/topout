@@ -472,6 +472,21 @@ export const ANCHORS: Anchor[] = [
   // the vertical neutral macro ledges (V1). Its "V3 to V5" on 45° is left out: the wall stops at
   // 40°, and the Kilter 40° jugs it would pair with already grade soft on foot chips.
   { name: 'vertical macro ledges, facet jibs', angle: 0, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 1, depth: 60, incut: 0.15, jibs: true, footDepth: 32, footIncut: 0.7 },
+  // Pinches by flank depth and incut (model.ts PINCH_DEPTH, pinchDepthFactor; INCUT_RANGE pinch):
+  // until now no row set a pinch's depth or incut, so the low and deep pinches pinches now come
+  // as (d80776d) were graded off their seeds. Atomik Climbing Holds' grade guides, which give how
+  // far each set stands off the wall (found via search on 2026-10-16; the site can't be fetched
+  // from this run). As for the span rows, their overhanging grades, plus one vertical set.
+  // "5 Pack Variety Pinches Set #1", 2" to 3-1/4" off the wall (67 mm between: deep flanks, the
+  // whole thumb on), 1-1/2" to 3-1/8" wide (6.3 cm): V2 on a 25° wall.
+  { name: '25° deep variety pinches', angle: 25, type: 'pinch', size: 'l', spacing: 55, feet: true, expect: 2, span: 6.3, depth: 67 },
+  // "5 Pack Loaf Pinches", 1-5/8" to 1-3/4" off the wall (43 mm): Set #1, "the most positive"
+  // (incut 0.8), 2-1/4" to 3-1/2" wide (7.3 cm), V2 on a 25° wall; Set #3, "the least positive"
+  // (incut 0.2), 2-5/8" to 3-7/8" wide (8.3 cm), V4 there.
+  { name: '25° positive loaf pinches', angle: 25, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 2, span: 7.3, depth: 43, incut: 0.8 },
+  { name: '25° flat loaf pinches', angle: 25, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 4, span: 8.3, depth: 43, incut: 0.2 },
+  // "5 Small Divot Pinches", 3" wide (7.6 cm) and 1-1/4" off the wall (32 mm): V3 on vertical.
+  { name: 'vertical divot pinches', angle: 0, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 3, span: 7.6, depth: 32 },
 ];
 
 const TOP = 400;

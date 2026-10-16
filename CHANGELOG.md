@@ -24,6 +24,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   back across with the other foot, instead of squeezing both feet onto the other jug for a reach.
 
 **Grades**
+- Deep pinches you can get your whole thumb on now grade easier than before, up to half a
+  grade on an overhang, and low ones stay hard; four new reference problems check pinches by
+  how far they stand off the wall and how positive they are.
 - Foot chips: three new reference problems check that big foot blocks, small chips and sharp
   little tech feet grade like the holdmakers' own grades for them, so routes on tiny or fat
   footholds stay graded fairly.

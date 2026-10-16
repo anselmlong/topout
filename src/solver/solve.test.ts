@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -132,6 +132,9 @@ describe('solver', () => {
       const spans = [0, 1, 2, 3].map((v) => spanOf(size, v)!);
       expect(spans[lowest]).toBeGreaterThan(Math.min(...spans));
     }
+    // The thumb keeps gaining past where an edge's finger pads stop: 3 cm to 6 cm still helps a pinch.
+    expect(flankGrip(60) / flankGrip(30)).toBeGreaterThan(1.08);
+    expect(depthGrip(60) / depthGrip(30)).toBeLessThan(1.03);
     expect(pinchDepthOf('xl', 0)).toBeNull();
     expect(pinchDepth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0, depth: 20 })).toBeNull();
   });

@@ -293,9 +293,9 @@ export function spanFactor(hold: Hold): number {
  * own cycle (one build off its span's, so a thin fin comes with deep flanks and the shallowest
  * build is never also the thinnest). A low-profile pinch, its sides barely proud of the wall,
  * gives the fingers only their first pads to squeeze with, like a shallow edge turned on its
- * side, where a deep one takes the fingers to the second joint and the whole thumb pad. It's
- * the same finger-pad contact as an edge's shelf, so the same curve (depthGrip: Amca et al.,
- * J. Sports Sci. 2012). Coaching material: Climbing.com, "How to Climb Pinches" (get as much
+ * side, where a deep one takes the fingers to the second joint and the whole thumb pad. The
+ * fingers' side is an edge's shelf (depthGrip: Amca et al., J. Sports Sci. 2012), but the thumb
+ * keeps gaining past it (flankGrip). Coaching material: Climbing.com, "How to Climb Pinches" (get as much
  * thumb and finger on the sides as the hold allows; thin, low pinches are squeezed with the
  * pads and are the hardest); Eric Hörst, "Training for Climbing" (pinch strength is about
  * thumb opposition, which a low pinch barely lets in). The lists centre on the flank each size
@@ -319,13 +319,29 @@ export function meanPinchDepth(size: HoldSize): number | null {
   return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
 }
 
-/** A pinch's grip multiplier for its flank depth against the average of its size (1 otherwise), as spanFactor. */
+/**
+ * A pinch's grip by flank depth (mm), against a deep one. depthGrip's curve is the finger pads
+ * on an edge, flat once the shelf takes the first pad (about 3 cm); a pinch's flanks are squeezed
+ * by the thumb too, and the thumb keeps gaining contact until its whole length is on (about 6
+ * cm, distal and proximal phalanx), so this curve has twice depthGrip's reach and a little more
+ * depth: a 2 cm flank about four fifths of a 6 cm one. Fitted to Atomik's pinch grade guides
+ * (scripts/calibrate.ts: deep variety pinches, 67 mm off the wall, V2 at 25°).
+ */
+export function flankGrip(mm: number): number {
+  return 1 - 0.5 * Math.exp(-(mm - 5) / 20);
+}
+
+/** A pinch's grip multiplier for its flank depth against its size's typical build (1 otherwise), as depthFactor. */
 export function pinchDepthFactor(hold: Hold): number {
   const mm = pinchDepth(hold);
   const list = PINCH_DEPTH[hold.size];
   if (mm === null || !list || hold.grip !== undefined) return 1;
-  const mean = list.reduce((a, n) => a + depthGrip(n), 0) / list.length;
-  return depthGrip(Math.max(8, Math.min(70, mm))) / mean;
+  // A line of mixed pinches grades off its lowest, and flankGrip punishes a low one harder than
+  // depthGrip, so the typical build sits halfway from the average down to the lowest: a mixed set
+  // of a size climbs as it always has (the board-graded rows were fitted to it).
+  const grips = list.map(flankGrip);
+  const mean = (grips.reduce((a, n) => a + n, 0) / grips.length + Math.min(...grips)) / 2;
+  return flankGrip(Math.max(8, Math.min(70, mm))) / mean;
 }
 
 /**
