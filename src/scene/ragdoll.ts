@@ -109,6 +109,10 @@ const BURST = 0.35;
  * rotating at the hip, so the knee swings round, it never folds through the straight leg.
  */
 const KNEE_SWING = 3.5;
+/** A knee turning round its leg goes the long way if the short way's halfway point is nearer the wall than this (m). */
+const KNEE_WALL = 0.05;
+/** Past this angle (rad) from the pose's side, a turning knee keeps going the way it was turning. */
+const KNEE_DITHER = (Math.PI * 5) / 6;
 /** Closest (m), along the wall, a foot's path comes to its hip on the way past it (bowRoundHip). */
 const FOOT_CLEAR = 0.34;
 /** Latest along a move (0..1) the bow peaks (and earliest, 1 less it), so it eases on and off. */
@@ -185,6 +189,11 @@ export class Ragdoll {
   private tmp2 = new THREE.Vector3();
   private tmp3 = new THREE.Vector3();
   private aim = new THREE.Vector3();
+  private rim = new THREE.Vector3();
+  private spin = new THREE.Vector3();
+  private carry = new THREE.Vector3();
+  /** Which way (±1 round the hip-foot line, 0: not turning) each standing knee (L, R) turned last step. */
+  private kneeTurn = [0, 0];
   private hipsV = new THREE.Vector3();
   private chestV = new THREE.Vector3();
   /** Each joint's velocity (m per step) over the last step, before this step's damping and muscles. */
@@ -635,11 +644,38 @@ export class Ragdoll {
     want.addScaledVector(poseAxis, -want.dot(poseAxis));
     want.addScaledVector(axis, -want.dot(axis));
     const r = out.length();
-    if (r < KNEE_BENT || want.length() < KNEE_BENT) return;
+    const leg = knee === J.kneeL ? 0 : 1;
+    if (r < KNEE_BENT) return void (this.kneeTurn[leg] = 0);
+    // Nor does gravity swing it round the line: the knee keeps no speed round it of its own (only
+    // what the hip and foot carry). A wide step's leg lies near level, and gravity wound the knee
+    // round under it faster than KNEE_SWING could turn it back: on day 118 (5°) the left knee
+    // hung under the leg, pointing down, for 4 s while the pose had it up and out.
+    const t = Math.min(1, Math.max(0, along / span));
+    const rim = this.rim.crossVectors(axis, out).divideScalar(r);
+    const spin = this.spin
+      .subVectors(pos[knee], this.prev[knee])
+      .addScaledVector(this.carry.subVectors(pos[hip], this.prev[hip]), t - 1)
+      .addScaledVector(this.carry.subVectors(pos[foot], this.prev[foot]), -t);
+    this.prev[knee].addScaledVector(rim, spin.dot(rim));
+    if (want.length() < KNEE_BENT) return void (this.kneeTurn[leg] = 0);
     const angle = out.angleTo(want);
-    if (angle < 1e-3) return;
+    if (angle < 1e-3) return void (this.kneeTurn[leg] = 0);
     // Rotate round the line, keeping the knee's distance from it (so the bones keep their length).
-    const side = out.clone().cross(want).dot(axis) < 0 ? -1 : 1;
+    const shortest = out.clone().cross(want).dot(axis) < 0 ? -1 : 1;
+    // Nearly opposite the pose, either way round is as short: keep turning the way it was going,
+    // or it dithers (day 118: the right knee swung back and forth as the pose flipped sides).
+    let side = angle > KNEE_DITHER && this.kneeTurn[leg] ? this.kneeTurn[leg] : shortest;
+    // Not through the wall, though: on day 80 (36°) a standing knee turning to the other side of
+    // its leg pressed into the wall instead of going round the outside, stuck there for 1.3 s.
+    if (angle > Math.PI / 2) {
+      const base = pos[hip].clone().addScaledVector(axis, along);
+      // Halfway along the way it's going, and halfway along the other way.
+      const mid = out.clone().applyAxisAngle(axis, (shortest * angle) / 2).multiplyScalar(side === shortest ? 1 : -1);
+      const going = this.surfaceGap(mid.clone().add(base));
+      const other = this.surfaceGap(mid.negate().add(base));
+      if (going && going.gap < KNEE_WALL && (!other || other.gap > going.gap)) side = -side;
+    }
+    this.kneeTurn[leg] = side;
     out.applyAxisAngle(axis, side * Math.min(angle, max));
     // The prior position turns with it, so the swing carries no speed into the next step: left
     // in pos alone, each step's turn became velocity that the next step's added to, and the

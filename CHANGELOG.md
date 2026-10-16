@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-16
 
 **Climber**
+- On a wide step out to the side the climber's knee comes up and out over the foot, instead of
+  hanging down under the leg for seconds, and a knee turning over to the other side of its leg
+  swings round the outside instead of pressing into the wall.
 - A standing knee turns round smoothly to point the new way between moves, instead of snapping
   across in a blink or folding through the straight leg.
 - Roofs and ledges: a move counts as steep until both hands are over the lip, so a hand on a
