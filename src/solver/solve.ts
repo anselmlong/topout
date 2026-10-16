@@ -17,6 +17,7 @@ import {
   footMatchable,
   handGrip,
   handMatchable,
+  shuffleCost,
   handLoad,
   isPalm,
   palmFactor,
@@ -832,8 +833,9 @@ class Context {
     const barn = barnK * load * steepness;
     // Commitment: a deadpoint just past reach is nearly static; a real jump is not.
     const commit = dynamic ? 0.4 * Math.min(1, (ext - 1) / BODY.deadpoint) : 0;
-    // Matching is a shuffle: fine on the finish, a small cost anywhere else.
-    const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 : 0;
+    // Matching is a shuffle: fine on the finish, a small cost anywhere else, more on a one-hand
+    // jug, where both hands hang on a couple of fingers each for as long as the arms are loaded.
+    const match = to === l[other] && this.holds[to].role !== 'finish' ? 0.08 + shuffleCost(this.holds[to]) * hold : 0;
     const d = hold * (0.72 + 0.85 * travel + 0.7 * r + 0.3 * resmear + 0.5 * cross) + barn + catchHard + commit + match;
     // A foot hanging off a slab or vertical wall for no flag and no jump (DANGLE).
     const dangling = !dynamic && handsAngle < DANGLE_ANGLE && !(narrow > 0 && out > 0) ? [2, 3].filter((f) => l[f] === OFF).length : 0;

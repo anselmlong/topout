@@ -1,5 +1,5 @@
 import type { Day, HoldSize, HoldType } from '../solver/types';
-import { widthFingers } from '../solver/model';
+import { SLOPER_MATCH_WIDTH, widthFingers } from '../solver/model';
 
 /** Muted, neutral scene palette. UI colors mirror these in styles.css. */
 export const PALETTE = {
@@ -181,6 +181,15 @@ export function sloperWidthWord(cm: number): string | null {
 /** What a sloper's width does: on a narrow one three fingers fit; a wide one takes the palm. */
 export function sloperWidthEffect(cm: number): string | null {
   return cm < 10 ? 'narrow: three fingers on, harder' : cm >= 19 ? 'wide: the whole palm spreads on it' : null;
+}
+
+/** A jug's width in words (model.ts jugWidth): whether both hands fit on it. */
+export function jugWidthWord(cm: number): string {
+  return cm < SLOPER_MATCH_WIDTH ? 'One-hand' : 'Two-hand';
+}
+/** What a narrow jug's width does: no room beside the first hand, so a swap is a finger shuffle. */
+export function jugWidthEffect(cm: number): string | null {
+  return cm < SLOPER_MATCH_WIDTH ? 'one hand: swapping hands is a shuffle' : null;
 }
 
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */

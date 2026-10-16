@@ -6,6 +6,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-17
 
+**Holds**
+- Jugs come one-hand or two-hand: each jug has a narrow and a wide build, horns and pinch jugs are
+  narrow, buckets and ledges wide. Swapping hands on a one-hand jug is a finger shuffle that costs a
+  little on steep walls (hardly anything on a slab). The tray says which ("One-hand horn").
+
 **Grades**
 - A medium sloper wide enough for both hands (11 cm or more across) can now be matched,
   so a line of them on a vertical wall grades about half a grade easier, closer to how gyms grade

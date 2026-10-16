@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -243,6 +243,35 @@ describe('solver', () => {
     // Large slopers always take two; a small one never does, however wide.
     expect(handMatchable(sloper('l', 14))).toBe(true);
     expect(handMatchable(sloper('s', 13))).toBe(false);
+  });
+
+  it('a one-hand jug takes a hand swap only as a costly shuffle, so the climber matches it less', () => {
+    // Horns and pinch jugs are one-hand holds until large; buckets, ledges and slopey jugs take two
+    // from medium, and a small one only in its wide build.
+    for (const size of ['s', 'm', 'l'] as const) {
+      for (let f = 0; f < JUG_INCUT.length; f++) expect(jugWidthOf(size, f)).toBeLessThan(jugWidthOf(size, f + JUG_INCUT.length));
+    }
+    const jug = (size: 's' | 'm' | 'l', seed: number) => ({ id: 'x', type: 'jug' as const, size, u: 0, v: 0, rot: 0, seed });
+    expect(shuffleCost(jug('m', 3))).toBeGreaterThan(0); // narrow horn
+    expect(shuffleCost(jug('m', 0))).toBe(0); // narrow bucket
+    expect(shuffleCost(jug('s', 0))).toBeGreaterThan(0);
+    expect(shuffleCost(jug('s', 6))).toBe(0);
+    expect(shuffleCost({ ...jug('s', 3), width: 12 })).toBe(0);
+    expect(shuffleCost({ ...jug('s', 3), role: 'finish' as const })).toBe(0);
+    expect(jugWidth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+    // The same jug line, every hold one-hand or two-hand: it matches the wide ones and swaps
+    // hands on the narrow ones less, and the narrow line grades a little harder.
+    const line = (width: number) => ladder('jug', 55).map((h) => (h.type === 'jug' ? { ...h, width } : h));
+    const climb = (width: number) => {
+      const r = solve(wall(0), start, finishAt(380), line(width));
+      if (!r.ok) throw new Error(r.message);
+      // Both hands on one hold below the finish.
+      return { grade: r.grade, matches: r.moves.filter((m) => m.limb <= 1 && m.to.limbs[0] === m.to.limbs[1] && m.to.points[0].v < 370).length };
+    };
+    const [narrow, wide] = [7, 16].map(climb);
+    expect(wide.matches).toBeGreaterThan(narrow.matches);
+    expect(narrow.grade).toBeGreaterThan(wide.grade);
+    expect(narrow.grade - wide.grade).toBeLessThan(1);
   });
 
   it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {

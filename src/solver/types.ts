@@ -54,7 +54,7 @@ export interface Hold {
   span?: number;
   /** Crimp or edge shelf depth, pocket depth, pinch flank depth, or foot chip or jib depth, override (mm); otherwise read off the seed (see edgeDepth, pinchDepth, footDepth). */
   depth?: number;
-  /** Crimp or edge length, or sloper width, override (cm along the wall); otherwise read off the seed (see edgeWidth, sloperWidth). */
+  /** Crimp or edge length, or sloper or jug width, override (cm along the wall); otherwise read off the seed (see edgeWidth, sloperWidth, jugWidth). */
   width?: number;
   /** Sloper pitch override (degrees its palm surface slopes off level); otherwise read off the seed (see sloperPitch). */
   pitch?: number;

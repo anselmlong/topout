@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, meanDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, jugWidthOf, meanDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -442,9 +442,11 @@ const SLOPEY_JUG: JugForm = { W: 0.084, H: 0.056, ends: 0.78, droop: 0.7, hy: 0.
  * `form` reshapes the same build into a pinchable or a slopey jug.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugForm = BUCKET) {
+function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugForm = BUCKET, wide = 1) {
   const N = 36;
-  const W = form.W * (0.94 + 0.1 * k);
+  // Its width (model.ts jugWidthOf, against its family's mean): a narrow build for one hand,
+  // a wide one with room to match.
+  const W = form.W * wide;
   const H = form.H;
   // Mouth: centre (height, out of the wall), half-width, and half-depth from lip to back.
   const hy = form.hy + 0.003 * k;
@@ -578,9 +580,9 @@ function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugF
  * is a little flattened top to bottom and the spine leans to one side. The
  * bolt goes through the apron below the horn. `S` is the size scale.
  */
-function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
+function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>, wide = 1) {
   const N = 24;
-  const W = 0.05 * (0.92 + 0.12 * k);
+  const W = 0.05 * wide;
   const H = 0.047;
   // Spine: from the middle of the base out of the wall, curling up toward the tip.
   const y0 = 0.006;
@@ -1224,12 +1226,16 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
     const hit = cache.get(key);
     if (hit) return hit;
     const rj = rng(hash(3, 0x6a, family.length, size.charCodeAt(0), variant % (2 * JUG_FAMILIES.length)));
+    // Its width (model.ts jugWidthOf) against its family's mean, drawn a little under the life-size
+    // spread (^0.6, as a sloper's) so a wide build stays inside its placement radius (rules.ts).
+    const f = variant % JUG_FAMILIES.length;
+    const wide = (jugWidthOf(size, variant) / ((jugWidthOf(size, f) + jugWidthOf(size, f + JUG_FAMILIES.length)) / 2)) ** 0.6;
     const p =
       family === 'ledge'
-        ? { ...profileGeometry(PROFILES.ledge!, SIZE[size], kj, rj, incutOf('jug', size, variant)), grip: PROFILES.ledge!.grip! }
+        ? { ...profileGeometry(PROFILES.ledge!, SIZE[size], kj, rj, incutOf('jug', size, variant), null, (PROFILES.ledge!.width * SIZE[size] * wide) / 0.012), grip: PROFILES.ledge!.grip! }
         : family === 'horn'
-          ? hornGeometry(SIZE[size], kj, rj)
-          : jugGeometry(SIZE[size], kj, rj, { bucket: BUCKET, pinch: PINCH_JUG, slopey: SLOPEY_JUG }[family]);
+          ? hornGeometry(SIZE[size], kj, rj, wide)
+          : jugGeometry(SIZE[size], kj, rj, { bucket: BUCKET, pinch: PINCH_JUG, slopey: SLOPEY_JUG }[family], wide);
     const data = finish(p.geometry, rj, false, (_x, _y, _z, i) => p.shade(i), p.grip);
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;

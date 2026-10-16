@@ -1024,6 +1024,48 @@ export function handTechnique(hold: Hold, pullTo: { u: number; v: number }): Han
  */
 export const SLOPER_MATCH_WIDTH = 11;
 
+/**
+ * How wide a jug is across the wall (cm, life size), from its family, size and build: a bucket,
+ * ledge or slopey jug is a wide crescent, a horn or a pinch jug a narrow handful. Each family
+ * comes in a narrow and a wide build (the second cycle of its mesh), 0.85 and 1.15 of the
+ * width its mesh has always been drawn at (holdGeometry JUG_FAMILIES). A jug takes the whole
+ * hand however narrow (a horn or a pinch jug is wrapped, the thumb round its side), so width
+ * doesn't change its grip; it decides how easily a second hand fits beside the first. Past the
+ * same SLOPER_MATCH_WIDTH (two hands' fingers side by side, squeezed to about 5.5 cm each) both
+ * hands sit on it. A narrower one is a one-hand jug: the climber can still swap hands on it,
+ * but only as a shuffle, the first hand peeling its fingers off one at a time while the second
+ * takes their place, holding on a couple of fingers each in between (JUG_SHUFFLE). This is the
+ * standard coaching advice on matching a small hold (free the fingers one at a time to make
+ * room, or plan the sequence so the hands don't have to swap there; e.g. Eric Hörst, "Training
+ * for Climbing", on hand sequences), and hold makers sell small jugs as one-hand holds.
+ */
+export const JUG_WIDTH = [16, 16, 16, 10, 11, 16.5];
+const JUG_WIDTH_SIZE: Record<HoldSize, number> = { s: 0.8, m: 1, l: 1.25, xl: 1.25 };
+
+export function jugWidthOf(size: HoldSize, variant: number): number {
+  const wide = Math.floor(variant / JUG_WIDTH.length) % 2 ? 1.15 : 0.85;
+  return Math.round(JUG_WIDTH[variant % JUG_WIDTH.length] * JUG_WIDTH_SIZE[size] * wide * 10) / 10;
+}
+
+/** A jug's width across the wall (cm); null for other types. */
+export function jugWidth(hold: Hold): number | null {
+  return hold.type === 'jug' ? (hold.width ?? jugWidthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/**
+ * What a hand swap on a one-hand jug costs (move difficulty, on top of a plain match, times the
+ * load the hands hold: little on a slab, where the feet carry the body), per unit its width
+ * falls short of SLOPER_MATCH_WIDTH: a couple of fingers each in the middle of the shuffle.
+ */
+export const JUG_SHUFFLE = 0.6;
+
+/** A hand swap's extra cost on `hold`: 0 unless it's a one-hand jug (see JUG_WIDTH). */
+export function shuffleCost(hold: Hold): number {
+  const cm = jugWidth(hold);
+  if (cm === null || hold.role) return 0;
+  return (JUG_SHUFFLE * Math.max(0, SLOPER_MATCH_WIDTH - cm)) / SLOPER_MATCH_WIDTH;
+}
+
 /** Room for both hands on it? Finish (and a single start) are always matchable. */
 export function handMatchable(hold: Hold): boolean {
   if (hold.role || hold.type === 'volume') return true;
