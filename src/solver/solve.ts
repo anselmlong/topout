@@ -281,12 +281,12 @@ export type MoveParts =
       commit: number;
       match: number;
     }
-  | { kind: 'foot'; angle: number; feetQ: [number, number]; g: number; match: number; hookK: number; highK: number; minLoad: number };
+  | { kind: 'foot'; angle: number; feetQ: [number, number]; g: number; match: number; hookK: number; highK: number; minLoad: number; loadMul: number };
 
 /** A move's difficulty rebuilt from its parts: the same sum moveCost scores. */
 export function moveDifficulty(m: MoveParts): number {
   if (m.kind === 'foot') {
-    const load = Math.max(m.minLoad, handLoad(m.angle, m.feetQ));
+    const load = Math.max(m.minLoad, handLoad(m.angle, m.feetQ) * m.loadMul);
     return (load / m.g) * (1 + m.highK) + m.match + m.hookK * load;
   }
   const load = handLoad(m.angle, m.feetQ) * m.loadMul;
@@ -690,7 +690,15 @@ class Context {
     // how incut (see mantleable).
     const mantle = to >= 0 && this.mantleFoot(next, limb as 2 | 3, np) && !this.hookOf(next, limb as 2 | 3, np);
     const minLoad = mantle ? MANTLE_LOAD : 0;
-    const load = Math.max(minLoad, handLoad(handsAngle, [this.footQ(l[stay], p[stay]), 0]));
+    // Standing on a foot far below the hands, the body hangs stretched out over it and the
+    // straight leg can't push, so the arms carry more: priced as a hand move prices its
+    // stretch. Otherwise the beta walked a foot down to a low jug (a better foot, as the
+    // standing one) so the other foot could step up, then walked it back up: climbers keep
+    // their feet under them and step up through the feet they're on (The Self-Coached
+    // Climber, Hague & Hunter, on keeping the body compact over the feet).
+    const reach = l[stay] === OFF ? 0 : Math.min(this.dist(p[stay], p[0]), this.dist(p[stay], p[1])) / BODY.reach;
+    const loadMul = 1 + 1.5 * Math.max(0, reach - 0.8);
+    const load = Math.max(minLoad, handLoad(handsAngle, [this.footQ(l[stay], p[stay]), 0]) * loadMul);
     const c = { u: (p[0].u + p[1].u + p[stay].u) / 3, v: (p[0].v + p[1].v + p[stay].v * 2) / 4 };
     const handG = (i: 0 | 1) => {
       const pull = this.gripOf(this.holds[l[i]], c, this.holds[l[1 - i]], l[stay] !== OFF ? 1 : 0, false);
@@ -729,6 +737,7 @@ class Context {
       g,
       match,
       minLoad,
+      loadMul,
       hookK: hook === 'heel' ? 0.3 : hook === 'toe' ? 0.2 : 0,
       highK: load > 0 ? (high * g) / load : 0,
     });

@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-17
+
+**Climber**
+- The climber steps up through the feet it's standing on instead of walking a foot back down
+  to a low jug and up again: stood far below its hands, the leg is stretched straight and the
+  arms hold the weight. A few routes climb in fewer moves.
+
 ## 2026-10-16
 
 **Climber**

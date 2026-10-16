@@ -586,6 +586,30 @@ describe('solver', () => {
     expect(Math.round(r.grade)).toBe(2);
   });
 
+  it('steps up through the feet it stands on, not down to a low jug and back', () => {
+    // Day 48's 25° wall, as curated. With the feet matched on the big edge h3, the climber
+    // walked a foot down onto the pinch block and the other 58 cm down to the start jug, so
+    // the standing foot was a jug for the step up, then back up. Stood that far below the
+    // hands, the leg is stretched straight and the arms carry the body.
+    const wall: Wall = { width: 360, panels: [{ length: 40, angle: 0 }, { length: 403, angle: 25 }], seed: 837651325 };
+    const jug: Hold[] = [{ id: 'start-0', type: 'jug', size: 'l', u: 257, v: 160, rot: 0, role: 'start' }];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'pinch', size: 'xl', u: 259.6, v: 199.4, rot: 1.248, seed: 8 },
+      { id: 'h3', type: 'edge', size: 'l', u: 189.2, v: 218.2, rot: 0.268, seed: 10 },
+      { id: 'h5', type: 'pocket', size: 'l', u: 186.0, v: 272.8, rot: -0.045, seed: 3 },
+      { id: 'h6', type: 'edge', size: 'l', u: 239.1, v: 278.7, rot: -0.117, seed: 11 },
+      { id: 'h8', type: 'crimp', size: 'l', u: 216.6, v: 334.8, rot: 0.325, seed: 5 },
+      { id: 'h10', type: 'crimp', size: 'l', u: 196.6, v: 362.3, rot: -0.199, seed: 2 },
+      { id: 'f1', type: 'foot', size: 'm', u: 205.7, v: 96.3, rot: 0, seed: 2 },
+      { id: 'f2', type: 'foot', size: 'm', u: 173.2, v: 122.0, rot: 0, seed: 1 },
+    ];
+    const r = solve(wall, jug, { id: 'finish', type: 'jug', size: 'l', u: 141, v: 408, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    const down = r.moves.filter((m) => m.limb >= 2 && m.from.limbs[m.limb] >= 0 && m.to.limbs[m.limb] >= 0 && m.to.points[m.limb].v < m.from.points[m.limb].v - 15);
+    expect(down).toHaveLength(0);
+    expect(Math.round(r.grade)).toBeLessThanOrEqual(3);
+  });
+
   it('in a corner, steps up onto the jugs rather than stemming smears past them', () => {
     // Day 30's slab corner, as curated: start jugs either side of the crease, a jug and a
     // big edge above them, then crimps out left to the finish.
