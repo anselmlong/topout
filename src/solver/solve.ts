@@ -669,9 +669,12 @@ class Context {
       // trail, toe on its hold, doing what a flag does and no more. A lower second foot then
       // never makes a reach longer or harder than flagging it would, so the climber keeps it
       // on, and what makes a reach easy is a foot under it, not the foot nearest the hands.
+      // A smear trails the same way: placed under the lower hand, it sits far below a reach
+      // made with that hand, and was priced as the body stretched out down to it, so on a
+      // slab the climber took the foot off the wall to reach and put it back after.
       const both = this.handMove(l, l, limb, to, p, np, handsAngle);
       let best = both;
-      if (l[2] >= 0 && l[3] >= 0) {
+      if (l[2] !== OFF && l[3] !== OFF) {
         const far = this.dist(p[2], np[limb]) > this.dist(p[3], np[limb]) ? 2 : 3;
         const trailed = this.handMove(l, l.map((x, j) => (j === far ? OFF : x)) as Limbs, limb, to, p, np, handsAngle);
         if (trailed && (!both || trailed.d < both.d)) best = trailed;
@@ -795,13 +798,13 @@ class Context {
     const stand = this.pressing(l, p, other) ? MANTLE_STAND : 0;
     const travel = Math.max(0, this.dist(p[limb], target) - stand) / 100;
     // Smears are modelled relative to the hands, so they "follow" a hand move;
-    // charge for re-smearing that far.
+    // charge for re-smearing that far (a trailing smear is off for the move, and only re-placed).
     let resmear = 0;
     let restep = 0;
     for (const f of [2, 3])
       if (l[f] === SMEAR) {
         const moved = this.dist(p[f], np[f]);
-        resmear += moved / 100;
+        if (lw[f] === SMEAR) resmear += moved / 100;
         restep += Math.min(1, moved / 40);
       }
     // Crossing through is awkward: allowed, but it costs.

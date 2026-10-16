@@ -586,6 +586,32 @@ describe('solver', () => {
     for (const m of hard) expect(m.from.limbs.slice(2)).not.toContain(OFF);
   });
 
+  it('keeps a smearing foot on a slab for a reach instead of taking it off first', () => {
+    // Day 1's -8 deg slab, as curated: start jugs, a big jug above them and holds up and left.
+    const slab: Wall = { width: 400, panels: [{ length: 464, angle: -8 }], seed: 1 };
+    const jugs: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 230, v: 152, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 281, v: 151, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h1', type: 'pocket', size: 'm', u: 215.49, v: 177.06, rot: 0.185 },
+      { id: 'h4', type: 'jug', size: 'l', u: 229.67, v: 236.08, rot: -0.241 },
+      { id: 'h5', type: 'edge', size: 'l', u: 154.1, v: 268.21, rot: -0.178 },
+      { id: 'h6', type: 'crimp', size: 'l', u: 210.28, v: 290.04, rot: -0.082 },
+      { id: 'h8', type: 'jug', size: 's', u: 179.3, v: 342.42, rot: -0.018 },
+      { id: 'h10', type: 'sloper', size: 'm', u: 159.04, v: 383.05, rot: 0.318 },
+      { id: 'f0', type: 'jib', size: 'm', u: 141, v: 221.93, rot: 0 },
+    ];
+    const r = solve(slab, jugs, { id: 'finish', type: 'jug', size: 'l', u: 101, v: 429, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    // It used to take the right foot off its smear ("Right foot -> off"), match the big jug
+    // with the leg hanging, then put the foot back on: the smear, placed under the low hand
+    // going up, was priced as stretched out far below the reach. Now the smear trails for
+    // the reach like a flag and stays on the slab.
+    expect(r.moves.some((m) => m.limb >= 2 && m.from.limbs[m.limb] === SMEAR && m.to.limbs[m.limb] === OFF)).toBe(false);
+    expect(Math.round(r.grade)).toBe(0);
+  });
+
   it("stands on a volume's top face or a foot chip, not its underside", () => {
     // A player's route on day 44's slab corner: a small pyramid volume low down by the start
     // jug, a foot chip under the jug and crimps up and right. The volume's lower faces point
@@ -692,10 +718,10 @@ describe('solver', () => {
     if (!r.ok) throw new Error(r.message);
     // It used to take its right foot off the smear and make two reaches with the leg hanging
     // off the slab, since a smear following the hands up costs the beta and a dangling foot
-    // didn't. Now it steps that foot onto the start jug.
+    // didn't. Now it steps that foot onto a hold low down (the start jug or the edge beside it).
     const dangling = r.moves.filter((m) => m.limb <= 1 && !m.dynamic && m.from.limbs.slice(2).includes(OFF));
     expect(dangling).toHaveLength(0);
-    expect(r.moves.some((m) => m.limb >= 2 && m.to.limbs[m.limb] === 0)).toBe(true);
+    expect(r.moves.some((m) => m.limb >= 2 && (m.to.limbs[m.limb] === 0 || m.to.limbs[m.limb] === 2))).toBe(true);
     expect(Math.round(r.grade)).toBe(1);
   });
 

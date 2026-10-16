@@ -13,6 +13,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   above it, and a few routes on ledge and overlap walls climb up to a grade harder.
 - At full stretch the climber goes up on the toes of its standing foot, heel lifting off the
   hold, instead of its arm and leg stretching longer than they are.
+- On slabs and vertical walls the climber keeps a smearing foot on the wall while it reaches,
+  letting it trail behind like a flag, instead of lifting the foot off and putting it back after.
 
 **Grades**
 - Foot chips: three new reference problems check that big foot blocks, small chips and sharp
