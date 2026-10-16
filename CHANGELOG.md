@@ -22,6 +22,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Foot chips: three new reference problems check that big foot blocks, small chips and sharp
   little tech feet grade like the holdmakers' own grades for them, so routes on tiny or fat
   footholds stay graded fairly.
+- Jibs: three new reference problems check that routes stood up on little screw-on stones grade
+  like the holdmakers' own grades for them. Five upcoming days (Oct 25, 27, 28, Nov 14 and 15)
+  whose setter's route no longer climbed at the day's grade were set again.
 
 **Holds**
 - Jibs come low or tall: a jib is now anything from a flat pebble barely sticking out of the

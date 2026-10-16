@@ -46,6 +46,10 @@ export interface Anchor {
   pitch?: number;
   /** Every foot chip's shelf depth (mm, how far it stands out from the wall); default the typical chip. */
   footDepth?: number;
+  /** The footholds are jibs (little screw-on stones) instead of foot chips. */
+  jibs?: boolean;
+  /** Every foothold's incut (0 a rounded nub .. 1 a sharp positive shelf); default the type's typical build. */
+  footIncut?: number;
   /** Wall length (cm) up to the finish's line; default TOP. A highball for sustained problems. */
   top?: number;
   /**
@@ -454,6 +458,20 @@ export const ANCHORS: Anchor[] = [
   // "20 Super Small Low Angle Feet", granite, 3/4" to 1" off the wall (22 mm): on a vertical wall
   // they "challenge a beginner". V0, under the vertical jug ladder.
   { name: 'vertical jugs, small foot chips', angle: 0, type: 'jug', size: 'm', spacing: 45, feet: true, expect: 0, footDepth: 22 },
+  // Jibs by height (model.ts JIB_DEPTH): until now every row stood on foot chips, so the low and
+  // tall jibs jibs now come as (ebb08ad) were unpinned. Atomik Climbing Holds' grade guides (found
+  // via search on 2026-10-16; the site can't be fetched from this run), paired as the chip rows
+  // above with hand holds of the same grade on the same wall. Both sets are small faceted stones
+  // with no backplate, a jib rather than a chip, and both are "positive" to toe onto (incut 0.7).
+  // "5 Small Hedron Steep Wall Feet", 1" off the wall (25 mm, a tall jib), "reasonably positive on
+  // most angles": "V2/3 as a foothold on vertical walls", under the vertical edges and crimps.
+  { name: 'vertical edges, hedron jibs', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 2, jibs: true, footDepth: 25, footIncut: 0.7 },
+  { name: 'vertical crimps, hedron jibs', angle: 0, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 3, jibs: true, footDepth: 25, footIncut: 0.7 },
+  // "30 Super Small Steep Wall Feet (Facets)", 1-1/2" square and 1" to 1-1/2" off the wall (32 mm),
+  // "a positive surface to toe onto": "the V1 range on vertical walls" (90 Pack Steep Wall), under
+  // the vertical neutral macro ledges (V1). Its "V3 to V5" on 45° is left out: the wall stops at
+  // 40°, and the Kilter 40° jugs it would pair with already grade soft on foot chips.
+  { name: 'vertical macro ledges, facet jibs', angle: 0, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 1, depth: 60, incut: 0.15, jibs: true, footDepth: 32, footIncut: 0.7 },
 ];
 
 const TOP = 400;
@@ -508,7 +526,7 @@ export function anchorRoute(a: Anchor) {
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
-      holds.push({ id: `f${j}`, type: 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: typicalIncut('foot'), ...(a.footDepth ? { depth: a.footDepth } : {}) });
+      holds.push({ id: `f${j}`, type: a.jibs ? 'jib' : 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: a.footIncut ?? typicalIncut(a.jibs ? 'jib' : 'foot'), ...(a.footDepth ? { depth: a.footDepth } : {}) });
   return { wall, holds, finish: anchorFinish(a) };
 }
 
