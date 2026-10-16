@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, meanDepth, meanFootDepth, meanPinchDepth, meanPitch, pinchDepthOf, pitchOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, meanDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -682,9 +682,12 @@ function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>) {
  * outline is a hand-shaped lozenge, sometimes narrower at the top like a pear.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.15, pitch = 0) {
+function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.15, pitch = 0, wide = 1) {
   const N = 32;
-  const W = 0.1 * (0.9 + 0.2 * k);
+  // Its width (model.ts sloperWidthOf, here against its size's mean) is how much of the hand
+  // it takes: a narrow dome for three fingers, or a wide one the palm spreads across. Drawn
+  // a little under life-size spread (0.8-1.2), so it stays inside its placement radius (rules.ts).
+  const W = 0.1 * wide;
   const H = 0.078;
   // Its pitch (model.ts pitchOf, here -1 flat-topped .. 1 steep against its size's mean) is
   // how far the palm ramp slopes off level: a flat-topped sloper stands proud with its crest
@@ -1246,7 +1249,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!)
         : type === 'pinch'
           ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1))
-          : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12);
+          : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12, size === 'xl' ? 0.9 + 0.2 * k : (sloperWidthOf(size, v)! / meanSloperWidth(size)!) ** 0.6);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
     return data;

@@ -534,6 +534,56 @@ export function pitchFactor(hold: Hold): number {
 }
 
 /**
+ * How wide a sloper is across the wall (cm, life size: how much of the hand's skin it takes),
+ * from its seed and size, on its own cycle (one build behind its dish, two behind its pitch, so
+ * the narrowest build is never also the steepest). A sloper is held by skin alone, so how much
+ * skin is on it matters: on a narrow dome only three fingers fit and the little finger hangs
+ * off (as on a short crimp, FINGER_GRIP); on a wide one the fingers splay and the palm and the
+ * heel of the hand spread the same pull over far more skin, and skin grips better the lower the
+ * pressure on it (its friction coefficient falls as the load per area rises: Derler and Gerhardt,
+ * "Tribology of Skin", Tribology Letters 2012). Past a splayed hand's width (about 20 cm) the
+ * extra hold touches nothing. Coaching material: Climbing.com, "How to Climb Slopers" (as much
+ * skin on the hold as you can, fingers spread, the palm on it); Eric Hörst, "Training for
+ * Climbing" (open-hand grip on slopers: maximise the contact area). The lists centre on the
+ * width each size has always been drawn at; macros are a hand's span and more by design.
+ */
+export const SLOPER_WIDTH: Partial<Record<HoldSize, number[]>> = { s: [7, 9, 11, 13], m: [10, 13, 16, 19], l: [14, 18, 22, 26] };
+
+export function sloperWidthOf(size: HoldSize, variant: number): number | null {
+  const list = SLOPER_WIDTH[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 3) % list.length] : null;
+}
+
+/** A sloper's width across the wall (cm); null for other types and macros. */
+export function sloperWidth(hold: Hold): number | null {
+  return hold.type === 'sloper' && SLOPER_WIDTH[hold.size] ? (hold.width ?? sloperWidthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean width a sloper of this size comes in (cm), what its mesh is drawn at; null for none. */
+export function meanSloperWidth(size: HoldSize): number | null {
+  const list = SLOPER_WIDTH[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/**
+ * A sloper's grip by width (cm), against a splayed hand's worth: steep while fingers come off,
+ * levelling as the palm spreads (a 7 cm dome about four fifths of a 20 cm one), gentle as
+ * FINGER_GRIP is, since the feet still carry the body.
+ */
+export function skinGrip(cm: number): number {
+  return 1 - 0.35 * Math.exp(-(cm - 4) / 5);
+}
+
+/** A sloper's grip multiplier for its width against the average of its size (1 otherwise), as pitchFactor. */
+export function sloperWidthFactor(hold: Hold): number {
+  const cm = sloperWidth(hold);
+  const list = SLOPER_WIDTH[hold.size];
+  if (cm === null || !list || hold.grip !== undefined) return 1;
+  const mean = list.reduce((a, n) => a + skinGrip(n), 0) / list.length;
+  return skinGrip(Math.max(4, Math.min(40, cm))) / mean;
+}
+
+/**
  * What incut does to a hand hold, against the type's middling build (its GRIP entry):
  * per unit of incut, this much more grip, and this much of steepLoss taken off. A deep
  * incut edge holds the fingers when the pull swings out on an overhang; a flat one only
@@ -885,7 +935,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
   const steepFactor = 1 - loss * steep;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;
 }
 

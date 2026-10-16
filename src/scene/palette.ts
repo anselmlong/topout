@@ -174,6 +174,15 @@ export function pitchEffect(deg: number): string | null {
   return deg >= 48 ? 'steep top: much harder' : deg >= 42 ? 'sloping top: harder' : deg <= 30 ? 'flat top: holds better' : null;
 }
 
+/** A sloper's width in words (model.ts sloperWidth), or null for a middling one. */
+export function sloperWidthWord(cm: number): string | null {
+  return cm < 10 ? 'Narrow' : cm >= 19 ? 'Wide' : null;
+}
+/** What a sloper's width does: on a narrow one three fingers fit; a wide one takes the palm. */
+export function sloperWidthEffect(cm: number): string | null {
+  return cm < 10 ? 'narrow: three fingers on, harder' : cm >= 19 ? 'wide: the whole palm spreads on it' : null;
+}
+
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
   if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';

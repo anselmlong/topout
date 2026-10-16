@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWord, depthEffect, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pitchEffect, pitchWord, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
-import { edgeDepth, edgeWidth, footDepth, holdVariant, incutRank, pinchDepth, pinchSpan, pocketFingers, sloperPitch } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWord, depthEffect, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
+import { edgeDepth, edgeWidth, footDepth, holdVariant, incutRank, pinchDepth, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -197,6 +197,14 @@ function pinchWord(span: number, depth: number | null, size: HoldSize): string |
   return `${d} ${w ? w.charAt(0).toLowerCase() + w.slice(1) : 'pinch'}`;
 }
 
+/** A sloper's pitch and width in words ("Steep narrow sloper", "Wide sloper"), or null for a middling one. */
+function sloperWord(pitch: number, width: number | null, size: HoldSize): string | null {
+  const p = pitchWord(pitch, size);
+  const w = width !== null ? sloperWidthWord(width) : null;
+  if (!w) return p;
+  return p ? p.replace(/ (sloper|macro)$/, ` ${w.toLowerCase()} $1`) : `${w} sloper`;
+}
+
 /** A hold's lip in words (and what it does), or null for one with none to read. */
 function Lip({ hold }: { hold: Hold }) {
   const rank = incutRank(hold);
@@ -206,12 +214,13 @@ function Lip({ hold }: { hold: Hold }) {
   const depth = edgeDepth(hold);
   const width = edgeWidth(hold);
   const pitch = sloperPitch(hold);
+  const wide = sloperWidth(hold);
   const chip = footDepth(hold);
   const flank = pinchDepth(hold);
   // A pocket's finger count outweighs its hood, a pinch's span its sculpting, an edge's depth
   // its lip and a sloper's pitch its dish: a mono, a thin fin, a fingertip crimp or a steep
-  // sloper says so first. A short crimp's length comes after a fingertip depth, before a
-  // merely shallow one.
+  // sloper says so first (then a narrow or wide one). A short crimp's length comes after a
+  // fingertip depth, before a merely shallow one.
   const effect =
     (fingers !== null && fingerEffect(fingers)) ||
     (span !== null && spanEffect(span)) ||
@@ -220,10 +229,11 @@ function Lip({ hold }: { hold: Hold }) {
     (width !== null && widthEffect(width)) ||
     (depth !== null && depthEffect(hold.type, depth, hold.size)) ||
     (pitch !== null && pitchEffect(pitch)) ||
+    (wide !== null && sloperWidthEffect(wide)) ||
     (chip !== null && chipEffect(chip, hold.type)) ||
     lipEffect(hold.type, rank);
   const prefix =
-    fingers !== null ? pocketWord(fingers, depth) : span !== null ? pinchWord(span, flank, hold.size) : depth !== null ? edgeWord(hold, depth, width) : pitch !== null ? pitchWord(pitch, hold.size) : chip !== null ? chipWord(chip, hold.type) : null;
+    fingers !== null ? pocketWord(fingers, depth) : span !== null ? pinchWord(span, flank, hold.size) : depth !== null ? edgeWord(hold, depth, width) : pitch !== null ? sloperWord(pitch, wide, hold.size) : chip !== null ? chipWord(chip, hold.type) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

@@ -35,6 +35,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   whose setter's route no longer climbed at the day's grade were set again.
 
 **Holds**
+- Slopers come narrow or wide: a narrow sloper only takes three fingers and is harder to hold,
+  while a wide one lets your whole palm spread across it and holds better. You can see which by
+  how wide it is. The hold bar says "Narrow sloper" or "Wide sloper".
 - Pinches come low or deep: some pinches barely stand out from the wall, so your fingers only
   squeeze the sides with their tips, and others stand tall enough to get your whole thumb on.
   You can see which from the side. The hold bar says "Low pinch" or "Deep pinch", and low ones

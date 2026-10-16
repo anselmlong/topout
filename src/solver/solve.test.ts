@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -212,6 +212,27 @@ describe('solver', () => {
     for (const size of ['s', 'm', 'l', 'xl'] as const) expect(new Set([0, 1, 2, 3].map((v) => pitchOf(size, v))).size).toBe(4);
     expect(Math.max(...[0, 1, 2, 3].map((v) => pitchOf('xl', v)!)) - Math.min(...[0, 1, 2, 3].map((v) => pitchOf('xl', v)!))).toBeGreaterThanOrEqual(30);
     expect(sloperPitch({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a wide sloper grades easier than a narrow one of the same size, pitch and dish', () => {
+    const withWidth = (holds: Hold[], width: number) => holds.map((h) => (h.type === 'sloper' ? { ...h, width, pitch: 39, incut: 0.15 } : h));
+    for (const angle of [0, 30]) {
+      const g = [8, 13, 19].map((cm) => grade(wall(angle), withWidth(ladder('sloper', 45), cm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.1);
+      expect(g[1]).toBeGreaterThan(g[2]);
+      // Skin, not the lip: well under a grade from three fingers to a splayed hand.
+      expect(g[0] - g[2]).toBeLessThan(1);
+    }
+    // Every size's seeds cover four widths, and the narrowest build is never also the steepest.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const widths = [0, 1, 2, 3].map((v) => sloperWidthOf(size, v)!);
+      expect(new Set(widths).size).toBe(4);
+      const narrow = widths.indexOf(Math.min(...widths));
+      expect(pitchOf(size, narrow)).not.toBe(Math.max(...[0, 1, 2, 3].map((v) => pitchOf(size, v)!)));
+    }
+    // Macros and other types have none.
+    expect(sloperWidth({ id: 'x', type: 'sloper', size: 'xl', u: 0, v: 0, rot: 0 })).toBeNull();
+    expect(sloperWidth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {
