@@ -6,6 +6,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-18
 
+**Grades**
+- Four more real holds now check the grades: big pinch blocks that stand far off the wall, from a
+  fat granite block to a long font pinch and a slopey one. The grades didn't change this time.
+
 **Climber**
 - A smearing foot follows the climber up the wall at a stepping pace instead of being yanked up
   with the hands: on a long reach or a dyno it no longer kicks a metre up the wall in a blink.

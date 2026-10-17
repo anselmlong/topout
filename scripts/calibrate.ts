@@ -426,6 +426,21 @@ export const ANCHORS: Anchor[] = [
   // "a hint of an incut", is V2 on vertical (V7 at 45°). Atomik gives no overhang grade for a
   // block this narrow, so this takes its vertical one, which may run soft (see the pinches above).
   { name: 'vertical narrow pinch blocks', angle: 0, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 2, span: 9.5 },
+  // Pinch blocks by depth (model.ts PINCH_DEPTH xl, 30-84 mm, clamped at 110; b65533c): until now
+  // only the 25° Granite Pinch row above set how far a block stands off the wall, so the low and
+  // deep blocks were graded off their seeds on vertical and gentle overhangs. Atomik Climbing Holds'
+  // grade guides, which give each block's size off the wall (found via search on 2026-10-18; the
+  // site can't be fetched from this run).
+  // The same "XXL Granite Pinch" (14 cm, 4" off) on vertical: V1.
+  { name: 'vertical deep granite pinch blocks', angle: 0, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 1, span: 14, depth: 102 },
+  // "XXL Font Pinch", 24-1/2" long x 3-1/2" wide (8.9 cm) and 3-3/8" off the wall (86 mm): a V2
+  // pinch on vertical, V3 on a 20° wall (V6 at 45°). Both grade soft (V1.2, V1.9) where the wider
+  // Granite Pinch grades hard on vertical; see the commit (2026-10-18).
+  { name: 'vertical font pinch blocks', angle: 0, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 2, span: 8.9, depth: 86 },
+  { name: '20° font pinch blocks', angle: 20, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 3, span: 8.9, depth: 86 },
+  // "XXXL Slopey Wide Golfus Pinch", 4" wide on average (10.2 cm) and 6" off the wall (past the
+  // 110 mm clamp), its flanks sloping away: V3 on vertical (V9 at 45°). The flattest pinch incut.
+  { name: 'vertical slopey golfus pinch blocks', angle: 0, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 3, span: 10.2, depth: 110, incut: 0 },
   // Macro ledges (model.ts EDGE_DEPTH edge xl, 24-60 mm; MACRO_GRIP edge): until now no row set a
   // macro ledge, so the rail ledges and deep shelves every ledge now comes as (f0ce530) were
   // unpinned. Atomik Climbing Holds' grade guides (found via search on 2026-10-14; the site can't
