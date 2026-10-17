@@ -23,6 +23,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   medium slopers. Narrow medium slopers and small ones still only take one hand at a time.
 
 **Climber**
+- The climber steps a foot straight up instead of shuffling both feet down and back up just to make
+  one step a little easier: it takes the natural sequence when the shuffle saves only a few percent.
+  Some routes climb in fewer moves and grade a touch harder (about +0.01 on average).
 - On a dyno the climber's hips fly up toward the hold it's jumping for instead of lurching
   sideways away from it for a split second as the jump starts.
 - On an arête or a volume, the climber stands on the foot chip or jug beside it instead of

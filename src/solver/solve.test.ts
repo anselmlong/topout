@@ -386,6 +386,7 @@ describe('solver', () => {
       const tall = grade(wall(angle), jibs(ladder(type, 45), 23));
       expect(low).toBeGreaterThanOrEqual(mid);
       expect(mid).toBeGreaterThanOrEqual(tall);
+      // On the slab the hardest move is a step, and a step costs the same whatever it lands on.
       expect(low).toBeGreaterThan(tall + 0.1);
     }
     const jib: Hold = { id: 'j', type: 'jib', size: 'm', u: 200, v: 100, rot: 0, incut: 0.45 };
@@ -609,6 +610,7 @@ describe('solver', () => {
     // the corner on the way up, and it climbs easier than the same holds in a wide corner.
     const holds: Hold[] = [];
     for (let v = 195, i = 0; v < 360; v += 45, i++) holds.push({ id: `h${i}`, type: 'crimp', size: 'm', u: i % 2 ? 215 : 185, v, rot: 0, seed: 0 });
+    // Medium chips: the back-and-foot takes a few foot moves to set up, so it has to be worth more than SLACK.
     for (let v = 42, j = 0; v < 270; v += 35, j++) holds.push({ id: `f${j}`, type: 'foot', size: 's', u: j % 2 ? 262 : 250, v, rot: 0, incut: typicalIncut('foot') });
     const bridged = (w: Wall) => {
       const r = solve(w, start, finishAt(380), holds);
@@ -669,6 +671,32 @@ describe('solver', () => {
     const down = r.moves.filter((m) => m.limb >= 2 && m.from.limbs[m.limb] >= 0 && m.to.limbs[m.limb] >= 0 && m.to.points[m.limb].v < m.from.points[m.limb].v - 15);
     expect(down).toHaveLength(0);
     expect(Math.round(r.grade)).toBeLessThanOrEqual(3);
+  });
+
+  it('steps a foot straight up rather than shuffling both feet to make the step a little easier', () => {
+    // Day 56's 105° corner, as curated. Stood on the crimp h3 with the other foot on the jug h2,
+    // the climber walked the h3 foot 89 cm down to the start jug, moved the other foot onto h3
+    // and on to h4, then walked the first foot back up to h3: four foot moves to make the step
+    // up to h4 6% easier than stepping straight there off h2.
+    const wall: Wall = { width: 400, panels: [{ length: 451, angle: 8 }], seed: 1593924108, fold: { u: 177, angle: 105 } };
+    const start: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'm', u: 153, v: 135, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'm', u: 206, v: 151, rot: 0, role: 'start' },
+    ];
+    const holds: Hold[] = [
+      { id: 'h2', type: 'jug', size: 's', u: 219.7, v: 194.4, rot: -0.302 },
+      { id: 'h3', type: 'crimp', size: 'm', u: 156.8, v: 224.0, rot: 0.125 },
+      { id: 'h4', type: 'pocket', size: 'm', u: 229.7, v: 254.3, rot: -0.218 },
+      { id: 'h6', type: 'pocket', size: 's', u: 238.9, v: 309.1, rot: -0.108 },
+      { id: 'h7', type: 'sloper', size: 'm', u: 178.7, v: 347.3, rot: 0.045 },
+      { id: 'h8', type: 'sloper', size: 'm', u: 249.9, v: 363.8, rot: 0.195 },
+    ];
+    const r = solve(wall, start, { id: 'finish', type: 'jug', size: 'l', u: 220, v: 421, rot: 0, role: 'finish' }, holds);
+    if (!r.ok) throw new Error(r.message);
+    const down = r.moves.filter((m) => m.limb >= 2 && m.from.limbs[m.limb] >= 0 && m.to.limbs[m.limb] >= 0 && m.to.points[m.limb].v < m.from.points[m.limb].v - 15);
+    expect(down).toHaveLength(0);
+    expect(r.moves.length).toBeLessThanOrEqual(12);
+    expect(Math.round(r.grade)).toBe(1);
   });
 
   it('in a corner, steps up onto the jugs rather than stemming smears past them', () => {
@@ -904,6 +932,7 @@ describe('solver', () => {
     const dangling = r.moves.filter((m) => m.limb <= 1 && !m.dynamic && m.from.limbs.slice(2).includes(OFF));
     expect(dangling).toHaveLength(0);
     expect(r.moves.some((m) => m.limb >= 2 && (m.to.limbs[m.limb] === 0 || m.to.limbs[m.limb] === 2))).toBe(true);
+    // V1.48 as curated; V1.54 since the beta goes a little past the crux to save a move (SLACK).
     expect(Math.round(r.grade)).toBe(1);
   });
 
@@ -1391,7 +1420,10 @@ describe('solver', () => {
     };
     const upright = feet(0);
     expect(feet(Math.PI / 2)).toBeGreaterThan(upright + 0.2);
-    expect(feet(Math.PI)).toBeGreaterThan(feet(Math.PI / 2));
+    // Upside down is no better than on its side; with poor feet either way the climber stands on other holds.
+    // Upside down is no better than on its side (they used to differ by 0.01 grades); with poor feet
+    // either way the climber stands on other holds.
+    expect(feet(Math.PI)).toBeGreaterThanOrEqual(feet(Math.PI / 2));
   });
 
   it('beta ends matched on the finish', () => {

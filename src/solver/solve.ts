@@ -173,6 +173,22 @@ const HARD = 0.85;
  */
 const SLAP = 0.05;
 
+/**
+ * How far past the crux the second pass may go (SLACK, a share of it), and what each move
+ * over it costs that pass (OVER per unit over). The first pass takes any detour that makes
+ * the hardest move even a few percent easier, so the climber walked a foot down to a low
+ * jug, swapped feet and walked it back up (four foot moves where one would do) to make a
+ * step 6% easier. A few percent at the crux is less than a climber can feel or a grade can
+ * tell apart; three wasted moves are not. Climbers take the natural sequence over a
+ * marginally easier one that wastes moves (Hörst, "Training for Climbing", on economy of
+ * movement; The Self-Coached Climber, Hague & Hunter: don't waste moves). OVER is steep, so
+ * the second pass only goes over the crux to save whole moves, never to smooth one out. The
+ * grade is the beta's own hardest move, as with SLAP: the climber on screen climbs what the
+ * grade says, so footholds and holds a few percent apart can grade the same.
+ */
+const SLACK = 0.07;
+const OVER = 40;
+
 type Limbs = [number, number, number, number];
 
 export function solve(
@@ -210,11 +226,17 @@ export function solve(
   }
   const crux = bottleneck.cost;
 
-  // Pass 2: smoothest route whose every move is within the crux. Footwork the moves leave
-  // out of their difficulty (smears re-placed, RESTEP; a reach with no foot under it, UNDER)
-  // still costs the route, and so does a hard reach made with a foot off (PUMP).
+  // Pass 2: smoothest route whose every move is within the crux, or a little past it at a
+  // steep price (SLACK, OVER). Footwork the moves leave out of their difficulty (smears
+  // re-placed, RESTEP; a reach with no foot under it, UNDER) still costs the route, and so
+  // does a hard reach made with a foot off (PUMP).
   const footOff = (a: Limbs, b: Limbs) => (a[0] !== b[0] || a[1] !== b[1]) && (a[2] === OFF || a[3] === OFF);
-  const smooth = ctx.search(starts, isGoal, (acc, d, w, a, b) => acc + d + w + (d >= crux * HARD && footOff(a, b) ? PUMP * d : 0), crux + 1e-9);
+  const smooth = ctx.search(
+    starts,
+    isGoal,
+    (acc, d, w, a, b) => acc + d + w + (d >= crux * HARD && footOff(a, b) ? PUMP * d : 0) + OVER * Math.max(0, d - crux),
+    crux * (1 + SLACK) + 1e-9,
+  );
   const path = smooth.goal ? smooth.path : bottleneck.path;
 
   const moves: Move[] = [];
