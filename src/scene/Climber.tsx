@@ -727,6 +727,17 @@ export function Climber({ day }: { day: Day }) {
   const footBack = (sim: Ragdoll, n: number, to: THREE.Vector3 | null, duration: number) =>
     to && n >= 2 && sim.ends[n].mode === 'free' ? Math.max(duration, footPace(sim.pos[ENDS[n]].distanceTo(to))) : duration;
 
+  /**
+   * How long (s) a foot that isn't the move's limb takes to its new spot: a smear is placed
+   * relative to the hands, so on a hand move it slides up the wall with them, and it got the
+   * 0.3 s every other limb gets however far that was. On day 9's last move (a 60° corner) the
+   * smearing right foot went 1 m up the wall with the hand to the finish, at 7.2 m/s, its knee
+   * flipping side to side four times in a tenth of a second. Like a step, no faster than
+   * FOOT_TOP; a foot staying on its hold has nowhere to go and keeps the 0.3 s.
+   */
+  const footAlong = (sim: Ragdoll, n: number, to: THREE.Vector3 | null, duration: number) =>
+    to && n >= 2 ? Math.max(duration, footPace(sim.pos[ENDS[n]].distanceTo(to))) : duration;
+
   const enterFrame = (r: Run, f: Keyframe) => {
     const { sim } = r;
     r.rest = null;
@@ -818,7 +829,7 @@ export function Climber({ day }: { day: Day }) {
       // keyframe is the settle as the weight comes onto it.
       if (n === f.limb && target && f.prep) r.launch = { at: r.t + f.prep, n, to: target, normal, duration: f.travel ?? f.duration * 0.85, lift: f.dynamic ? 0.14 : 0.07 };
       else if (n === f.limb) sim.drive(n, target, normal, footBack(sim, n, target, f.travel ?? f.duration * 0.85), f.dynamic ? 0.14 : 0.07);
-      else sim.drive(n, target, normal, footBack(sim, n, target, 0.3), 0.05);
+      else sim.drive(n, target, normal, footAlong(sim, n, target, footBack(sim, n, target, 0.3)), 0.05);
     });
     sim.tone = 1 - 0.45 * f.strain;
     if (f.rest !== undefined) {

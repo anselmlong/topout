@@ -6,6 +6,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-18
 
+**Climber**
+- A smearing foot follows the climber up the wall at a stepping pace instead of being yanked up
+  with the hands: on a long reach or a dyno it no longer kicks a metre up the wall in a blink.
+
 **Holds**
 - Pinch blocks come low or deep: each big pinch block stands off the wall by its own amount, and
   you can see it from the side. A low block only takes the first pads of the fingers, so it holds a
