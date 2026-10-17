@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -282,7 +282,8 @@ describe('solver', () => {
       for (let f = 0; f < JUG_INCUT.length; f++) expect(jugDepthOf(size, f)).not.toBe(jugDepthOf(size, f + JUG_INCUT.length));
     }
     expect(jugDepth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
-    const jug = (size: 's' | 'm', depth?: number) => ({ id: 'x', type: 'jug' as const, size, u: 200, v: 300, rot: 0, incut: typicalIncut('jug'), depth });
+    // Buckets, so the lip doesn't open up either (JUG_OPEN): only the depth counts.
+    const jug = (size: 's' | 'm', depth?: number) => ({ id: 'x', type: 'jug' as const, size, u: 200, v: 300, rot: 0, incut: JUG_BUCKET, depth });
     const below = { u: 200, v: 200 };
     const ratio = (size: 's' | 'm', depth?: number) => handGrip(jug(size, depth), below, wall(40)) / handGrip(jug(size, depth), below, wall(0));
     expect(ratio('m', 60)).toBeCloseTo(1);
@@ -294,6 +295,19 @@ describe('solver', () => {
     const line = (depth: number) => ladder('jug', 55).map((h) => (h.type === 'jug' ? { ...h, size: 'm' as const, width: 16, depth } : h));
     expect(grade(wall(0), line(40))).toBeCloseTo(grade(wall(0), line(64)), 1);
     expect(grade(wall(30), line(40)) - grade(wall(30), line(64))).toBeGreaterThan(0.3);
+  });
+
+  it("a jug whose lip stays open opens up on an overhang; a bucket's closed lip doesn't", () => {
+    const jug = (incut: number) => ({ id: 'x', type: 'jug' as const, size: 'l' as const, u: 200, v: 300, rot: 0, incut, depth: 70 });
+    const below = { u: 200, v: 200 };
+    const ratio = (incut: number) => handGrip(jug(incut), below, wall(40)) / handGrip(jug(incut), below, wall(0));
+    expect(ratio(JUG_BUCKET)).toBeCloseTo(1);
+    expect(ratio(0.7)).toBeLessThan(0.95);
+    // Atomik's least-incut large basic jugs against its double incuts: the same on a vertical
+    // wall, a grade or more apart at 40° (V3 against V1 at 45°).
+    const line = (incut: number) => ladder('jug', 55).map((h) => (h.type === 'jug' && !h.role ? { ...h, size: 'l' as const, incut, depth: 70 } : h));
+    expect(grade(wall(0), line(0.6))).toBeCloseTo(grade(wall(0), line(1)), 1);
+    expect(grade(wall(40), line(0.6)) - grade(wall(40), line(1))).toBeGreaterThan(0.8);
   });
 
   it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {
@@ -985,9 +999,11 @@ describe('solver', () => {
     expect(slaps).toHaveLength(0);
     expect(r.moves.some((m) => m.limb === 0 && ids[m.from.limbs[0]] === 'h2' && ids[m.to.limbs[0]] === 'h4')).toBe(true);
     // V1.5 then; V1.6 since its medium jug (seed 11) is the shallowest medium build (model.ts
-    // JUG_DEPTH), harder to match on even at 10°.
+    // JUG_DEPTH), harder to match on even at 10°; V1.85 since its start, its medium jug and its
+    // finish are open-lipped jugs (a ledge and two slopey jugs, model.ts JUG_OPEN), a little
+    // harder to hang off even at 10°. Still about V1-2.
     expect(r.grade).toBeGreaterThan(1);
-    expect(r.grade).toBeLessThan(1.75);
+    expect(r.grade).toBeLessThan(2);
   });
 
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {

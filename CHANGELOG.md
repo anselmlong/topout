@@ -15,6 +15,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   while a deep one hangs at any angle. The tray says so ("Shallow two-hand bucket").
 
 **Grades**
+- Jugs whose lip stays open (ledges, horns, pinch and slopey jugs) get a little harder as the wall
+  leans out, while a bucket whose lip closes over the fingers still hangs at any angle: on a 40°
+  wall a line of open-lipped jugs now grades about a grade harder than a line of buckets.
 - Small jugs get harder as the wall leans out: a mini jug is a shallow scoop for the fingers, not
   the whole hand, so on the steepest walls a line of them grades up to a grade harder, while medium and
   big jugs still hang at any angle.

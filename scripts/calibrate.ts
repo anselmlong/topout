@@ -524,6 +524,21 @@ export const ANCHORS: Anchor[] = [
   // "5 Large Basic Jugs Set #3 (Series 2.0)", 4-3/4" wide (12.1 cm, two hands) and 2-3/4" off:
   // V0 on vertical and on a 25° wall, V1 at 45°.
   { name: '25° large basic jugs', angle: 25, type: 'jug', size: 'l', spacing: 50, feet: true, expect: 0, width: 12.1, depth: 70 },
+  // Jugs by incut (model.ts JUG_OPEN): until now every Atomik jug row was a typical
+  // jug, and a typical jug's lip (a ledge's or a horn's) hung like a bucket's at any angle. The
+  // same Large Basic Jugs (Series 2.0) grade guides (found via search on 2026-10-17; the site can't
+  // be fetched from this run) set the line's four builds apart by incut, at about one size.
+  // "Set #1", the least incut ("incuts in the 45-degree range", "less and less positive, more
+  // like ledges" on a 45° wall), 2-3/4" off the wall: V0 on vertical, V1 on a 25° wall, V3 at 45°.
+  // The walls stop at 40°: V3, as for the round mini jugs above.
+  { name: '25° least-incut large jugs', angle: 25, type: 'jug', size: 'l', spacing: 50, feet: true, expect: 1, incut: 0.6, depth: 70 },
+  { name: '40° least-incut large jugs', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 3, incut: 0.6, depth: 70 },
+  // "Set #2", incuts 45-60°, 5-1/4" wide (13.3 cm) and 2-1/4" off: V1 on a 25° wall.
+  { name: '25° wide basic jugs', angle: 25, type: 'jug', size: 'l', spacing: 50, feet: true, expect: 1, incut: 0.7, depth: 57, width: 13.3 },
+  // "Set #3", near a double incut, "a jug on all angles", and "Set #4 Double Incut": V1 at 45°,
+  // two grades under Set #1 there.
+  { name: '40° near-double-incut jugs', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 1, incut: 0.95, depth: 70, width: 12.1 },
+  { name: '40° double-incut jugs', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 1, incut: 1, depth: 70 },
 ];
 
 const TOP = 400;

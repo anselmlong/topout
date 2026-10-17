@@ -593,7 +593,8 @@ export const INCUT_GRIP = 0.36;
 export const INCUT_STEEP = 0.9;
 
 /**
- * A jug's steepLoss per unit of incut its lip falls short of a typical jug's. A bucket or a horn
+ * A jug's steepLoss per unit of incut its lip falls short of a typical jug's (and JUG_OPEN's
+ * smaller one short of a bucket's, from the wall's lean). A bucket or a horn
  * closes over the fingers, so the hand hangs off it at any angle (GRIP.jug steepLoss 0); a
  * pinch jug or a slopey jug is a big rounded handful with nothing to hook, held by friction and
  * the open hand like a big sloper, and it rolls out of the hand as the pull swings out on an
@@ -645,6 +646,28 @@ export function jugDepthSteep(hold: Hold): number {
   const mm = jugDepth(hold);
   if (mm === null || hold.grip !== undefined) return 0;
   return JUG_SHALLOW * Math.max(0, JUG_FULL - mm);
+}
+
+/**
+ * A jug's steepLoss per unit of incut its lip falls short of a bucket's (JUG_BUCKET), on top of
+ * JUG_STEEP. A bucket's rolled lip closes over the fingers; a ledge's or a horn's takes the whole
+ * hand but stays open, so as the wall leans out the pull swings out of it a little. Only the
+ * wall's lean counts, as for a shallow jug (round an arête the hand turns to take it side-on).
+ * Atomik Climbing Holds' Large Basic Jugs (Series 2.0) grade it at about one size: Set #1, its
+ * least incut ("incuts in the 45-degree range", "more like ledges" on a 45° wall), goes V0 -> V1
+ * -> V3 from vertical to 25° and 45°, Sets #3 and #4 (near and true double incuts, "a jug on all
+ * angles") V0 -> V0 -> V1. Until 2026-10-17 a typical jug lost nothing on an overhang, so
+ * Set #1 graded V1.9 at 40° and every typical-jug reference problem there graded soft (Kilter's
+ * "Jug Skin" V2.2 for V3).
+ */
+export const JUG_OPEN = 0.5;
+/** The incut a jug hangs at any angle from: a bucket's (JUG_INCUT's deepest). */
+export const JUG_BUCKET = Math.max(...JUG_INCUT);
+
+/** A jug's steepLoss from a lip that stays open (0 for a bucket, other types and overridden grips). */
+export function jugLipSteep(hold: Hold): number {
+  if (hold.type !== 'jug' || hold.grip !== undefined) return 0;
+  return JUG_OPEN * Math.max(0, JUG_BUCKET - holdIncut(hold));
 }
 
 /** A typical build's incut: the middle of what the type comes in (no effect on grip). */
@@ -980,9 +1003,9 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
     hold.type === 'jug' && hold.grip === undefined
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
-  // A shallow jug's scoop only opens up as the pull swings out from the wall; round an arête the
-  // hand turns to take it side-on.
-  const sizeLoss = jugDepthSteep(hold) * overhang;
+  // A shallow jug's scoop and an open lip only open up as the pull swings out from the wall;
+  // round an arête the hand turns to take it side-on.
+  const sizeLoss = (jugDepthSteep(hold) + jugLipSteep(hold)) * overhang;
   const steepFactor = 1 - loss * steep - sizeLoss;
   const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;
