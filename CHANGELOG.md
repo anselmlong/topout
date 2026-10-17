@@ -17,6 +17,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   medium slopers. Narrow medium slopers and small ones still only take one hand at a time.
 
 **Climber**
+- On a dyno the climber's hips fly up toward the hold it's jumping for instead of lurching
+  sideways away from it for a split second as the jump starts.
 - On an arête or a volume, the climber stands on the foot chip or jug beside it instead of
   edging the bare fibreglass of the arête or a volume face while that foothold sits free a
   shoe's length away.

@@ -109,7 +109,9 @@ While a hand holds on, the body carries itself at no more than ~1.5 m/s (`BODY_S
 over about half a second instead of firing the hips up; a dyno's launch, a fall and the drop off
 the top aren't held back. It also picks that speed up at no more than ~6 m/s² and brakes or turns
 at no more than ~20 m/s² (`BODY_ACCEL`, `BODY_TURN`), so the hips ease into each weight shift
-instead of lurching off at full speed when a move starts or a hand lands.
+instead of lurching off at full speed when a move starts or a hand lands. A dyno's launch keeps
+its speed but is still only steered at ~20 m/s², so the hips fly up at the target instead of
+being yanked sideways after the pose.
 A hand or foot travelling between holds arcs out just far enough to pass over the wall's face, any
 volume and an arête's corner, at least 4 cm clear (`clearPath` in `src/scene/ragdoll.ts`), instead
 of cutting straight through a volume between two holds on either side of it.

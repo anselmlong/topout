@@ -75,7 +75,8 @@ const FREE_HAND_SPEED = 5;
  * elbows while a hand holds on. A low foot pinned under a high step holds the hips down while
  * the pose wants them stood up; when that foot lets go, the muscles would fire the hips up
  * 0.75 m in a twelfth of a second and bounce. Climbers stand up into a move over half a
- * second or so. A dyno's launch (see impulse) isn't held back, nor is a fall or a drop.
+ * second or so. A dyno's launch (see impulse) isn't held back to it (only steered, BODY_TURN),
+ * nor is a fall or a drop.
  */
 const BODY_SPEED = 1.5;
 /**
@@ -98,7 +99,7 @@ const BODY_TURN = 20;
 const BODY = [J.head, J.chest, J.pelvis, J.shoulderL, J.shoulderR, J.hipL, J.hipR, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
 /** The joints in the middle of the limbs, which swing on their own once the torso moves. */
 const LIMB_JOINTS = [J.elbowL, J.elbowR, J.kneeL, J.kneeR];
-/** How long (s) after an impulse the body moves unchecked. */
+/** How long (s) after an impulse the body keeps its speed (no BODY_SPEED cap; BODY_TURN still steers it). */
 const BURST = 0.35;
 /**
  * How fast (rad/s) a standing leg's knee swings round the hip-foot line to bend the way the
@@ -471,19 +472,27 @@ export class Ragdoll {
       }
       // A weight shift is something the body does, not a cut: cap how fast it carries itself.
       const hanging = this.ends[0].mode !== 'free' || this.ends[1].mode !== 'free';
-      if (hanging && this.drag === null && this.burst <= 0) {
+      const launching = this.burst > 0;
+      if (hanging && this.drag === null) {
         for (const i of BODY) {
           const vin = this.velIn[i];
           const v = this.tmp.subVectors(pos[i], prev[i]);
-          // Turning or braking is quicker than speeding up, but not instant either.
+          // Turning or braking is quicker than speeding up, but not instant either. That holds
+          // through a launch too: the throw is the impulse's, and the muscles only steer it.
+          // Uncapped, they hauled the hips at a pose that jumped half a metre as the dyno began
+          // (weight onto the standing foot): on day 7's slab dyno the hips lurched sideways,
+          // away from the target, from rest to 11 m/s in four steps, knees at 13 m/s.
           const turn = this.tmp2.subVectors(v, vin);
           const most = BODY_TURN * dt * dt;
           if (turn.lengthSq() > most * most) v.copy(vin).addScaledVector(turn, most / turn.length());
-          const max = Math.min(BODY_SPEED * dt, vin.length() + BODY_ACCEL * dt * dt);
-          if (v.lengthSq() > max * max) v.multiplyScalar(max / v.length());
+          if (!launching) {
+            const max = Math.min(BODY_SPEED * dt, vin.length() + BODY_ACCEL * dt * dt);
+            if (v.lengthSq() > max * max) v.multiplyScalar(max / v.length());
+          }
           pos[i].copy(prev[i]).add(v);
         }
-      } else if (hanging && this.drag === null) {
+      }
+      if (hanging && this.drag === null && launching) {
         // A launch throws the torso, and the knees and elbows ride along with the hips, but
         // they don't get a swing of their own out of it: on day 16's dyno a high-stepped knee
         // whipped 60 cm out to the side at 14 m/s while its foot stayed on.
