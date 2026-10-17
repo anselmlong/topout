@@ -1,5 +1,5 @@
 import type { Day, HoldSize, HoldType } from '../solver/types';
-import { SLOPER_MATCH_WIDTH, widthFingers } from '../solver/model';
+import { SLOPER_MATCH_WIDTH, meanRadius, widthFingers } from '../solver/model';
 
 /** Muted, neutral scene palette. UI colors mirror these in styles.css. */
 export const PALETTE = {
@@ -164,6 +164,19 @@ export function widthWord(cm: number): string | null {
 /** What a short lip does: two fingers pull alone; a three-finger edge only drops the little finger. */
 export function widthEffect(cm: number): string | null {
   return widthFingers(cm) < 2.6 ? 'two fingers wide: harder' : null;
+}
+
+/** A crimp's or edge's front corner in words (model.ts edgeRadius), or null for a middling one. */
+export function radiusWord(type: HoldType, mm: number, size: HoldSize = 'm'): string | null {
+  const mean = meanRadius(type, size);
+  if (mean === null) return null;
+  return mm < 0.6 * mean ? 'Sharp' : mm > 1.4 * mean ? 'Rounded' : null;
+}
+/** What a lip's corner does: it matters while the shelf is short enough that the pads sit near it. */
+export function radiusEffect(type: HoldType, mm: number, depth: number, size: HoldSize = 'm'): string | null {
+  const word = radiusWord(type, mm, size);
+  if (!word || depth >= 30) return null;
+  return word === 'Sharp' ? 'sharp lip: the pads bite the corner' : 'rounded lip: the pads roll off, a bit harder';
 }
 
 /** A sloper's pitch in words (model.ts sloperPitch), or null for a middling one. */

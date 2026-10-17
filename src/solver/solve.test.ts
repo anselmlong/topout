@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -194,6 +194,32 @@ describe('solver', () => {
     expect(Math.min(...[0, 1, 2, 3].map((v) => widthOf('crimp', 's', v)!))).toBeLessThan(5);
     expect(edgeWidth({ id: 'x', type: 'edge', size: 'xl', u: 0, v: 0, rot: 0 })).toBeNull();
     expect(edgeWidth({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a sharp-lipped crimp grades easier than a rounded one of the same depth, length and incut', () => {
+    const withRadius = (holds: Hold[], radius: number) => holds.map((h) => (h.type === 'crimp' ? { ...h, radius, depth: 13, width: 10, incut: 0.5 } : h));
+    for (const angle of [0, 30]) {
+      const g = [2, 5, 9].map((mm) => grade(wall(angle), withRadius(ladder('crimp', 45), mm)));
+      expect(g[2]).toBeGreaterThan(g[1]);
+      expect(g[1]).toBeGreaterThan(g[0]);
+      // Under a grade: it's a corner, not a different hold.
+      expect(g[2] - g[0]).toBeLessThan(1);
+    }
+    // A radius barely matters on a deep edge, where the pads have shelf to spare.
+    const crimp: Hold = { id: 'c', type: 'crimp', size: 'm', u: 0, v: 0, rot: 0, depth: 12 };
+    const edge: Hold = { id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0, depth: 40 };
+    const loss = (h: Hold) => radiusFactor({ ...h, radius: 12 }) / radiusFactor({ ...h, radius: 2 });
+    expect(loss(crimp)).toBeLessThan(loss(edge));
+    expect(loss(edge)).toBeGreaterThan(0.97);
+    // Every size's seeds cover four radii, and the roundest build is never also the flattest lip.
+    for (const type of ['crimp', 'edge'] as const)
+      for (const size of ['s', 'm', 'l'] as const) {
+        const radii = [0, 1, 2, 3].map((v) => radiusOf(type, size, v)!);
+        expect(new Set(radii).size).toBe(4);
+        const incuts = [0, 1, 2, 3].map((v) => incutOf(type, size, v));
+        expect(radii.indexOf(Math.max(...radii))).not.toBe(incuts.indexOf(Math.min(...incuts)));
+      }
+    expect(edgeRadius({ id: 'p', type: 'pocket', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it('a rail ledge grades harder than a deep shelf of the same lip, by under a grade', () => {
@@ -405,7 +431,8 @@ describe('solver', () => {
   });
 
   it('tall jibs grade easier than low ones of the same incut', () => {
-    const jibs = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, type: 'jib' as const, depth, incut: 0.45 } : h));
+    // The hand holds' lips are pinned (a typical corner), so only the jibs differ.
+    const jibs = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, type: 'jib' as const, depth, incut: 0.45 } : { ...h, radius: 6 }));
     // On a slab the climber smears past a jib anyway; near vertical it stands on them.
     for (const [type, angle] of [['edge', -5], ['crimp', 10]] as const) {
       const low = grade(wall(angle), jibs(ladder(type, 45), 8));

@@ -56,6 +56,8 @@ export interface Hold {
   depth?: number;
   /** Crimp or edge length, or sloper or jug width, override (cm along the wall); otherwise read off the seed (see edgeWidth, sloperWidth, jugWidth). */
   width?: number;
+  /** Crimp or edge lip radius override (mm at the front corner); otherwise read off the seed (see edgeRadius). */
+  radius?: number;
   /** Sloper pitch override (degrees its palm surface slopes off level); otherwise read off the seed (see sloperPitch). */
   pitch?: number;
 }

@@ -15,6 +15,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   with the hands: on a long reach or a dyno it no longer kicks a metre up the wall in a blink.
 
 **Holds**
+- Crimps and edges come sharp or rounded: some have a square lip the finger pads bite over, others
+  a rounded nose they roll off. On a small crimp a rounded lip holds a little worse; on a deep edge
+  it hardly matters. The tray says so ("Sharp crimp", "Rounded shallow crimp").
 - Pinch blocks come low or deep: each big pinch block stands off the wall by its own amount, and
   you can see it from the side. A low block only takes the first pads of the fingers, so it holds a
   little worse than a fat one the whole thumb wraps. The tray says so ("Low block", "Deep wide block").

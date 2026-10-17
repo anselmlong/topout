@@ -2,7 +2,7 @@
 // Each one is a whole wall and route, independent of the daily archive, so it
 // exists on day 1 and spoils nothing:  ?example=<id>
 import { dateOf, dayNumber, generateDay } from '../gen/day';
-import { incutOf, typicalIncut } from '../solver/model';
+import { incutOf, meanRadius, typicalIncut } from '../solver/model';
 import type { Day, Hold, HoldSize, HoldType } from '../solver/types';
 import { canPlace } from './rules';
 import { spotsOf } from './spots';
@@ -68,11 +68,13 @@ function ladder(l: Ladder, day: Day): Hold[] {
   const holds: Hold[] = [];
   const mid = WIDTH / 2;
   const seeds = middling(l.type, l.size);
+  // Neither the sharpest nor the roundest lip either (model.ts radiusOf): its size's typical corner.
+  const radius = meanRadius(l.type, l.size) ?? undefined;
   const feetSeeds = middling('foot', 'm');
   let i = 0;
   for (let v = START_V + l.spacing; v < FINISH_V - l.spacing / 2; v += l.spacing, i++) {
     const side = i % 2 ? 1 : -1;
-    holds.push({ id: `p${i + 1}`, type: l.type, size: l.size, u: mid + side * l.swing, v, rot: 0, seed: seeds[i % 2] });
+    holds.push({ id: `p${i + 1}`, type: l.type, size: l.size, u: mid + side * l.swing, v, rot: 0, seed: seeds[i % 2], ...(radius !== undefined && { radius }) });
   }
   if (l.feet)
     for (let v = 55, j = 0; v < FINISH_V - 120; v += 38, j++) {

@@ -475,6 +475,59 @@ export function widthFactor(hold: Hold): number {
 }
 
 /**
+ * How rounded a crimp's or edge's front corner is (mm, the radius where the shelf turns down into
+ * the face), from its seed and size, on its own cycle (one build on from its length's, and never
+ * the roundest build with the flattest lip, incutOf). A sharp, square lip lets the finger pads
+ * press over the corner and bite; a rounded one takes the front of the shelf away, since the pads
+ * sit back where the curve begins, and the skin rolls off the curve rather than catching on a
+ * corner. Hangboard makers set their edges by it: Lattice Training's Triple Rung gives its rungs a
+ * radius half their depth to take away the bite a sharp corner gives the skin, and Tension's
+ * Honestone uses a 1/8" (3 mm) radius as the trade between bite and comfort. It matters most on a
+ * small crimp, where a few millimetres is a large share of the shelf, and hardly at all on a
+ * deep edge or a ledge (depthGrip is flat there). The lists centre on the nose each build has
+ * always been drawn with.
+ */
+export const EDGE_RADIUS: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
+  crimp: { s: [1.5, 3, 4.5, 6], m: [2, 4, 6, 8], l: [2, 4.5, 7, 9.5] },
+  edge: { s: [2, 4.5, 7, 9.5], m: [3, 6, 9, 12], l: [3, 7, 11, 15], xl: [4, 9, 14, 19] },
+};
+/** How much of the shelf a millimetre of radius takes away from the pads (mm of depth per mm). */
+export const RADIUS_EAT = 0.5;
+
+export function radiusOf(type: HoldType, size: HoldSize, variant: number): number | null {
+  const list = EDGE_RADIUS[type]?.[size];
+  return list ? list[(3 * variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
+}
+
+/** A crimp's or edge's lip radius (mm); null for other types. */
+export function edgeRadius(hold: Hold): number | null {
+  return hold.type === 'crimp' || hold.type === 'edge' ? (hold.radius ?? radiusOf(hold.type, hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean radius an edge of this type and size comes in (mm), what its nose is drawn at; null for none. */
+export function meanRadius(type: HoldType, size: HoldSize): number | null {
+  const list = EDGE_RADIUS[type]?.[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/**
+ * A crimp's or edge's grip multiplier for its lip radius (1 otherwise): its depth read as the
+ * shelf the pads actually get (RADIUS_EAT per mm of radius past its size's mean) through
+ * depthGrip, normalised to the average of its size's builds (as pitchFactor), so a mixed set of
+ * a size climbs as it always has.
+ */
+export function radiusFactor(hold: Hold): number {
+  const r = edgeRadius(hold);
+  const mm = edgeDepth(hold);
+  const list = EDGE_RADIUS[hold.type]?.[hold.size];
+  const mean = meanRadius(hold.type, hold.size);
+  if (r === null || mm === null || !list || mean === null || hold.grip !== undefined) return 1;
+  const pads = (n: number) => depthGrip(Math.max(5, Math.min(60, mm - RADIUS_EAT * (n - mean))));
+  const typical = list.reduce((a, n) => a + pads(n), 0) / list.length;
+  return pads(Math.max(0, Math.min(25, r))) / typical;
+}
+
+/**
  * How far a sloper's palm surface slopes away from level (degrees, on a vertical wall), from its
  * seed and size, on its own cycle (one build off its dish, so the steepest build is never also
  * the roundest). Pitch is what grades a sloper: it's held by friction alone, and friction
@@ -1012,7 +1065,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   // round an arête the hand turns to take it side-on.
   const sizeLoss = (jugDepthSteep(hold) + jugLipSteep(hold)) * overhang;
   const steepFactor = 1 - loss * steep - sizeLoss;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;
 }
 

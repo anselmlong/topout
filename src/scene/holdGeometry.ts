@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -180,19 +180,48 @@ function incutProfile(pts: [number, number][], incut: number): [number, number][
 }
 
 /**
+ * A profile's front corner rebuilt at a radius (profile units, about metres), where the shelf turns
+ * down into the face: a sharp lip is a crisp square nose the pads press over, a rounded one a
+ * fat bullnose the shelf rolls off into (model.ts radiusOf). The corner is where the face's nose
+ * meets the lip's top; the points inside the arc go and the arc takes their place.
+ */
+function radiusProfile(pts: [number, number][], rho: number): [number, number][] {
+  const outMax = Math.max(...pts.map(([x]) => x));
+  const nose = pts.findIndex(([x]) => x === outMax);
+  const top = Math.max(...pts.slice(nose + 1).filter(([x]) => x > 0.6 * outMax).map(([, y]) => y));
+  const below = Math.min(...pts.slice(0, nose + 1).filter(([x]) => x > 0.6 * outMax).map(([, y]) => y));
+  // Never wider than the lip is thick, nor than the shelf is deep.
+  const r = Math.min(rho, 0.8 * (top - below), 0.45 * outMax);
+  const arc: [number, number][] = [];
+  for (let i = 0; i <= 5; i++) {
+    const t = (Math.PI / 2) * (i / 5);
+    arc.push([outMax - r + r * Math.cos(t), top - r + r * Math.sin(t)]);
+  }
+  return [
+    ...pts.slice(0, nose + 1).filter(([x, y], i) => i < nose && !(x > outMax - r && y > top - r)),
+    ...arc,
+    ...pts.slice(nose + 1).filter(([x]) => x < outMax - r - 0.002),
+  ];
+}
+
+/**
  * An edge or crimp: the side profile swept across the hold's width as one
  * closed shell. Toward each end the profile shrinks out of the wall and down
  * in height along a superellipse, so the hold finishes in a rounded nose that
  * melts into the wall instead of a cut-off end. Columns bunch up toward the
  * ends where the shape turns fastest. Returns the bolt square to the face.
  */
-function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null, length: number | null = null) {
-  const M = 14;
+function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null, length: number | null = null, radius: number | null = null) {
+  // Enough rows down the profile that a sharp nose stays sharp.
+  const M = radius !== null ? 26 : 14;
   const NU = 18;
   // How far out of the wall: a crimp's or edge's shelf depth against its size's mean (model.ts
   // depthOf), so a shallow one reads as a thin strip and a deep one as a shelf; else a little play.
   const out = depth ?? 0.92 + 0.16 * k;
-  const spline = new THREE.SplineCurve(incutProfile(pr.pts, incut).map(([a, b]) => new THREE.Vector2(a * scale * out, b * scale)));
+  // A crimp's or edge's lip radius (model.ts radiusOf, life-size mm, about a profile unit per metre),
+  // drawn a little past life size so a bullnose reads from the floor.
+  const pts = radius !== null ? radiusProfile(pr.pts, (1.3 * radius) / 1000) : pr.pts;
+  const spline = new THREE.SplineCurve(incutProfile(pts, incut).map(([a, b]) => new THREE.Vector2(a * scale * out, b * scale)));
   const prof = spline.getSpacedPoints(M - 1);
   // Pin the ends to the wall exactly.
   prof[0].x = 0;
@@ -1281,7 +1310,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   const profile = PROFILES[type];
   if (profile) {
     const mm = depthOf(type, size, v);
-    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!, size === 'xl' ? null : widthOf(type, size, v));
+    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!, size === 'xl' ? null : widthOf(type, size, v), radiusOf(type, size, v));
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), profile.grip ?? spec.grip ?? TOP_GRIP);
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;
