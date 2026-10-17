@@ -189,12 +189,12 @@ function pocketWord(fingers: number, depth: number | null): string {
   return d ? `${d} ${f.charAt(0).toLowerCase() + f.slice(1)}` : f;
 }
 
-/** A pinch's flank depth and span in words ("Low thin pinch", "Deep pinch"). */
+/** A pinch's flank depth and span in words ("Low thin pinch", "Deep pinch", "Low wide block"). */
 function pinchWord(span: number, depth: number | null, size: HoldSize): string | null {
   const w = spanWord(span, size);
-  const d = depth !== null ? pinchDepthWord(depth) : null;
+  const d = depth !== null ? pinchDepthWord(depth, size) : null;
   if (!d) return w;
-  return `${d} ${w ? w.charAt(0).toLowerCase() + w.slice(1) : 'pinch'}`;
+  return `${d} ${w ? w.charAt(0).toLowerCase() + w.slice(1) : size === 'xl' ? 'block' : 'pinch'}`;
 }
 
 /** A sloper's pitch and width in words ("Steep narrow sloper", "Wide sloper"), or null for a middling one. */
@@ -226,7 +226,7 @@ function Lip({ hold }: { hold: Hold }) {
   const effect =
     (fingers !== null && fingerEffect(fingers)) ||
     (span !== null && spanEffect(span)) ||
-    (flank !== null && pinchDepthEffect(flank)) ||
+    (flank !== null && pinchDepthEffect(flank, hold.size)) ||
     (depth !== null && depth < 12 && depthEffect(hold.type, depth, hold.size)) ||
     (width !== null && widthEffect(width)) ||
     (depth !== null && depthEffect(hold.type, depth, hold.size)) ||

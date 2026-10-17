@@ -419,8 +419,9 @@ export const ANCHORS: Anchor[] = [
   { name: '20° macro pinches', angle: 20, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 2 },
   // Wide: Atomik Climbing Holds' "XXL Granite Pinch", 5-1/2" wide at the bottom (14 cm) and 4" off
   // the wall, is V2/3 on a 25° wall (V4+ at 45°, where the reference start can't be held on
-  // macros here). V3 with Pinchachu at 25°: the TB2's blocks run about as wide.
-  { name: '25° wide pinch blocks', angle: 25, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 3, span: 14 },
+  // macros here). V3 with Pinchachu at 25°: the TB2's blocks run about as wide. The block's 4" off
+  // the wall (102 mm) is its depth (model.ts PINCH_DEPTH xl, since pinch blocks come low or deep).
+  { name: '25° wide pinch blocks', angle: 25, type: 'pinch', size: 'xl', spacing: 55, feet: true, expect: 3, span: 14, depth: 102 },
   // Narrow: Atomik's "5 XL Wide Font Pinches Set #3 (Positive)", 3-1/2" to 4" wide (9.5 cm) with
   // "a hint of an incut", is V2 on vertical (V7 at 45°). Atomik gives no overhang grade for a
   // block this narrow, so this takes its vertical one, which may run soft (see the pinches above).

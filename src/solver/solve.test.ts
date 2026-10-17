@@ -135,7 +135,6 @@ describe('solver', () => {
     // The thumb keeps gaining past where an edge's finger pads stop: 3 cm to 6 cm still helps a pinch.
     expect(flankGrip(60) / flankGrip(30)).toBeGreaterThan(1.08);
     expect(depthGrip(60) / depthGrip(30)).toBeLessThan(1.03);
-    expect(pinchDepthOf('xl', 0)).toBeNull();
     expect(pinchDepth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0, depth: 20 })).toBeNull();
   });
 
@@ -146,6 +145,20 @@ describe('solver', () => {
       expect(g[0]).toBeLessThan(g[1]);
       expect(g[1]).toBeLessThan(g[2]);
     }
+  });
+
+  it('a pinch block standing far off the wall grades easier than a low one of the same span', () => {
+    const blocks = (depth: number) => ladder('pinch', 55).map((h) => (h.type === 'pinch' ? { ...h, size: 'xl' as const, span: 12, depth, incut: 0.5, rot: Math.PI / 2 } : h));
+    for (const angle of [0, 30]) {
+      const g = [30, 50, 85].map((mm) => grade(wall(angle), blocks(mm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.1);
+      expect(g[1]).toBeGreaterThan(g[2]);
+    }
+    // Every block's seeds cover four depths, and the lowest build is never also the widest.
+    const depths = [0, 1, 2, 3].map((v) => pinchDepthOf('xl', v)!);
+    expect(new Set(depths).size).toBe(4);
+    const spans = [0, 1, 2, 3].map((v) => spanOf('xl', v)!);
+    expect(spans[depths.indexOf(Math.min(...depths))]).toBeLessThan(Math.max(...spans));
   });
 
   it('a deeper crimp grades easier than a shallow one of the same size and lip', () => {

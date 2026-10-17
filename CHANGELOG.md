@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-18
+
+**Holds**
+- Pinch blocks come low or deep: each big pinch block stands off the wall by its own amount, and
+  you can see it from the side. A low block only takes the first pads of the fingers, so it holds a
+  little worse than a fat one the whole thumb wraps. The tray says so ("Low block", "Deep wide block").
+
 ## 2026-10-17
 
 **Holds**

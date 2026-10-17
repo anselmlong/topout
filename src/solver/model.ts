@@ -299,16 +299,21 @@ export function spanFactor(hold: Hold): number {
  * thumb and finger on the sides as the hold allows; thin, low pinches are squeezed with the
  * pads and are the hardest); Eric Hörst, "Training for Climbing" (pinch strength is about
  * thumb opposition, which a low pinch barely lets in). The lists centre on the flank each size
- * has always been drawn with. Pinch blocks (macros) are a hand's span thick by design: none.
+ * has always been drawn with.
+ * Pinch blocks (macros) stand off the wall from a low, flat-faced block about 3 cm proud, whose
+ * sides take the fingers to their first pads however wide it is, to a fat block 8-9 cm out that
+ * the whole thumb and the fingers to the second joint wrap (Atomik Climbing Holds' "XXL Granite
+ * Pinch" stands 4" off the wall). Past about 6 cm flankGrip is nearly flat, so most of a block's
+ * spread is in its low half; the list centres on the 6 cm a block has always been drawn at.
  */
-export const PINCH_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [16, 22, 29, 36], m: [20, 28, 37, 46], l: [24, 34, 45, 56] };
+export const PINCH_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [16, 22, 29, 36], m: [20, 28, 37, 46], l: [24, 34, 45, 56], xl: [30, 46, 64, 84] };
 
 export function pinchDepthOf(size: HoldSize, variant: number): number | null {
   const list = PINCH_DEPTH[size];
   return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 1) % list.length] : null;
 }
 
-/** How deep a pinch's flanks are (mm); null for other types and for pinch blocks. */
+/** How deep a pinch's flanks are (mm), or how far a pinch block stands off the wall; null for other types. */
 export function pinchDepth(hold: Hold): number | null {
   return hold.type === 'pinch' && PINCH_DEPTH[hold.size] ? (hold.depth ?? pinchDepthOf(hold.size, holdVariant(hold))) : null;
 }
@@ -341,7 +346,7 @@ export function pinchDepthFactor(hold: Hold): number {
   // of a size climbs as it always has (the board-graded rows were fitted to it).
   const grips = list.map(flankGrip);
   const mean = (grips.reduce((a, n) => a + n, 0) / grips.length + Math.min(...grips)) / 2;
-  return flankGrip(Math.max(8, Math.min(70, mm))) / mean;
+  return flankGrip(Math.max(8, Math.min(110, mm))) / mean;
 }
 
 /**

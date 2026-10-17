@@ -1151,7 +1151,8 @@ const SIZE: Record<HoldSize, number> = { s: 0.95, m: 1.2, l: 1.5, xl: 1.2 };
 /**
  * How a macro (size 'xl') stretches its type's medium build, [across, up, out of the wall]:
  * a dual-texture sloper ~50 cm wide, a ledge ~45 cm long with a shelf a hand deep, a pinch
- * block ~20 cm wide and a hand's span thick. Keep in step with rules.ts MACRO_RADIUS.
+ * block ~20 cm wide, standing off the wall by its own depth (model.ts PINCH_DEPTH xl, centred on
+ * this stretch). Keep in step with rules.ts MACRO_RADIUS.
  */
 const MACRO_STRETCH: Partial<Record<HoldType, [number, number, number]>> = {
   sloper: [2.05, 1.6, 1.55],
