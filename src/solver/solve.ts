@@ -168,9 +168,10 @@ const HARD = 0.85;
  * fibreglass is a slap that can skid off, one more catch and more time on the arms (Hörst,
  * "Training for Climbing", on economy of movement; The Self-Coached Climber, Hague & Hunter:
  * don't waste moves). Only in the search: each move's difficulty, and so the grade, is the
- * beta's own.
+ * beta's own. 5%: at 3% a shallow jug (model.ts JUG_DEPTH) a hand matched onto was still worth a
+ * tap on the arête beside it, 0.86 via the arête against 0.89 straight there.
  */
-const SLAP = 0.03;
+const SLAP = 0.05;
 
 type Limbs = [number, number, number, number];
 

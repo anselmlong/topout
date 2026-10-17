@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, jugWidthOf, meanDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -1236,7 +1236,15 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
         : family === 'horn'
           ? hornGeometry(SIZE[size], kj, rj, wide)
           : jugGeometry(SIZE[size], kj, rj, { bucket: BUCKET, pinch: PINCH_JUG, slopey: SLOPEY_JUG }[family], wide);
-    const data = finish(p.geometry, rj, false, (_x, _y, _z, i) => p.shade(i), p.grip);
+    // How far it stands off the wall (model.ts jugDepthOf) against its size's mean, drawn a little
+    // past the life-size spread (^1.5) so it reads from the floor: a shallow scoop sits flatter
+    // to the wall, a deep one stands out for the whole hand.
+    const mean = meanJugDepth(size);
+    const out = mean ? (jugDepthOf(size, variant)! / mean) ** 1.5 : 1;
+    p.geometry.scale(1, 1, out);
+    p.bolt.at.z *= out;
+    const at = new THREE.Vector3();
+    const data = finish(p.geometry, rj, false, (_x, _y, _z, i) => p.shade(i), (n, c) => p.grip(n, at.set(c.x, c.y, c.z / out)));
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;
     cache.set(key, data);

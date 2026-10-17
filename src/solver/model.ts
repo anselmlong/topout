@@ -603,15 +603,49 @@ export const INCUT_STEEP = 0.9;
 export const JUG_STEEP = 0.4;
 
 /**
- * A jug's steepLoss from its size alone. A small jug (a mini jug, 1-1/2" to 1-3/4" off the wall
- * against a medium's 2-1/4") is a shallow scoop: the fingers go in to the second knuckle, not
- * the palm, so it holds like a deep incut edge, fine while the forearm hangs under it on a
- * vertical wall but opening up as the pull swings out on an overhang. Medium and bigger jugs
- * take the whole hand and hang at any angle. Atomik Climbing Holds' mini jugs gain two grades
- * from vertical to 25° and three or more to 45° (V1 -> V3 -> V5), its medium and large basic
- * jugs one and two (V0 -> V1 -> V2).
+ * How far a jug stands off the wall (mm, life size: how deep its scoop takes the hand), from its
+ * seed and size, on its own cycle (two builds apart for a family's narrow and wide builds, so each
+ * family comes shallower and deeper). A shallow jug is a scoop the fingers go into to the second
+ * knuckle, not the palm: it holds like a deep incut edge, fine while the forearm hangs under it on
+ * a vertical wall but opening up as the pull swings out on an overhang (JUG_SHALLOW). A deep one
+ * takes the whole hand to the palm and hangs at any angle. Hold makers sell jugs by it: Atomik
+ * Climbing Holds' mini jugs stand 1-1/2" to 1-3/4" off the wall against a medium's 2-1/4", and
+ * the minis gain two grades from vertical to 25° and three or more to 45° (V1 -> V3 -> V5), its
+ * medium and large basic jugs one and two (V0 -> V1 -> V2). The lists centre on the depth each
+ * size has always been drawn at; a medium's shallowest build is a mini's deepest, near enough.
  */
-export const JUG_SIZE_STEEP: Record<HoldSize, number> = { s: 0.25, m: 0, l: 0, xl: 0 };
+export const JUG_DEPTH: Partial<Record<HoldSize, number[]>> = { s: [34, 39, 44, 49], m: [48, 54, 60, 66], l: [58, 66, 74, 82] };
+
+/**
+ * A jug's steepLoss per mm it stands off the wall short of JUG_FULL, where the whole hand goes in
+ * to the palm. Fitted so a set of small jugs opens up on an overhang as small jugs always have
+ * (a quarter of the pull lost per unit of overhang, from Atomik's mini jugs, above).
+ */
+export const JUG_FULL = 55;
+export const JUG_SHALLOW = 0.0185;
+
+export function jugDepthOf(size: HoldSize, variant: number): number | null {
+  const list = JUG_DEPTH[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size]) % list.length] : null;
+}
+
+/** How far a jug stands off the wall (mm); null for other types. */
+export function jugDepth(hold: Hold): number | null {
+  return hold.type === 'jug' ? (hold.depth ?? jugDepthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean depth jugs of this size come in (mm), what the mesh is drawn at; null for none. */
+export function meanJugDepth(size: HoldSize): number | null {
+  const list = JUG_DEPTH[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/** A jug's steepLoss from how shallow it is (0 for a deep one, other types and overridden grips). */
+export function jugDepthSteep(hold: Hold): number {
+  const mm = jugDepth(hold);
+  if (mm === null || hold.grip !== undefined) return 0;
+  return JUG_SHALLOW * Math.max(0, JUG_FULL - mm);
+}
 
 /** A typical build's incut: the middle of what the type comes in (no effect on grip). */
 export function typicalIncut(type: HoldType): number {
@@ -946,9 +980,9 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
     hold.type === 'jug' && hold.grip === undefined
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
-  // A small jug's scoop only opens up as the pull swings out from the wall; round an arête the
+  // A shallow jug's scoop only opens up as the pull swings out from the wall; round an arête the
   // hand turns to take it side-on.
-  const sizeLoss = hold.type === 'jug' && hold.grip === undefined ? JUG_SIZE_STEEP[hold.size] * overhang : 0;
+  const sizeLoss = jugDepthSteep(hold) * overhang;
   const steepFactor = 1 - loss * steep - sizeLoss;
   const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;

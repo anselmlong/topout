@@ -10,6 +10,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - Jugs come one-hand or two-hand: each jug has a narrow and a wide build, horns and pinch jugs are
   narrow, buckets and ledges wide. Swapping hands on a one-hand jug is a finger shuffle that costs a
   little on steep walls (hardly anything on a slab). The tray says which ("One-hand horn").
+- Jugs come shallow or deep: each one stands out from the wall by its own amount, and you can see it.
+  A shallow jug only takes the fingers to the knuckle, so it gets harder as the wall leans out,
+  while a deep one hangs at any angle. The tray says so ("Shallow two-hand bucket").
 
 **Grades**
 - Small jugs get harder as the wall leans out: a mini jug is a shallow scoop for the fingers, not

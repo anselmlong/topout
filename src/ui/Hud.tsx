@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWord, depthEffect, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
-import { edgeDepth, edgeWidth, footDepth, holdVariant, incutRank, jugWidth, pinchDepth, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWord, depthEffect, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
+import { edgeDepth, edgeWidth, footDepth, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -218,6 +218,7 @@ function Lip({ hold }: { hold: Hold }) {
   const chip = footDepth(hold);
   const flank = pinchDepth(hold);
   const hand = jugWidth(hold);
+  const scoop = jugDepth(hold);
   // A pocket's finger count outweighs its hood, a pinch's span its sculpting, an edge's depth
   // its lip and a sloper's pitch its dish: a mono, a thin fin, a fingertip crimp or a steep
   // sloper says so first (then a narrow or wide one). A short crimp's length comes after a
@@ -232,6 +233,7 @@ function Lip({ hold }: { hold: Hold }) {
     (pitch !== null && pitchEffect(pitch)) ||
     (wide !== null && sloperWidthEffect(wide)) ||
     (chip !== null && chipEffect(chip, hold.type)) ||
+    (scoop !== null && jugDepthEffect(scoop)) ||
     (hand !== null && jugWidthEffect(hand)) ||
     lipEffect(hold.type, rank);
   const prefix =
@@ -244,7 +246,8 @@ function Lip({ hold }: { hold: Hold }) {
         ))}
       </span>
       {prefix && `${prefix}, `}
-      {hand !== null && `${jugWidthWord(hand)} `}
+      {scoop !== null && jugDepthWord(scoop) && `${jugDepthWord(scoop)} `}
+      {hand !== null && `${scoop !== null && jugDepthWord(scoop) ? jugWidthWord(hand).toLowerCase() : jugWidthWord(hand)} `}
       {prefix || hand !== null ? lipWord(hold.type, rank, holdVariant(hold)).toLowerCase() : lipWord(hold.type, rank, holdVariant(hold))}
       <span className="dim"> · {effect}</span>
     </span>

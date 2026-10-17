@@ -52,7 +52,7 @@ export interface Hold {
   fingers?: number;
   /** Pinch span override (cm between thumb and fingers); otherwise read off the seed (see pinchSpan). */
   span?: number;
-  /** Crimp or edge shelf depth, pocket depth, pinch flank depth, or foot chip or jib depth, override (mm); otherwise read off the seed (see edgeDepth, pinchDepth, footDepth). */
+  /** Crimp or edge shelf depth, pocket depth, pinch flank depth, foot chip or jib depth, or how far a jug stands off the wall, override (mm); otherwise read off the seed (see edgeDepth, pinchDepth, footDepth, jugDepth). */
   depth?: number;
   /** Crimp or edge length, or sloper or jug width, override (cm along the wall); otherwise read off the seed (see edgeWidth, sloperWidth, jugWidth). */
   width?: number;

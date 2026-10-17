@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -274,12 +274,26 @@ describe('solver', () => {
     expect(narrow.grade - wide.grade).toBeLessThan(1);
   });
 
-  it('a small jug opens up on an overhang; a medium one hangs at any angle', () => {
-    const jug = (size: 's' | 'm') => ({ id: 'x', type: 'jug' as const, size, u: 200, v: 300, rot: 0, incut: typicalIncut('jug') });
+  it('a shallow jug opens up on an overhang; a deep one hangs at any angle', () => {
+    // Each size comes shallow to deep, and a family's two builds sit apart in it.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const all = Array.from({ length: 2 * JUG_INCUT.length }, (_, k) => jugDepthOf(size, k)!);
+      expect(new Set(all).size).toBe(4);
+      for (let f = 0; f < JUG_INCUT.length; f++) expect(jugDepthOf(size, f)).not.toBe(jugDepthOf(size, f + JUG_INCUT.length));
+    }
+    expect(jugDepth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+    const jug = (size: 's' | 'm', depth?: number) => ({ id: 'x', type: 'jug' as const, size, u: 200, v: 300, rot: 0, incut: typicalIncut('jug'), depth });
     const below = { u: 200, v: 200 };
-    const ratio = (size: 's' | 'm') => handGrip(jug(size), below, wall(40)) / handGrip(jug(size), below, wall(0));
-    expect(ratio('m')).toBeCloseTo(1);
-    expect(ratio('s')).toBeLessThan(0.9);
+    const ratio = (size: 's' | 'm', depth?: number) => handGrip(jug(size, depth), below, wall(40)) / handGrip(jug(size, depth), below, wall(0));
+    expect(ratio('m', 60)).toBeCloseTo(1);
+    expect(ratio('s', 40)).toBeLessThan(0.9);
+    // A small jug as deep as a medium one hangs like it; a medium one as shallow as a mini doesn't.
+    expect(ratio('s', 60)).toBeCloseTo(1);
+    expect(ratio('m', 38)).toBeCloseTo(ratio('s', 38));
+    // The same jug line, every hold shallow or deep: the same on a vertical wall, harder steep.
+    const line = (depth: number) => ladder('jug', 55).map((h) => (h.type === 'jug' ? { ...h, size: 'm' as const, width: 16, depth } : h));
+    expect(grade(wall(0), line(40))).toBeCloseTo(grade(wall(0), line(64)), 1);
+    expect(grade(wall(30), line(40)) - grade(wall(30), line(64))).toBeGreaterThan(0.3);
   });
 
   it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {
@@ -932,16 +946,19 @@ describe('solver', () => {
     if (!r.ok) throw new Error(r.message);
     // Its left hand used to go from the first jug to the arête and on to the second jug: 0.85
     // and 0.83, against 0.86 straight there, since the search took any intermediate that eased
-    // the crux at all. Now it reaches straight up, two moves shorter, and still grades V1.
+    // the crux at all. Now it reaches straight up, two moves shorter, and still grades about V1.
     // Up to the small jug: from it, the metre's reach to the finish is worth a tap on the arête
-    // since a small jug opens up on an overhang (model.ts JUG_SIZE_STEEP): its crux 0.81 against
+    // since a small jug opens up on an overhang (model.ts JUG_DEPTH, JUG_SHALLOW): its crux 0.81 against
     // 0.86 straight there before, past what SLAP sets aside.
     const ids = contactList(jug, finish, holds, undefined, arete).map((h) => h.id);
     const below = r.moves.slice(0, r.moves.findIndex((m) => m.limb <= 1 && ids[m.to.limbs[m.limb]] === 'h6'));
     const slaps = below.filter((m) => m.limb <= 1 && ids[m.to.limbs[m.limb]].startsWith('arete:'));
     expect(slaps).toHaveLength(0);
     expect(r.moves.some((m) => m.limb === 0 && ids[m.from.limbs[0]] === 'h2' && ids[m.to.limbs[0]] === 'h4')).toBe(true);
-    expect(Math.round(r.grade)).toBe(1);
+    // V1.5 then; V1.6 since its medium jug (seed 11) is the shallowest medium build (model.ts
+    // JUG_DEPTH), harder to match on even at 10°.
+    expect(r.grade).toBeGreaterThan(1);
+    expect(r.grade).toBeLessThan(1.75);
   });
 
   it("keeps a hand on a hold bolted to a volume rather than palming the face it's on", () => {

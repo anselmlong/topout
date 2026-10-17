@@ -38,7 +38,7 @@ export interface Anchor {
   fingers?: number;
   /** Every hand hold's span (cm between thumb and fingers) if it's a pinch; default from its seed. */
   span?: number;
-  /** Every hand hold's shelf depth (mm) if it's a crimp or an edge; default from its seed. */
+  /** Every hand hold's shelf depth (mm) if it's a crimp, an edge or a jug (how far it stands off the wall); default from its seed. */
   depth?: number;
   /** Every hand hold's lip length (cm along the wall) if it's a crimp or an edge; default from its seed. */
   width?: number;
@@ -506,24 +506,24 @@ export const ANCHORS: Anchor[] = [
   // V4 on a 25° wall.
   { name: 'vertical large steep wall slopers', angle: 0, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 2, width: 13.7, pitch: 24 },
   { name: '25° large steep wall slopers', angle: 25, type: 'sloper', size: 'l', spacing: 55, feet: true, expect: 4, width: 13.7, pitch: 24 },
-  // Jugs by size and width (model.ts JUG_WIDTH, shuffleCost, JUG_SIZE_STEEP; 46a26a7): until now
+  // Jugs by size, width and depth off the wall (model.ts JUG_WIDTH, shuffleCost, JUG_DEPTH): until now
   // no row set how wide a jug is, so the one-hand and two-hand builds every jug now comes as were
   // graded off their seeds, and no row used a small jug at all. Atomik Climbing Holds' grade
   // guides, which give each set's average size (found via search on 2026-10-17; the site can't
   // be fetched from this run). Jugs gain little with the angle until they get small.
   // "5 Mini Limestone Jugs Set #2", 3-1/4" wide (8.3 cm, one hand) and 1-1/2" off the wall:
   // V1+ on vertical, V3 on a 25° wall.
-  { name: 'vertical mini limestone jugs', angle: 0, type: 'jug', size: 's', spacing: 45, feet: true, expect: 1, width: 8.3 },
-  { name: '25° mini limestone jugs', angle: 25, type: 'jug', size: 's', spacing: 50, feet: true, expect: 3, width: 8.3 },
+  { name: 'vertical mini limestone jugs', angle: 0, type: 'jug', size: 's', spacing: 45, feet: true, expect: 1, width: 8.3, depth: 38 },
+  { name: '25° mini limestone jugs', angle: 25, type: 'jug', size: 's', spacing: 50, feet: true, expect: 3, width: 8.3, depth: 38 },
   // "Round Mini Jugs", 3" wide (7.6 cm) and 1-1/2" off: V1 on vertical, V4+ on a 45° wall. The
   // walls stop at 40°: V4.
-  { name: '40° round mini jugs', angle: 40, type: 'jug', size: 's', spacing: 55, feet: true, expect: 4, width: 7.6 },
+  { name: '40° round mini jugs', angle: 40, type: 'jug', size: 's', spacing: 55, feet: true, expect: 4, width: 7.6, depth: 38 },
   // "5 Medium Basic Jugs Set #1 (Series 2.0)", 4" wide (10.2 cm, a one-hand jug, just) and
   // 2-1/4" off: V0 on vertical, V1 on a 25° wall.
-  { name: '25° medium basic jugs', angle: 25, type: 'jug', size: 'm', spacing: 50, feet: true, expect: 1, width: 10.2 },
+  { name: '25° medium basic jugs', angle: 25, type: 'jug', size: 'm', spacing: 50, feet: true, expect: 1, width: 10.2, depth: 57 },
   // "5 Large Basic Jugs Set #3 (Series 2.0)", 4-3/4" wide (12.1 cm, two hands) and 2-3/4" off:
   // V0 on vertical and on a 25° wall, V1 at 45°.
-  { name: '25° large basic jugs', angle: 25, type: 'jug', size: 'l', spacing: 50, feet: true, expect: 0, width: 12.1 },
+  { name: '25° large basic jugs', angle: 25, type: 'jug', size: 'l', spacing: 50, feet: true, expect: 0, width: 12.1, depth: 70 },
 ];
 
 const TOP = 400;

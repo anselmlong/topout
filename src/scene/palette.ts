@@ -192,6 +192,15 @@ export function jugWidthEffect(cm: number): string | null {
   return cm < SLOPER_MATCH_WIDTH ? 'one hand: swapping hands is a shuffle' : null;
 }
 
+/** A jug's depth off the wall in words (model.ts jugDepth), or null for a middling one. */
+export function jugDepthWord(mm: number): string | null {
+  return mm < 45 ? 'Shallow' : mm >= 64 ? 'Deep' : null;
+}
+/** What a shallow jug's depth does: the fingers go in to the knuckle, not the palm. */
+export function jugDepthEffect(mm: number): string | null {
+  return mm < 45 ? 'shallow: fingers in to the knuckle, opens up steep' : null;
+}
+
 /** What a hold's lip does to it, in a few words: for a foothold, standing; else the hand. */
 export function lipEffect(type: HoldType, rank: number): string {
   if (type === 'jug') return rank < 0.2 ? 'a rounded handful, rolls off steep' : rank < 0.4 ? 'a big rounded handful' : 'closes over the fingers';
