@@ -45,6 +45,8 @@ const FLAG_REACH = 0.78;
  * ~0.8 m below the hip, so only a high step across the corner gets it.
  */
 const BRIDGE_HIGH = 0.55;
+/** How far (m) out of its face from the foot a bridged knee is posed at least (see bridgeKnee): the foot stands on a hold, so this is at the wall. */
+const BRIDGE_KNEE_CLEAR = 0.03;
 /**
  * How far below its hip (m) a frog-kneed foot starts to bring its knee up as well as out
  * (fully by 0.3 m higher, a foot up by the hip). A foot that high folds the leg shut along a
@@ -336,6 +338,9 @@ function poseFrom(
     if (bridged) {
       const up = Math.min(1, Math.max(0, (target.y - pelvis[i].y + BRIDGE_HIGH) / 0.35));
       if (up > 0) pole.lerp(kneeOff(pole.clone(), pelvis[i], target), up * up * (3 - 2 * up));
+      // Squatting on a sit start (hips less than a thigh above the mat) the knees splay flat
+      // against both faces instead, a frog squat, and pressing there sits the hips out.
+      if (pelvis[i].y > PAD_TOP + LEG[0]) bridgeKnee(pole, pelvis[i], target, faces[i]!);
     }
     const posed = ik(pelvis[i], target, LEG, pole);
     // Hips down on the mat (a sit start), a knee aimed down or out to the side would be posed
@@ -372,6 +377,41 @@ function offFaces(pole: THREE.Vector3, hip: THREE.Vector3, frames: PanelFrame[])
     if (into < 0) pole.addScaledVector(f.normal, KNEE_OFF_FACE - into);
   }
   return pole;
+}
+
+/**
+ * A bridged knee stays in front of its foot's face. Squared up to a tight corner the hips sit
+ * out from a foot in the crease and the leg points nearly straight into the corner, so a knee
+ * aimed out to its side came out of ik (which bends it across the hip-foot line) aimed into the
+ * face: on day 36 (a 105° fold) the right knee was posed 25-34 cm behind the face its foot was
+ * on for most of the climb, and the body's knee, turning the other way round its leg to get out
+ * of the wall, folded across under the hips for 2.6 s, the thighs crossed. Where ik would put
+ * the knee behind the face (BRIDGE_KNEE_CLEAR in front of the foot), it turns round the leg
+ * the short way, just to the face: against the wall, as a stemming knee is.
+ */
+function bridgeKnee(pole: THREE.Vector3, hip: THREE.Vector3, foot: THREE.Vector3, face: THREE.Vector3) {
+  const leg = foot.clone().sub(hip);
+  const [a, b] = LEG;
+  const d = Math.min(leg.length(), a + b - 1e-4);
+  leg.normalize();
+  const bend = pole.clone().addScaledVector(leg, -pole.dot(leg));
+  const out = face.clone().addScaledVector(leg, -face.dot(leg));
+  const m = out.length();
+  if (bend.lengthSq() < 1e-8 || m < 1e-2) return pole;
+  bend.normalize();
+  out.divideScalar(m);
+  // How far the knee stands out of the face from the foot: the point on the leg it bends from,
+  // plus how far it sticks out across the leg along the face's normal.
+  const cosA = Math.max(-1, Math.min(1, (a * a + d * d - b * b) / (2 * a * d)));
+  const h = a * Math.sqrt(1 - cosA * cosA);
+  const from = (a * cosA - hip.distanceTo(foot)) * leg.dot(face);
+  const need = Math.max(-1, Math.min(1, (BRIDGE_KNEE_CLEAR - from) / (h * m)));
+  const k = bend.dot(out);
+  if (h < 1e-3 || k >= need) return pole;
+  const side = bend.addScaledVector(out, -k);
+  if (side.lengthSq() < 1e-8) side.crossVectors(leg, out);
+  side.normalize();
+  return pole.copy(out).multiplyScalar(need).addScaledVector(side, Math.sqrt(1 - need * need));
 }
 
 /**

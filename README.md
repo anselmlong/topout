@@ -79,6 +79,10 @@ wall/pad collisions. Feet cut loose on campus moves and steep dynos, hard moves
 tremble, the crux plays in slow motion, and failed routes let go and fall.
 In a corner with a foot on each face, the climber bridges: the body squares up
 to the crease and each knee points out over its own foot, pushing the faces apart.
+In a tight corner a knee aimed out to its side would bend into its own face (the hips sit out
+from a foot in the crease), so it turns round the leg just far enough to stay in front of that
+face (`bridgeKnee` in `src/scene/Climber.tsx`) instead of folding across under the body; on a
+sit start the knees still splay flat against both faces in a frog squat.
 When a hand ends up down by the hips (a rockover, a hand-foot match, a mantle onto a
 lip) on ground no steeper than ~15°, it presses instead of pulling: elbow up and back,
 palm flat with the fingers turned in, shoulder over the hand, hips in over the feet.
