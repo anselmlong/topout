@@ -274,6 +274,14 @@ describe('solver', () => {
     expect(narrow.grade - wide.grade).toBeLessThan(1);
   });
 
+  it('a small jug opens up on an overhang; a medium one hangs at any angle', () => {
+    const jug = (size: 's' | 'm') => ({ id: 'x', type: 'jug' as const, size, u: 200, v: 300, rot: 0, incut: typicalIncut('jug') });
+    const below = { u: 200, v: 200 };
+    const ratio = (size: 's' | 'm') => handGrip(jug(size), below, wall(40)) / handGrip(jug(size), below, wall(0));
+    expect(ratio('m')).toBeCloseTo(1);
+    expect(ratio('s')).toBeLessThan(0.9);
+  });
+
   it('a flat-topped macro sloper grades easier than a steep one, more so when steep', () => {
     const macros = (pitch: number) => ladder('sloper', 55).map((h) => (h.type === 'sloper' ? { ...h, size: 'xl' as const, pitch, incut: 0.15 } : h));
     const gap = [0, 30].map((angle) => {
@@ -925,8 +933,12 @@ describe('solver', () => {
     // Its left hand used to go from the first jug to the arête and on to the second jug: 0.85
     // and 0.83, against 0.86 straight there, since the search took any intermediate that eased
     // the crux at all. Now it reaches straight up, two moves shorter, and still grades V1.
+    // Up to the small jug: from it, the metre's reach to the finish is worth a tap on the arête
+    // since a small jug opens up on an overhang (model.ts JUG_SIZE_STEEP): its crux 0.81 against
+    // 0.86 straight there before, past what SLAP sets aside.
     const ids = contactList(jug, finish, holds, undefined, arete).map((h) => h.id);
-    const slaps = r.moves.filter((m) => m.limb <= 1 && ids[m.to.limbs[m.limb]].startsWith('arete:'));
+    const below = r.moves.slice(0, r.moves.findIndex((m) => m.limb <= 1 && ids[m.to.limbs[m.limb]] === 'h6'));
+    const slaps = below.filter((m) => m.limb <= 1 && ids[m.to.limbs[m.limb]].startsWith('arete:'));
     expect(slaps).toHaveLength(0);
     expect(r.moves.some((m) => m.limb === 0 && ids[m.from.limbs[0]] === 'h2' && ids[m.to.limbs[0]] === 'h4')).toBe(true);
     expect(Math.round(r.grade)).toBe(1);

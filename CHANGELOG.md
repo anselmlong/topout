@@ -12,6 +12,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   little on steep walls (hardly anything on a slab). The tray says which ("One-hand horn").
 
 **Grades**
+- Small jugs get harder as the wall leans out: a mini jug is a shallow scoop for the fingers, not
+  the whole hand, so on the steepest walls a line of them grades up to a grade harder, while medium and
+  big jugs still hang at any angle.
 - A medium sloper wide enough for both hands (11 cm or more across) can now be matched,
   so a line of them on a vertical wall grades about half a grade easier, closer to how gyms grade
   medium slopers. Narrow medium slopers and small ones still only take one hand at a time.
