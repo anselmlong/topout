@@ -23,6 +23,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   medium slopers. Narrow medium slopers and small ones still only take one hand at a time.
 
 **Climber**
+- After a dyno on a steep wall, or hanging with its feet off, the climber brings each foot back onto
+  the wall at a steady pace instead of kicking it in from a metre out in a split second.
 - The climber steps a foot straight up instead of shuffling both feet down and back up just to make
   one step a little easier: it takes the natural sequence when the shuffle saves only a few percent.
   Some routes climb in fewer moves and grade a touch harder (about +0.01 on average).

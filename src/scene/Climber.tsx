@@ -13,8 +13,8 @@ import { chalkHold, climberFocus, rubberHold, useClimb, usePlaySpeed } from '../
 import { useGame, type Playback } from '../state/store';
 import { puff } from './Chalk';
 import { ARM, LEG, TORSO, V, ik, type Pose, type ShoeHook } from './pose';
-import { J, JOINTS, Ragdoll } from './ragdoll';
-import { buildTimeline, CRUX_SLOWMO, SEND, SHAKE_SCRIPT, REST, windupSink, type Keyframe, type Timeline } from './timeline';
+import { ENDS, J, JOINTS, Ragdoll } from './ragdoll';
+import { buildTimeline, CRUX_SLOWMO, footPace, SEND, SHAKE_SCRIPT, REST, windupSink, type Keyframe, type Timeline } from './timeline';
 import { STANDING_AT, standHip, topoutPose, type Lip } from './topout';
 import { frameAt, frameLocal, lipAt, nearestFrame, padBox, panelFrames, uvToWorld, worldV, type PanelFrame } from './wallGeometry';
 
@@ -677,6 +677,16 @@ export function Climber({ day }: { day: Day }) {
     return face.right.clone().multiplyScalar(du).addScaledVector(up, dv).normalize();
   };
 
+  /**
+   * How long (s) a foot hanging off the wall takes to come back onto `to`: at least what a step
+   * that long takes at FOOT_TOP (footPace), measured from where the foot really is. Cut loose off
+   * a dyno on steep ground (the solver still has it on its hold) it was put back in the next
+   * keyframe's 0.3 s, and off in the beta it was timed for the stance's reach along the wall: on
+   * day 67 (32°) the feet hung 1.0-1.3 m out and were kicked back in, 1.25 m in 0.29 s, at 8 m/s.
+   */
+  const footBack = (sim: Ragdoll, n: number, to: THREE.Vector3 | null, duration: number) =>
+    to && n >= 2 && sim.ends[n].mode === 'free' ? Math.max(duration, footPace(sim.pos[ENDS[n]].distanceTo(to))) : duration;
+
   const enterFrame = (r: Run, f: Keyframe) => {
     const { sim } = r;
     r.rest = null;
@@ -767,8 +777,8 @@ export function Climber({ day }: { day: Day }) {
       // The moving limb waits out its wind-up on its hold, then travels; the rest of the
       // keyframe is the settle as the weight comes onto it.
       if (n === f.limb && target && f.prep) r.launch = { at: r.t + f.prep, n, to: target, normal, duration: f.travel ?? f.duration * 0.85, lift: f.dynamic ? 0.14 : 0.07 };
-      else if (n === f.limb) sim.drive(n, target, normal, f.travel ?? f.duration * 0.85, f.dynamic ? 0.14 : 0.07);
-      else sim.drive(n, target, normal, 0.3, 0.05);
+      else if (n === f.limb) sim.drive(n, target, normal, footBack(sim, n, target, f.travel ?? f.duration * 0.85), f.dynamic ? 0.14 : 0.07);
+      else sim.drive(n, target, normal, footBack(sim, n, target, 0.3), 0.05);
     });
     sim.tone = 1 - 0.45 * f.strain;
     if (f.rest !== undefined) {
@@ -1193,7 +1203,7 @@ export function Climber({ day }: { day: Day }) {
         const l = r.launch;
         r.launch = null;
         r.winding = -1;
-        sim.drive(l.n, l.to, l.normal, l.duration, l.lift);
+        sim.drive(l.n, l.to, l.normal, footBack(sim, l.n, l.to, l.duration), l.lift);
       }
       const outPose = r.out ? topOut(r) : null;
       const kf = idx >= 0 ? timeline.frames[idx] : null;

@@ -302,6 +302,9 @@ export class Ragdoll {
       else e.mode = 'free';
       return;
     }
+    // Already on its way there (a foot coming back on slower than a keyframe, see footBack):
+    // it keeps its pace instead of starting over from where it is.
+    if (e.mode === 'moving' && !e.release && e.to.distanceTo(to) < 0.01) return;
     e.release = false;
     const here = this.pos[ENDS[end]];
     if (here.distanceTo(to) < 0.01 && e.mode !== 'free') {
