@@ -128,9 +128,17 @@ const SPLIT = 1;
  * step onto the hold is a move of its own. Not a hold in a corner's crease or across it,
  * where the smear stems and the hold can't. Like TOE_PRESS, footwork the move's difficulty
  * leaves out: the crux and every move's grade stay as they are.
+ * A foot edging the bare arête or a bare volume face is the same fibreglass, when a hold
+ * BARE_MARGIN better is free beside it: with the foot trailing for a reach, the face it's on
+ * costs nothing, so on an arête the climber stood on the edge move after move with a foot chip
+ * a shoe's length away (Climbing.com, "How to Climb Arêtes": the arête is for the hands and a
+ * heel or toe that pushes on it; stand on the footholds either side). Counted for every foot
+ * on in the stance, trailing or pushing. Not a mantle shelf (a foot up on it presses out a
+ * mantle), nor a volume's underside (TOE_PRESS prices that).
  */
 const SMEARED = 1;
 const SMEAR_CLEAR = 25;
+const BARE_MARGIN = 0.1;
 
 /**
  * What a hand move made with a foot hanging off the wall for nothing costs the beta on top of
@@ -520,18 +528,24 @@ class Context {
 
   /**
    * Foot `f` is smearing within SMEAR_CLEAR of a free foothold better than the smear, on the
-   * same face of a corner and out of its crease (SMEARED).
+   * same face of a corner and out of its crease; or edging the bare arête or a bare volume
+   * face with a hold BARE_MARGIN better that close (SMEARED).
    */
   smearBeside(l: Limbs, p: Point[], f: 2 | 3): boolean {
-    if (l[f] !== SMEAR) return false;
-    const q = this.footQ(SMEAR, p[f]);
+    const bare = l[f] >= 0 && this.holds[l[f]].type === 'volume' && !this.holds[l[f]].id.startsWith('lip:');
+    if (l[f] !== SMEAR && !(bare && !this.under[l[f]] && !this.mantleFoot(l, f, p))) return false;
+    const q = l[f] === SMEAR ? this.footQ(SMEAR, p[f]) : footQuality(this.holds[l[f]]) + BARE_MARGIN;
     const fold = this.wall.fold;
+    // On the arête itself the foot is on both faces at once: any foothold beside it is in reach.
+    const across = (a: Point) => !!fold && l[f] === SMEAR && ((a.u - fold.u) * (p[f].u - fold.u) <= 0 || Math.abs(a.u - fold.u) <= 8);
     return this.at.some(
       (a, j) =>
         !l.includes(j) &&
         flatDist(p[f], a) < SMEAR_CLEAR &&
         footQuality(this.holds[j]) > q &&
-        !(fold && ((a.u - fold.u) * (p[f].u - fold.u) <= 0 || Math.abs(a.u - fold.u) <= 8)),
+        !across(a) &&
+        // Off a smear, any foothold; off a bare face, a hold (not another face of the volume).
+        (l[f] === SMEAR || this.holds[j].type !== 'volume'),
     );
   }
 
@@ -845,10 +859,13 @@ class Context {
     const push = Math.max(0, ...onFeet.map((f) => (lw[f] >= 0 && !this.hookOf(lw, f as 2 | 3, p) ? legPush(p[f], target) : 0)));
     // Both feet on one hold, not a ledge or a volume face with room for two.
     const matched = lw[2] >= 0 && lw[2] === lw[3] && !this.holds[lw[2]].id.includes(':');
-    // Feet smearing beside a free foothold once the hand is on (SMEARED).
+    // Feet smearing beside a free foothold once the hand is on (SMEARED), or edging bare
+    // fibreglass beside one, trailing or not.
     const next = [...lw] as Limbs;
     next[limb] = to;
-    const smeared = onFeet.filter((f) => this.smearBeside(next, np, f as 2 | 3)).length;
+    const stood = [...l] as Limbs;
+    stood[limb] = to;
+    const smeared = [2, 3].filter((f) => (lw[f] === SMEAR ? this.smearBeside(next, np, f as 2 | 3) : l[f] >= 0 && this.smearBeside(stood, np, f as 2 | 3))).length;
     return {
       d,
       dynamic,

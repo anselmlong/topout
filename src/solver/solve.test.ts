@@ -832,6 +832,33 @@ describe('solver', () => {
     expect(Math.round(r.grade)).toBe(1);
   });
 
+  it('on an arête, stands on a foot chip or jug rather than edging the bare arête beside one', () => {
+    // Day 55's reference route (V2), a 15° wall with a 70° arête at u 165: start jugs left of
+    // it, a foot chip 23 cm from the arête's second contact. The climber stepped its left foot
+    // 96 cm down off the big sloper onto the bare arête and edged it for the last six moves,
+    // with the foot chip and the start jug free beside it: a trailing foot's hold cost nothing.
+    const wall: Wall = { width: 380, panels: [{ length: 465, angle: 15 }], seed: 3219528770, fold: { u: 165, angle: -70 } };
+    const start: Hold[] = [
+      { id: 'start-0', type: 'jug', size: 'l', u: 66, v: 158, rot: 0, role: 'start' },
+      { id: 'start-1', type: 'jug', size: 'l', u: 106, v: 158, rot: 0, role: 'start' },
+    ];
+    const finish: Hold = { id: 'finish', type: 'jug', size: 'l', u: 321, v: 259, rot: 0, role: 'finish' };
+    const holds: Hold[] = [
+      { id: 'h3', type: 'sloper', size: 'l', u: 130.87, v: 196.03, rot: -0.254 },
+      { id: 'h5', type: 'crimp', size: 'm', u: 186.05, v: 211.36, rot: -0.322 },
+      { id: 'h7', type: 'jug', size: 'm', u: 213.6, v: 232.37, rot: 0.175 },
+      { id: 'h9', type: 'edge', size: 's', u: 264.2, v: 241.86, rot: 0.153 },
+      { id: 'f4', type: 'jib', size: 'm', u: 272.07, v: 148.22, rot: 0 },
+      { id: 'f5', type: 'foot', size: 'm', u: 178.06, v: 119.46, rot: 0 },
+    ];
+    const r = solve(wall, start, finish, holds);
+    if (!r.ok) throw new Error(r.message);
+    const all = contactList(start, finish, holds, undefined, wall);
+    // No foot steps onto the bare arête (the start stance may stand on it).
+    expect(r.moves.some((m) => m.limb >= 2 && m.to.limbs[m.limb] >= 0 && all[m.to.limbs[m.limb]].id.startsWith('arete:'))).toBe(false);
+    expect(Math.round(r.grade)).toBe(2);
+  });
+
   it('keeps both feet on a slab instead of letting a smear dangle', () => {
     // Day 50's reference route (V1, an 11° slab): a jug start, edges and crimps up and left.
     const slab: Wall = { width: 360, panels: [{ length: 484, angle: -11 }], seed: 2113044559 };

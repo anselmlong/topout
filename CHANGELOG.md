@@ -17,6 +17,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   medium slopers. Narrow medium slopers and small ones still only take one hand at a time.
 
 **Climber**
+- On an arête or a volume, the climber stands on the foot chip or jug beside it instead of
+  edging the bare fibreglass of the arête or a volume face while that foothold sits free a
+  shoe's length away.
 - Holding on, the climber's elbows stay out to the sides the way its arms are bent, instead of
   sagging down under the arms against the wall: matched on a hold above its head, the elbows
   no longer collapse in front of its face for a couple of seconds.
