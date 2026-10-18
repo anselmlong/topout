@@ -219,7 +219,30 @@ describe('solver', () => {
         const incuts = [0, 1, 2, 3].map((v) => incutOf(type, size, v));
         expect(radii.indexOf(Math.max(...radii))).not.toBe(incuts.indexOf(Math.min(...incuts)));
       }
-    expect(edgeRadius({ id: 'p', type: 'pocket', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+    expect(edgeRadius({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
+  });
+
+  it('a sharp-rimmed pocket grades easier than a rolled one of the same depth, fingers and hood', () => {
+    const withRim = (holds: Hold[], radius: number) => holds.map((h) => (h.type === 'pocket' ? { ...h, radius, depth: 14, fingers: 3, incut: 0.55 } : h));
+    for (const angle of [0, 30]) {
+      const g = [2, 5, 9].map((mm) => grade(wall(angle), withRim(ladder('pocket', 45), mm)));
+      expect(g[2]).toBeGreaterThan(g[1]);
+      expect(g[1]).toBeGreaterThan(g[0]);
+      // Under a grade: it's the rim, not a different hold.
+      expect(g[2] - g[0]).toBeLessThan(1);
+    }
+    // A rim matters more round a shallow hole than a deep one the fingers sink into.
+    const pocket = (depth: number): Hold => ({ id: 'p', type: 'pocket', size: 'm', u: 0, v: 0, rot: 0, depth });
+    const loss = (h: Hold) => radiusFactor({ ...h, radius: 8 }) / radiusFactor({ ...h, radius: 2 });
+    expect(loss(pocket(12))).toBeLessThan(loss(pocket(28)));
+    expect(loss(pocket(12))).toBeLessThan(1);
+    // Every size's seeds cover four rims, and the roundest rim is never also the shallowest hole.
+    for (const size of ['s', 'm', 'l', 'xl'] as const) {
+      const radii = [0, 1, 2, 3].map((v) => radiusOf('pocket', size, v)!);
+      expect(new Set(radii).size).toBe(4);
+      const depths = [0, 1, 2, 3].map((v) => depthOf('pocket', size, v)!);
+      expect(radii.indexOf(Math.max(...radii))).not.toBe(depths.indexOf(Math.min(...depths)));
+    }
   });
 
   it('a rail ledge grades harder than a deep shelf of the same lip, by under a grade', () => {
@@ -731,7 +754,8 @@ describe('solver', () => {
     // Day 56's 105° corner, as curated. Stood on the crimp h3 with the other foot on the jug h2,
     // the climber walked the h3 foot 89 cm down to the start jug, moved the other foot onto h3
     // and on to h4, then walked the first foot back up to h3: four foot moves to make the step
-    // up to h4 6% easier than stepping straight there off h2.
+    // up to h4 6% easier than stepping straight there off h2. Its pockets keep their size's typical
+    // rim (they were all one rim when the day was curated; a seed's sharp rim tips it back).
     const wall: Wall = { width: 400, panels: [{ length: 451, angle: 8 }], seed: 1593924108, fold: { u: 177, angle: 105 } };
     const start: Hold[] = [
       { id: 'start-0', type: 'jug', size: 'm', u: 153, v: 135, rot: 0, role: 'start' },
@@ -740,8 +764,8 @@ describe('solver', () => {
     const holds: Hold[] = [
       { id: 'h2', type: 'jug', size: 's', u: 219.7, v: 194.4, rot: -0.302 },
       { id: 'h3', type: 'crimp', size: 'm', u: 156.8, v: 224.0, rot: 0.125 },
-      { id: 'h4', type: 'pocket', size: 'm', u: 229.7, v: 254.3, rot: -0.218 },
-      { id: 'h6', type: 'pocket', size: 's', u: 238.9, v: 309.1, rot: -0.108 },
+      { id: 'h4', type: 'pocket', size: 'm', u: 229.7, v: 254.3, rot: -0.218, radius: 5 },
+      { id: 'h6', type: 'pocket', size: 's', u: 238.9, v: 309.1, rot: -0.108, radius: 3.75 },
       { id: 'h7', type: 'sloper', size: 'm', u: 178.7, v: 347.3, rot: 0.045 },
       { id: 'h8', type: 'sloper', size: 'm', u: 249.9, v: 363.8, rot: 0.195 },
     ];

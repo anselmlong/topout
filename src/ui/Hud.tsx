@@ -185,11 +185,14 @@ function edgeWord(hold: Hold, depth: number, width: number | null, radius: numbe
   return `${r} ${rest ? lower(rest) : hold.size === 'xl' ? 'ledge' : HOLD_NAME[hold.type].toLowerCase()}`;
 }
 
-/** A pocket's finger count and depth in words ("Shallow two-finger", "Deep mono"). */
-function pocketWord(fingers: number, depth: number | null): string {
+/** A pocket's rim, depth and finger count in words ("Shallow two-finger", "Sharp deep mono"). */
+function pocketWord(fingers: number, depth: number | null, radius: number | null, size: HoldSize): string {
+  const r = radius !== null ? radiusWord('pocket', radius, size) : null;
   const d = depth !== null ? depthWord('pocket', depth) : null;
+  const lower = (w: string) => w.charAt(0).toLowerCase() + w.slice(1);
   const f = fingerWord(fingers);
-  return d ? `${d} ${f.charAt(0).toLowerCase() + f.slice(1)}` : f;
+  const rest = d ? `${d} ${lower(f)}` : f;
+  return r ? `${r} ${lower(rest)}` : rest;
 }
 
 /** A pinch's flank depth and span in words ("Low thin pinch", "Deep pinch", "Low wide block"). */
@@ -242,7 +245,7 @@ function Lip({ hold }: { hold: Hold }) {
     (hand !== null && jugWidthEffect(hand)) ||
     lipEffect(hold.type, rank);
   const prefix =
-    fingers !== null ? pocketWord(fingers, depth) : span !== null ? pinchWord(span, flank, hold.size) : depth !== null ? edgeWord(hold, depth, width, radius) : pitch !== null ? sloperWord(pitch, wide, hold.size) : chip !== null ? chipWord(chip, hold.type) : null;
+    fingers !== null ? pocketWord(fingers, depth, radius, hold.size) : span !== null ? pinchWord(span, flank, hold.size) : depth !== null ? edgeWord(hold, depth, width, radius) : pitch !== null ? sloperWord(pitch, wide, hold.size) : chip !== null ? chipWord(chip, hold.type) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

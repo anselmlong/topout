@@ -490,6 +490,15 @@ export function widthFactor(hold: Hold): number {
 export const EDGE_RADIUS: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
   crimp: { s: [1.5, 3, 4.5, 6], m: [2, 4, 6, 8], l: [2, 4.5, 7, 9.5] },
   edge: { s: [2, 4.5, 7, 9.5], m: [3, 6, 9, 12], l: [3, 7, 11, 15], xl: [4, 9, 14, 19] },
+  // A pocket's rim: the bottom lip the finger pads pull on, the same corner as a crimp's (and
+  // read the same way, against how deep the fingers go). A sharp rim is a square-cut hole the
+  // pads hook over; a rolled one curls down into the hole, so the fingers sit on the curve and
+  // only the back of the hole is flat enough to pull on. Hangboard makers radius their pockets
+  // as they do their edges (Lattice Training's Triple Rung; Beastmaker's pockets), and coaching
+  // material treats a shallow pocket as a crimp turned into the wall (Eric Hörst, "Training for
+  // Climbing"; Climbing.com, "How to Climb Pockets": get as much of each finger in as you can).
+  // On the same cycle as a crimp's radius: the roundest rim is never also the shallowest hole.
+  pocket: { s: [1.5, 3, 4.5, 6], m: [2, 4, 6, 8], l: [2, 4.5, 7, 9.5], xl: [3, 6, 9, 12] },
 };
 /** How much of the shelf a millimetre of radius takes away from the pads (mm of depth per mm). */
 export const RADIUS_EAT = 0.5;
@@ -499,9 +508,9 @@ export function radiusOf(type: HoldType, size: HoldSize, variant: number): numbe
   return list ? list[(3 * variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 2) % list.length] : null;
 }
 
-/** A crimp's or edge's lip radius (mm); null for other types. */
+/** A crimp's or edge's lip radius, or a pocket's rim radius (mm); null for other types. */
 export function edgeRadius(hold: Hold): number | null {
-  return hold.type === 'crimp' || hold.type === 'edge' ? (hold.radius ?? radiusOf(hold.type, hold.size, holdVariant(hold))) : null;
+  return hold.type === 'crimp' || hold.type === 'edge' || hold.type === 'pocket' ? (hold.radius ?? radiusOf(hold.type, hold.size, holdVariant(hold))) : null;
 }
 
 /** The mean radius an edge of this type and size comes in (mm), what its nose is drawn at; null for none. */
@@ -511,7 +520,7 @@ export function meanRadius(type: HoldType, size: HoldSize): number | null {
 }
 
 /**
- * A crimp's or edge's grip multiplier for its lip radius (1 otherwise): its depth read as the
+ * A crimp's, edge's or pocket's grip multiplier for its lip radius (1 otherwise): its depth read as the
  * shelf the pads actually get (RADIUS_EAT per mm of radius past its size's mean) through
  * depthGrip, normalised to the average of its size's builds (as pitchFactor), so a mixed set of
  * a size climbs as it always has.

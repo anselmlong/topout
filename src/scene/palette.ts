@@ -172,10 +172,11 @@ export function radiusWord(type: HoldType, mm: number, size: HoldSize = 'm'): st
   if (mean === null) return null;
   return mm < 0.6 * mean ? 'Sharp' : mm > 1.4 * mean ? 'Rounded' : null;
 }
-/** What a lip's corner does: it matters while the shelf is short enough that the pads sit near it. */
+/** What a lip's corner (or a pocket's rim) does: it matters while the shelf is short enough that the pads sit near it. */
 export function radiusEffect(type: HoldType, mm: number, depth: number, size: HoldSize = 'm'): string | null {
   const word = radiusWord(type, mm, size);
   if (!word || depth >= 30) return null;
+  if (type === 'pocket') return word === 'Sharp' ? 'sharp rim: the pads hook over it' : 'rolled rim: the fingers sit on the curve, a bit harder';
   return word === 'Sharp' ? 'sharp lip: the pads bite the corner' : 'rounded lip: the pads roll off, a bit harder';
 }
 

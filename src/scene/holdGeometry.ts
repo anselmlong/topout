@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanSloperWidth, pinchDepthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, pinchDepthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -303,10 +303,12 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
  * (model.ts fingersOf): a mono is a round dimple, a four-finger slot a long letterbox. It goes
  * as deep as the fingers do (model.ts depthOf, `depth` against its size's mean): a shallow dish
  * shows its pale floor just under the rim, a deep one stands a little prouder and its hole
- * drops into shadow.
+ * drops into shadow. Its rim is rolled to its radius (model.ts radiusOf, `rim` against its size's
+ * mean): a sharp one is a square-cut hole, the dome running right up to the edge and dropping
+ * straight in; a rounded one is a wide bullnose curling down into the hole.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, fingers = 2, depth = 1) {
+function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, fingers = 2, depth = 1, rim = 1) {
   const N = 28;
   // The body widens to frame a long slot.
   const W = (0.056 + 0.0065 * fingers) * (0.94 + 0.1 * k);
@@ -340,7 +342,9 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   // The hood above the hole stands proud of the bottom lip, more so on a deep one.
   const rimZ = (s: number) => Z * (1 + (0.02 + 0.16 * incut) * s);
   const rings: Ring[] = [];
-  const RIM = 1.45;
+  // How far the rolled rim spreads round the hole and how far it curls down into it.
+  const roll = Math.max(0.25, Math.min(2, rim));
+  const RIM = 1 + 0.45 * roll;
   for (const t of [0, 0.18, 0.4, 0.62, 0.82]) {
     rings.push({
       at: (c, s, j) => {
@@ -356,8 +360,9 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   }
   rings.push({ at: (c, s) => [...hole(c, s, RIM), rimZ(s)], shade: 1, jitter: 0.01 });
   // Rolled rim: crest, then the lip curling over into the hole.
-  rings.push({ at: (c, s) => [...hole(c, s, 1.25), rimZ(s) + 0.002], shade: 1, jitter: 0 });
-  rings.push({ at: (c, s) => [...hole(c, s, 1.0), rimZ(s) - 0.003], shade: 0.8, jitter: 0 });
+  rings.push({ at: (c, s) => [...hole(c, s, 1 + 0.25 * roll), rimZ(s) + 0.002 * roll], shade: 1, jitter: 0 });
+  rings.push({ at: (c, s) => [...hole(c, s, 1 + 0.07 * roll), rimZ(s) - 0.0012 * roll], shade: 0.9, jitter: 0 });
+  rings.push({ at: (c, s) => [...hole(c, s, 1.0), rimZ(s) - 0.003 * roll], shade: 0.8, jitter: 0 });
   // Walls: the top of the cavity runs up and out behind the lip.
   for (const f of [0.35, 0.7, 1]) {
     rings.push({
@@ -1290,7 +1295,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   if (type === 'pocket' || type === 'sloper' || type === 'pinch') {
     const p =
       type === 'pocket'
-        ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!)
+        ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!, radiusOf(type, size, v)! / meanRadius(type, size)!)
         : type === 'pinch'
           ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1))
           : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12, size === 'xl' ? 0.9 + 0.2 * k : (sloperWidthOf(size, v)! / meanSloperWidth(size)!) ** 0.6);

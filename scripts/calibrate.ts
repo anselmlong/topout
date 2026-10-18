@@ -567,11 +567,11 @@ export const ANCHORS: Anchor[] = [
   // "System Crimps #16", about 1" deep (25 mm) with "a sizeable rounded edge", "a lot more rounded
   // than a straight edge" and "a less crimpy version of our 3/4" Crimp Tile": V4 on a 20° wall
   // ("an advanced feeling hold on low angled walls"). The roundest small edge build (9.5 mm).
- angle: 20, type: 'edge', size: 's', spacing: 50, feet: true, expect: 4, depth: 25, radius: 9.5 },
+  { name: '20° rounded small edges', angle: 20, type: 'edge', size: 's', spacing: 50, feet: true, expect: 4, depth: 25, radius: 9.5 },
   // "10 Small Simple Rounders #2", 3" wide (7.6 cm), about 1-3/8" off the wall (35 mm) with very
   // little incut and a rounded lip: V3/V4 on vertical (its text says V4/5.11). V3, the lower grade,
   // as with the split ledges. The roundest medium edge build (12 mm).
- angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 3, depth: 35, width: 7.6, incut: 0.1, radius: 12 },
+  { name: 'vertical rounded medium edges', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 3, depth: 35, width: 7.6, incut: 0.1, radius: 12 },
 ];
 
 const TOP = 400;

@@ -20,6 +20,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   with the hands: on a long reach or a dyno it no longer kicks a metre up the wall in a blink.
 
 **Holds**
+- Pockets come sharp or rolled: some holes are cut square, so the finger pads hook right over the
+  rim; others have a rim that curls down into the hole, and the fingers sit on the curve. In a
+  shallow pocket a rolled rim holds a little worse; in a deep one it hardly matters. The tray says
+  so ("Sharp shallow two-finger", "Rounded mono").
 - Crimps and edges come sharp or rounded: some have a square lip the finger pads bite over, others
   a rounded nose they roll off. On a small crimp a rounded lip holds a little worse; on a deep edge
   it hardly matters. The tray says so ("Sharp crimp", "Rounded shallow crimp").
