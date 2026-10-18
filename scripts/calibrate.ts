@@ -42,6 +42,8 @@ export interface Anchor {
   depth?: number;
   /** Every hand hold's lip length (cm along the wall) if it's a crimp or an edge; default from its seed. */
   width?: number;
+  /** Every hand hold's lip radius (mm, how rounded its front corner is) if it's a crimp or an edge; default from its seed. */
+  radius?: number;
   /** Every hand hold's pitch (degrees its top slopes off level) if it's a sloper; default from its seed. */
   pitch?: number;
   /** Every foot chip's shelf depth (mm, how far it stands out from the wall); default the typical chip. */
@@ -352,7 +354,7 @@ export const ANCHORS: Anchor[] = [
   // only their overhanging grades are used.
   // Fingertip strips: "10 Small Simple Crimps Set #1", sold by depth as 10 mm to 14 mm, V4+ on a
   // 20° wall (V2 on vertical, V7+ at 45°).
-  { name: '20° shallow small crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, depth: 12, width: 9.5 },
+  { name: '20° shallow small crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, depth: 12, width: 9., radius: 1.5 },
   // "5 Small Granite Crimps Set #3", the low-profile set, 1/2" to 3/4" off the wall (13-19 mm):
   // V4 on a 25° wall (V2+ on vertical, V6/10 at 45°).
   { name: '25° low small crimps', angle: 25, type: 'crimp', size: 's', spacing: 55, feet: true, expect: 4, depth: 16 },
@@ -369,7 +371,7 @@ export const ANCHORS: Anchor[] = [
   // Yaniro Slot Crimps are, but carry no grade), so these pin the three-and-a-half to four finger end.
   // "10 Straight Crimps", 3" wide (7.6 cm, the little finger half on) and 1/2" off the wall, "a bit
   // in-cut", "positive" with a distinct edge: V3 on a 20° wall (V1 on vertical).
-  { name: '20° straight crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 3, depth: 13, width: 7.6, incut: 0.65 },
+  { name: '20° straight crimps', angle: 20, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 3, depth: 13, width: 7.6, incut: 0.6, radius: 1.5 },
   // "10 Dripstone Flat Crimps #2", 3-3/8" wide (8.6 cm) with about 3/4" of flat to slightly incut
   // edge: V4 on a 20° wall in the page's grade list (its text says V3), with Atomik's other 3/4"
   // small crimps (Simple Set #1, Granite Set #3, V4 at 20° and 25°).
@@ -555,6 +557,21 @@ export const ANCHORS: Anchor[] = [
   // two grades under Set #1 there.
   { name: '40° near-double-incut jugs', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 1, incut: 0.95, depth: 70, width: 12.1 },
   { name: '40° double-incut jugs', angle: 40, type: 'jug', size: 'l', spacing: 55, feet: true, expect: 1, incut: 1, depth: 70 },
+  // Crimps and edges by lip radius (model.ts EDGE_RADIUS, radiusFactor; bcc38a5): until now no row
+  // set how rounded an edge's front corner is, so the sharp and rounded builds every crimp and edge
+  // now comes as were graded off their seeds. Atomik Climbing Holds' grade guides (found via search
+  // on 2026-10-18; the site can't be fetched from this run). The sharp end: a Mountain Project
+  // review of Atomik's crimps says "the radius is quite sharp" on most of them and calls the Small
+  // Simple Crimps "sharp, but they don't rip your pads", so the Simple and Straight Crimp rows above
+  // now pin the sharpest small-crimp radius (1.5 mm). The rounded end:
+  // "System Crimps #16", about 1" deep (25 mm) with "a sizeable rounded edge", "a lot more rounded
+  // than a straight edge" and "a less crimpy version of our 3/4" Crimp Tile": V4 on a 20° wall
+  // ("an advanced feeling hold on low angled walls"). The roundest small edge build (9.5 mm).
+ angle: 20, type: 'edge', size: 's', spacing: 50, feet: true, expect: 4, depth: 25, radius: 9.5 },
+  // "10 Small Simple Rounders #2", 3" wide (7.6 cm), about 1-3/8" off the wall (35 mm) with very
+  // little incut and a rounded lip: V3/V4 on vertical (its text says V4/5.11). V3, the lower grade,
+  // as with the split ledges. The roundest medium edge build (12 mm).
+ angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 3, depth: 35, width: 7.6, incut: 0.1, radius: 12 },
 ];
 
 const TOP = 400;
@@ -598,14 +615,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}), ...(a.radius ? { radius: a.radius } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}), ...(a.radius ? { radius: a.radius } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)

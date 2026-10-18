@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-18
 
 **Grades**
+- Four real crimps now check how sharp or rounded lips grade, from Atomik's sharp simple crimps to
+  their round-lipped system crimps and rounders. Six upcoming days whose routes had drifted off
+  their grade were reset; their grades didn't change.
 - Four more real holds now check the grades: big pinch blocks that stand far off the wall, from a
   fat granite block to a long font pinch and a slopey one. The grades didn't change this time.
 
