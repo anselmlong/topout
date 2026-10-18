@@ -14,6 +14,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   fat granite block to a long font pinch and a slopey one. The grades didn't change this time.
 
 **Climber**
+- Knees and elbows ease into a swing and out of it: when a new move bends a folded knee the other way,
+  it slows and comes back round instead of snapping straight back at full speed.
 - On a big high step the climber sits its hips back off the wall to bring the foot up under them,
   instead of the leg kicking one hip out from the wall in a blink as the foot arrives.
 - A smearing foot follows the climber up the wall at a stepping pace instead of being yanked up

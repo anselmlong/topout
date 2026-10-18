@@ -117,6 +117,14 @@ const KNEE_SWING = 3.5;
  * pose's elbows up and back over the hands, both hung down under the forearms for ~2 s.
  */
 const ELBOW_SWING = 5;
+/**
+ * How long (s) a knee or elbow takes to get up to its swing speed round the limb's line, or to
+ * stop: it eases in and out instead of starting, stopping and turning back at full speed in one
+ * step. When a new move's pose put the knee on the other side of the leg, the knee swinging
+ * round one way at KNEE_SWING turned straight back: on day 32's corner (fold 105) a folded
+ * left knee, its foot on a hold at hip height, reversed at 1.4 m/s three times in 2 s.
+ */
+const SWING_EASE = 0.08;
 /** A knee turning round its leg goes the long way if the short way's halfway point is nearer the wall than this (m). */
 const KNEE_WALL = 0.05;
 /** Past this angle (rad) from the pose's side, a turning knee keeps going the way it was turning. */
@@ -209,6 +217,8 @@ export class Ragdoll {
   private carry = new THREE.Vector3();
   /** Which way (±1 round the limb's line, 0: not turning) each held elbow and standing knee turned last step, by end. */
   private kneeTurn = [0, 0, 0, 0];
+  /** How fast (rad/s, signed like kneeTurn) each held elbow and standing knee swings round its limb's line now, by end. */
+  private kneeSpin = [0, 0, 0, 0];
   private hipsV = new THREE.Vector3();
   private chestV = new THREE.Vector3();
   /** Each joint's velocity (m per step) over the last step, before this step's damping and muscles. */
@@ -507,7 +517,8 @@ export class Ragdoll {
         }
       }
       for (const [root, mid, tip, end] of LIMBS) {
-        if (this.ends[end].mode !== 'free') this.turnKnee(root, mid, tip, end, posture, (end < 2 ? ELBOW_SWING : KNEE_SWING) * dt);
+        if (this.ends[end].mode !== 'free') this.turnKnee(root, mid, tip, end, posture, end < 2 ? ELBOW_SWING : KNEE_SWING, dt);
+        else this.kneeSpin[end] = 0;
       }
       // Free feet are held tucked (the solver assumed so), not left to dangle onto the mat;
       // free hands (only ever let go on purpose, dropping off the top) are held too.
@@ -664,13 +675,13 @@ export class Ragdoll {
 
   /**
    * Swing a knee round its hip-foot line (or an elbow round its shoulder-hand line: hip, knee and
-   * foot stand for shoulder, elbow and hand), at most `max` radians, toward the side the pose bends it.
+   * foot stand for shoulder, elbow and hand), at up to `speed` rad/s, toward the side the pose bends it.
    */
-  private turnKnee(hip: number, knee: number, foot: number, leg: number, posture: THREE.Vector3[], max: number) {
+  private turnKnee(hip: number, knee: number, foot: number, leg: number, posture: THREE.Vector3[], speed: number, dt: number) {
     const { pos } = this;
     const axis = this.tmp.subVectors(pos[foot], pos[hip]);
     const span = axis.length();
-    if (span < 1e-3) return;
+    if (span < 1e-3) return void (this.kneeSpin[leg] = 0);
     axis.divideScalar(span);
     // Where the knee sticks out from the leg's line, now and in the pose (measured on this line).
     const out = this.tmp2.subVectors(pos[knee], pos[hip]);
@@ -681,7 +692,7 @@ export class Ragdoll {
     want.addScaledVector(poseAxis, -want.dot(poseAxis));
     want.addScaledVector(axis, -want.dot(axis));
     const r = out.length();
-    if (r < KNEE_BENT) return void (this.kneeTurn[leg] = 0);
+    if (r < KNEE_BENT) return void (this.kneeTurn[leg] = this.kneeSpin[leg] = 0);
     // Nor does gravity swing it round the line: the knee keeps no speed round it of its own (only
     // what the hip and foot carry). A wide step's leg lies near level, and gravity wound the knee
     // round under it faster than KNEE_SWING could turn it back: on day 118 (5°) the left knee
@@ -693,9 +704,9 @@ export class Ragdoll {
       .addScaledVector(this.carry.subVectors(pos[hip], this.prev[hip]), t - 1)
       .addScaledVector(this.carry.subVectors(pos[foot], this.prev[foot]), -t);
     this.prev[knee].addScaledVector(rim, spin.dot(rim));
-    if (want.length() < KNEE_BENT) return void (this.kneeTurn[leg] = 0);
+    if (want.length() < KNEE_BENT) return void (this.kneeTurn[leg] = this.kneeSpin[leg] = 0);
     const angle = out.angleTo(want);
-    if (angle < 1e-3) return void (this.kneeTurn[leg] = 0);
+    if (angle < 1e-3) return void (this.kneeTurn[leg] = this.kneeSpin[leg] = 0);
     // Rotate round the line, keeping the knee's distance from it (so the bones keep their length).
     const shortest = out.clone().cross(want).dot(axis) < 0 ? -1 : 1;
     // Nearly opposite the pose, either way round is as short: keep turning the way it was going,
@@ -712,13 +723,21 @@ export class Ragdoll {
       if (going && going.gap < KNEE_WALL && (!other || other.gap > going.gap)) side = -side;
     }
     this.kneeTurn[leg] = side;
-    out.applyAxisAngle(axis, side * Math.min(angle, max));
+    // Speeding up and slowing down at speed / SWING_EASE, braking in time to stop on the pose's
+    // side rather than overshoot it, and swinging on round the old way for a moment when the
+    // pose turns back.
+    const ease = (speed / SWING_EASE) * dt;
+    const goal = side * Math.min(speed, Math.sqrt(2 * (speed / SWING_EASE) * angle), angle / dt);
+    const was = this.kneeSpin[leg];
+    const w = was + Math.max(-ease, Math.min(ease, goal - was));
+    this.kneeSpin[leg] = w;
+    out.applyAxisAngle(axis, Math.sign(w) === side ? side * Math.min(angle, Math.abs(w) * dt) : w * dt);
     // The prior position turns with it, so the swing carries no speed into the next step: left
     // in pos alone, each step's turn became velocity that the next step's added to, and the
     // knee wound up to ~15 rad/s, four times KNEE_SWING (day 102: 130° in 0.15 s).
-    const was = this.aim.copy(pos[knee]);
+    const before = this.aim.copy(pos[knee]);
     pos[knee].copy(pos[hip]).addScaledVector(axis, along).add(out);
-    this.prev[knee].add(was.subVectors(pos[knee], was));
+    this.prev[knee].add(before.subVectors(pos[knee], before));
   }
 
   private invMass(i: number) {
