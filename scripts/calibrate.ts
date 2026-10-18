@@ -42,7 +42,7 @@ export interface Anchor {
   depth?: number;
   /** Every hand hold's lip length (cm along the wall) if it's a crimp or an edge; default from its seed. */
   width?: number;
-  /** Every hand hold's lip radius (mm, how rounded its front corner is) if it's a crimp or an edge; default from its seed. */
+  /** Every hand hold's lip radius (mm, how rounded its front corner is) if it's a crimp or an edge, or its rim radius if it's a pocket; default from its seed. */
   radius?: number;
   /** Every hand hold's pitch (degrees its top slopes off level) if it's a sloper; default from its seed. */
   pitch?: number;
@@ -572,6 +572,23 @@ export const ANCHORS: Anchor[] = [
   // little incut and a rounded lip: V3/V4 on vertical (its text says V4/5.11). V3, the lower grade,
   // as with the split ledges. The roundest medium edge build (12 mm).
   { name: 'vertical rounded medium edges', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 3, depth: 35, width: 7.6, incut: 0.1, radius: 12 },
+  // Pockets by rim radius (model.ts EDGE_RADIUS pocket, radiusFactor; cc9ec23): until now no row
+  // set how rounded a pocket's rim is, so the sharp and rolled builds every pocket now comes as
+  // were graded off their seeds. Atomik Climbing Holds' grade guides (found via search on
+  // 2026-10-18; the site can't be fetched from this run). Their 45° grades are read on a 40° wall,
+  // the steepest the reference set climbs (as the jug rows above), since the start jugs won't
+  // hold at 45°. The sharp end, on the same Mountain Project review as the crimps ("the radius is
+  // quite sharp"): "5 Medium Dripstone Pinches/Pockets", two-finger pockets "positive at around a
+  // full finger pad deep" (19 mm): V2 on vertical, V6 on a 45° wall. The sharpest medium rim (2 mm).
+  { name: 'vertical sharp dripstone pockets', angle: 0, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 2, fingers: 2, depth: 19, radius: 2 },
+  {
+    name: '40° sharp dripstone pockets', angle: 40, type: 'pocket', size: 'm', spacing: 55, feet: true, expect: 6, fingers: 2, depth: 19, radius: 2,
+    miss: 'grades V5.1: Atomik grades it on a 45° wall, read here at 40°, where the Kilter two-finger pockets of about that depth above are V5',
+  },
+  // The rolled end: the "Double Hander Pocket", a "rounded jug-style pocket" two full finger pads
+  // deep (38 mm) that takes both hands, "could be used in a roof in the intermediate V3 range". A
+  // macro slot with the roundest rim an xl pocket comes in (12 mm); a roof's grade read at 40°.
+  { name: '40° rounded double-hander pockets', angle: 40, type: 'pocket', size: 'xl', spacing: 55, feet: true, expect: 3, fingers: 4, depth: 38, radius: 12 },
 ];
 
 const TOP = 400;

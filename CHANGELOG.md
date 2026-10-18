@@ -7,6 +7,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-18
 
 **Grades**
+- Three real pockets now check how sharp or rolled rims grade, from Atomik's sharp-rimmed dripstone
+  pockets to their round double-hander pocket. The grades didn't change this time.
 - Four real crimps now check how sharp or rounded lips grade, from Atomik's sharp simple crimps to
   their round-lipped system crimps and rounders. Six upcoming days whose routes had drifted off
   their grade were reset; their grades didn't change.
