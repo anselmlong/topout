@@ -600,7 +600,13 @@ export class Ragdoll {
       const speed = Math.min(ROOM_SPEED, was + BODY_ACCEL * dt);
       const shift = Math.min(HIP_ROOM - d, speed * dt);
       this.roomSpeed[end - 2] = shift / dt;
-      away.multiplyScalar(shift / d);
+      // Out from the wall, sitting back off it, as well as aside: straight away from the foot's
+      // way pushed the hips along the wall or into it when the foot came up at their depth
+      // (a high step's arc lifts it off the wall), where the bones held them, until the foot
+      // arrived and its leg's stick shoved them (day 64: the right hip at 5.8 m/s).
+      const wall = this.surfaceGap(pos[hip]);
+      if (wall) away.addScaledVector(wall.normal, d - Math.min(0, away.dot(wall.normal)));
+      away.setLength(shift);
       for (let i = 0; i < JOINTS; i++) {
         if (i === foot || this.invMass(i) === 0) continue;
         pos[i].add(away);
