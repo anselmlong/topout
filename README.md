@@ -142,7 +142,9 @@ looks down at the pad and drops off: lands in a squat, stands, turns round to th
 on a send, throws both arms up and claps twice (`topOut` in `src/scene/Climber.tsx`). A route
 that tops out off the brief gets the same drop and a shrug back up at the route. The head follows
 the eyes: it spots each hold before the move, watches a foot all the way onto its
-hold, and reads the crux while shaking out.
+hold, and reads the crux while shaking out. The head is held up on the body's own shoulders
+(`headAim` in `src/scene/ragdoll.ts`), so when the body hangs higher than its pose (stretched
+out from a long catch) the neck stays upright instead of the head lolling back behind them.
 
 ## Layout
 

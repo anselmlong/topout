@@ -215,6 +215,7 @@ export class Ragdoll {
   private rim = new THREE.Vector3();
   private spin = new THREE.Vector3();
   private carry = new THREE.Vector3();
+  private headAt = new THREE.Vector3();
   /** Which way (±1 round the limb's line, 0: not turning) each held elbow and standing knee turned last step, by end. */
   private kneeTurn = [0, 0, 0, 0];
   /** How fast (rad/s, signed like kneeTurn) each held elbow and standing knee swings round its limb's line now, by end. */
@@ -481,7 +482,7 @@ export class Ragdoll {
         // A standing knee or a held elbow: the muscle sets how far it bends, turnKnee which way.
         const end = LIMBS.findIndex((l) => l[1] === i);
         const held = end >= 0 && this.ends[end].mode !== 'free';
-        pos[i].lerp(held ? this.kneeAim(end, posture) : posture[i], k);
+        pos[i].lerp(held ? this.kneeAim(end, posture) : i === J.head ? this.headAim(posture) : posture[i], k);
       }
       // A weight shift is something the body does, not a cut: cap how fast it carries itself.
       const hanging = this.ends[0].mode !== 'free' || this.ends[1].mode !== 'free';
@@ -671,6 +672,32 @@ export class Ragdoll {
     const r = want.length();
     if (now.length() < KNEE_BENT || r < KNEE_BENT) return posture[knee];
     return aim.copy(pos[hip]).addScaledVector(axis, along).addScaledVector(now.normalize(), r);
+  }
+
+  /**
+   * Where the head's muscle pulls: the posed head's place on the posed torso (up the spine, across
+   * the shoulders, out from the chest), set on the body's own torso. The head's bones (to the
+   * chest and both shoulders, nearly in a line) leave it free to nod round the shoulders, so pulled
+   * at the posed head itself it went wherever the pose's torso was: hanging from a stretched catch
+   * with the hips 40 cm above the pose's, it was dragged down behind the shoulders, the neck bent
+   * back past 90° (day 112: 12% of the climb, up to 180°; days 88 and 101 the same).
+   */
+  private headAim(posture: THREE.Vector3[]) {
+    const { pos } = this;
+    const frame = (p: THREE.Vector3[], up: THREE.Vector3, right: THREE.Vector3, out: THREE.Vector3) => {
+      up.subVectors(p[J.chest], p[J.pelvis]).normalize();
+      right.subVectors(p[J.shoulderR], p[J.shoulderL]);
+      right.addScaledVector(up, -right.dot(up)).normalize();
+      out.crossVectors(up, right);
+    };
+    frame(posture, this.tmp, this.tmp2, this.tmp3);
+    const off = this.aim.subVectors(posture[J.head], posture[J.chest]);
+    const a = off.dot(this.tmp);
+    const b = off.dot(this.tmp2);
+    const c = off.dot(this.tmp3);
+    frame(pos, this.tmp, this.tmp2, this.tmp3);
+    if (!Number.isFinite(this.tmp3.x + this.tmp3.y + this.tmp3.z)) return posture[J.head];
+    return this.headAt.copy(pos[J.chest]).addScaledVector(this.tmp, a).addScaledVector(this.tmp2, b).addScaledVector(this.tmp3, c);
   }
 
   /**

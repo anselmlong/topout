@@ -6,6 +6,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-19
 
+**Climber**
+- The climber's head stays up on its shoulders: stretched out from a long reach or a catch, it
+  used to loll back behind them, the neck bent over backwards, for seconds at a time.
+
 **Holds**
 - One crimp in four now has a thumb catch: a little nub under one end of the lip that the thumb
   pinches from below. It holds a bit better than a plain crimp of the same shape, most of all on
