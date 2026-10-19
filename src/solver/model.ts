@@ -350,6 +350,46 @@ export function pinchDepthFactor(hold: Hold): number {
 }
 
 /**
+ * How long a pinch's finger flank runs (cm, life size, the part of the rib the fingers line up
+ * along, between the ends that roll over to the wall), from its seed and size, on its own cycle
+ * (one build on from its span's, so the shortest build is the widest and never also the thinnest
+ * or the lowest). A stubby nubbin takes two fingers against the thumb, a long rib all four: the
+ * same finger shares as a short crimp (FINGER_GRIP, widthGrip), but a pinch is held by the thumb
+ * as much as by the fingers, and the thumb is all there whatever the length, so a pinch loses
+ * half what a crimp that short does. Coaching material: Climbing.com, "How to Climb Pinches"
+ * (get as many fingers on the flank as it takes; a two-finger pinch is a hard, specific grip);
+ * Eric Hörst, "Training for Climbing" (pinch strength is limited by the thumb's opposition, so
+ * the fingers count for less than on an edge). Pinch blocks are all longer than a hand (null).
+ * The lists end at the length each size has always been drawn at.
+ */
+export const PINCH_LENGTH: Partial<Record<HoldSize, number[]>> = { s: [4.5, 6, 7.5, 9], m: [5.5, 7.5, 9.5, 11.5], l: [7, 9.5, 12, 14] };
+
+export function pinchLengthOf(size: HoldSize, variant: number): number | null {
+  const list = PINCH_LENGTH[size];
+  return list ? list[(variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 3) % list.length] : null;
+}
+
+/** How long a pinch's finger flank is (cm); null for pinch blocks and other types. */
+export function pinchLength(hold: Hold): number | null {
+  return hold.type === 'pinch' && PINCH_LENGTH[hold.size] ? (hold.width ?? pinchLengthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** A pinch's grip by flank length (cm): half of what a crimp that short loses (widthGrip), the thumb doing the rest. */
+export function pinchLengthGrip(cm: number): number {
+  return 1 - 0.5 * (1 - widthGrip(cm));
+}
+
+/** A pinch's grip multiplier for its flank length against its size's typical build (1 otherwise), normalised as widthFactor. */
+export function pinchLengthFactor(hold: Hold): number {
+  const cm = pinchLength(hold);
+  const list = PINCH_LENGTH[hold.size];
+  if (cm === null || !list || hold.grip !== undefined) return 1;
+  const grips = list.map(pinchLengthGrip);
+  const mean = (3 * grips.reduce((a, n) => a + n, 0) / grips.length + Math.min(...grips)) / 4;
+  return pinchLengthGrip(cm) / mean;
+}
+
+/**
  * How deep a crimp's or an edge's shelf is (mm, life size: how much of the finger pads it
  * takes), from its seed and size, on its own cycle (two builds off the lip's, like a pinch's
  * span, so the shallowest build is never also the flattest). Depth is what grades an edge
@@ -1115,7 +1155,7 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   // round an arête the hand turns to take it side-on.
   const sizeLoss = (jugDepthSteep(hold) + jugLipSteep(hold)) * overhang;
   const steepFactor = 1 - loss * steep - sizeLoss;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * thumb.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * thumb.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * pinchLengthFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;
 }
 

@@ -54,7 +54,7 @@ export interface Hold {
   span?: number;
   /** Crimp or edge shelf depth, pocket depth, pinch flank depth, foot chip or jib depth, or how far a jug stands off the wall, override (mm); otherwise read off the seed (see edgeDepth, pinchDepth, footDepth, jugDepth). */
   depth?: number;
-  /** Crimp or edge length, or sloper or jug width, override (cm along the wall); otherwise read off the seed (see edgeWidth, sloperWidth, jugWidth). */
+  /** Crimp or edge length, pinch flank length, or sloper or jug width, override (cm along the wall); otherwise read off the seed (see edgeWidth, pinchLength, sloperWidth, jugWidth). */
   width?: number;
   /** Crimp or edge lip radius, or pocket rim radius, override (mm at the front corner); otherwise read off the seed (see edgeRadius). */
   radius?: number;

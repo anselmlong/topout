@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, pinchDepthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, thumbOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, PINCH_LENGTH, pinchDepthOf, pinchLengthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, thumbOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -822,12 +822,14 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
  * dimple for the thumb pad. The outline is a lozenge, fuller at the bottom.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null, depth = 1) {
+function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null, depth = 1, length = 1) {
   const N = 40;
   // Half its width. Its span (model.ts spanOf, cm in life, drawn 20% large like the rest) is
   // what the thumb and fingers squeeze across, so a thin fin reads thin and a broad one broad.
   const W = span === null ? 0.031 * (0.9 + 0.2 * k) : (span * 0.006) / S;
-  const H = 0.081;
+  // Its finger flank's length (model.ts pinchLengthOf) against the longest its size comes in, so a
+  // two-finger nubbin reads stubby beside a long rib.
+  const H = 0.081 * length;
   const oy0 = 0.003;
   // How far it stands proud: its flank depth (model.ts pinchDepthOf) against its size's mean, so a
   // low-profile pinch reads squat and a deep one tall.
@@ -838,7 +840,8 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
   const spineX = (yn: number) => lean * yn + bow * (1 - yn * yn);
   // Which flank the fingers take (the other gets the thumb); this variant's ribs.
   const fingers = r.chance(0.5) ? -1 : 1;
-  const ribs = 2.5 + 1.5 * k;
+  // A rib per fingertip or so, so a short pinch carries fewer.
+  const ribs = (2.5 + 1.5 * k) * length;
   const ribPhase = r.range(0, 6.3);
   // Its incut is how deep the fingertip ribs are cut into the flank.
   r.range(0.1, 0.15);
@@ -1309,7 +1312,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
       type === 'pocket'
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!, radiusOf(type, size, v)! / meanRadius(type, size)!)
         : type === 'pinch'
-          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1))
+          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1), (pinchLengthOf(size, v) ?? 1) / Math.max(...(PINCH_LENGTH[size] ?? [1])))
           : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12, size === 'xl' ? 0.9 + 0.2 * k : (sloperWidthOf(size, v)! / meanSloperWidth(size)!) ** 0.6);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);

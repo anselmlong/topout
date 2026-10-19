@@ -15,6 +15,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   a crimp the thumb can help on grades as easy as climbers find it.
 
 **Holds**
+- Pinches come short or long: a stubby two-finger nub is a bit harder than a long rib all four
+  fingers fit along, though less so than a short crimp, since the thumb still squeezes. You can
+  see it in the shape, and the hold info says how many fingers fit.
 - One crimp in four now has a thumb catch: a little nub under one end of the lip that the thumb
   pinches from below. It holds a bit better than a plain crimp of the same shape, most of all on
   overhangs, and the hold info says so.

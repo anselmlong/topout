@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -136,6 +136,30 @@ describe('solver', () => {
     expect(flankGrip(60) / flankGrip(30)).toBeGreaterThan(1.08);
     expect(depthGrip(60) / depthGrip(30)).toBeLessThan(1.03);
     expect(pinchDepth({ id: 'e', type: 'edge', size: 'm', u: 0, v: 0, rot: 0, depth: 20 })).toBeNull();
+  });
+
+  it('a long pinch grades easier than a two-finger one of the same span and depth, by less than a crimp that short', () => {
+    const withLength = (holds: Hold[], width: number) => holds.map((h) => (h.type === 'pinch' ? { ...h, width, span: 5.5, depth: 30, incut: 0.5, rot: Math.PI / 2 } : h));
+    for (const angle of [0, 30]) {
+      const g = [4.5, 6.5, 9].map((cm) => grade(wall(angle), withLength(ladder('pinch', 45), cm)));
+      expect(g[0]).toBeGreaterThan(g[1] + 0.1);
+      expect(g[1]).toBeGreaterThan(g[2]);
+      expect(grade(wall(angle), withLength(ladder('pinch', 45), 14))).toBeCloseTo(g[2], 5);
+    }
+    // The thumb is all there whatever the length: a short pinch loses half what a short crimp does.
+    expect(1 - pinchLengthGrip(4.5)).toBeCloseTo((1 - widthGrip(4.5)) / 2, 5);
+    // Every size comes in four lengths, the shortest build never also the thinnest or the lowest;
+    // pinch blocks and other types have none.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const lengths = [0, 1, 2, 3].map((v) => pinchLengthOf(size, v)!);
+      expect(new Set(lengths).size).toBe(4);
+      const shortest = lengths.indexOf(Math.min(...lengths));
+      expect(spanOf(size, shortest)).toBeGreaterThan(Math.min(...[0, 1, 2, 3].map((v) => spanOf(size, v)!)));
+      expect(pinchDepthOf(size, shortest)).toBeGreaterThan(Math.min(...[0, 1, 2, 3].map((v) => pinchDepthOf(size, v)!)));
+    }
+    expect(Math.min(...[0, 1, 2, 3].map((v) => pinchLengthOf('s', v)!))).toBeLessThan(5);
+    expect(pinchLength({ id: 'x', type: 'pinch', size: 'xl', u: 0, v: 0, rot: 0 })).toBeNull();
+    expect(pinchLength({ id: 'c', type: 'crimp', size: 's', u: 0, v: 0, rot: 0, width: 5 })).toBeNull();
   });
 
   it('a narrow pinch block grades easier than a wide one', () => {

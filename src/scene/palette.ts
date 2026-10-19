@@ -166,6 +166,11 @@ export function widthEffect(cm: number): string | null {
   return widthFingers(cm) < 2.6 ? 'two fingers wide: harder' : null;
 }
 
+/** What a short pinch does (model.ts pinchLength; its words are widthWord's): the thumb still squeezes, so it costs less than on a crimp. */
+export function pinchLengthEffect(cm: number): string | null {
+  return widthFingers(cm) < 2.6 ? 'two fingers long: a bit harder' : null;
+}
+
 /** A crimp's or edge's front corner in words (model.ts edgeRadius), or null for a middling one. */
 export function radiusWord(type: HoldType, mm: number, size: HoldSize = 'm'): string | null {
   const mean = meanRadius(type, size);
