@@ -40,7 +40,7 @@ export interface Anchor {
   span?: number;
   /** Every hand hold's shelf depth (mm) if it's a crimp, an edge or a jug (how far it stands off the wall); default from its seed. */
   depth?: number;
-  /** Every hand hold's lip length (cm along the wall) if it's a crimp or an edge; default from its seed. */
+  /** Every hand hold's lip length (cm along the wall) if it's a crimp or an edge, or its flank length if it's a pinch; default from its seed. */
   width?: number;
   /** Every hand hold's lip radius (mm, how rounded its front corner is) if it's a crimp or an edge, or its rim radius if it's a pocket; default from its seed. */
   radius?: number;
@@ -342,13 +342,13 @@ export const ANCHORS: Anchor[] = [
   // their overhanging grades are used.
   // Thin: "5 Small Simple Pinches", 2" wide (5 cm) and 1-1/4" off the wall, V4 on a 25° wall
   // (V3/4 on another listing of the same set; V7 at 45°).
-  { name: '25° thin pinches', angle: 25, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 4, span: 5 },
+  { name: '25° thin pinches', angle: 25, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 4, span: 5, width: 10.8 },
   // Wide: "5 Pack Squished Pinches" Set #1 (2-1/2" to 3" wide) is V2 on a 25° wall and Set #3
   // (2-1/2" to 3-3/4") V4: the same width, so V3 between them, at 7 cm.
   { name: '25° wide pinches', angle: 25, type: 'pinch', size: 'm', spacing: 55, feet: true, expect: 3, span: 7 },
   // "5 Large Basic Pinches Set #3", the wider set of the basic pinches (no width given; set past a
   // hand's width, 7.5 cm): V2 on vertical, V4 on a 20° wall, V7 at 45°.
-  { name: '20° large wide pinches', angle: 20, type: 'pinch', size: 'l', spacing: 55, feet: true, expect: 4, span: 7.5 },
+  { name: '20° large wide pinches', angle: 20, type: 'pinch', size: 'l', spacing: 55, feet: true, expect: 4, span: 7.5, width: 14 },
   // Crimps by shelf depth (model.ts EDGE_DEPTH, depthGrip): until now no reference problem set a
   // crimp's depth, so the fingertip strips and full-pad crimps every crimp now comes as were graded
   // off their seeds. Atomik Climbing Holds' grade guides give each set's size off the wall (found
@@ -607,6 +607,22 @@ export const ANCHORS: Anchor[] = [
   // its thumb catch too. Set #1, "the most incut" of the two (the same 4-5/8" largest hold), is V2
   // on a 20° wall ("you will get a V1 crimp that is very incut", V1 on vertical).
   { name: '20° most-incut oval crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.95, width: 11.7, thumb: true },
+  // Pinches by flank length (model.ts PINCH_LENGTH, pinchLengthGrip; 2c4d1b0): until now no row
+  // set how long a pinch's finger flank runs, so the short and long builds every pinch now comes in
+  // were graded off their seeds. Atomik Climbing Holds' grade guides give each set's height, the
+  // flank the fingers stack along on a pinch set upright (found via search on 2026-10-19; the site
+  // can't be fetched from this run). The span and depth rows above now pin their sets' heights:
+  // the Small Simple Pinches are 4-1/4" tall (10.8 cm), the Large Basic Pinches Set #3 5-1/2" (14).
+  // "10 Small Basic Pinches Set #1", 3" long, 2" wide (5 cm) and 1-3/4" off the wall (44 mm), "just
+  // enough room for a thumb and four fingers", "neutral to slopey" (incut 0.2): V3+ on vertical.
+  { name: 'vertical short cobble pinches', angle: 0, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 3, span: 5, depth: 44, width: 7.6, incut: 0.2 },
+  // Set #2, "shallower but more positive" and an inch longer: 4" long (10.2 cm), 2" wide, 1/2" to
+  // 1" off the wall (19 mm), "plenty of room for one hand": the same V3+ on vertical.
+  { name: 'vertical long low-profile pinches', angle: 0, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 3, span: 5, depth: 19, width: 10.2 },
+  // "5 Small Granite Pinches Narrow", 2-5/8" to 4-5/8" tall (9.2 cm between), a 1" to 2-1/2" pinch
+  // (4.5 cm), 1-1/8" to 1-1/4" off the wall (30 mm): V4/5 on a 25° wall (V4, the lower grade; V3 on
+  // vertical, V7+ at 45°).
+  { name: '25° narrow granite pinches', angle: 25, type: 'pinch', size: 's', spacing: 55, feet: true, expect: 4, span: 4.5, depth: 30, width: 9.2 },
 ];
 
 const TOP = 400;

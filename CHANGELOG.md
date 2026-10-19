@@ -10,6 +10,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - The climber holds still on a high step in a tight corner: with a foot up by the hip and nowhere
   to move the body, it used to shake back and forth on the spot, sometimes for seconds.
 
+**Grades**
+- Grades are now checked against short and long pinches, from a hold maker's grade guide, so a
+  stubby pinch and a long one are each graded against real holds of that length.
+
 ## 2026-10-19
 
 **Climber**
