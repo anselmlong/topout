@@ -537,6 +537,46 @@ export function radiusFactor(hold: Hold): number {
 }
 
 /**
+ * Whether a crimp has a thumb catch: a knob on the belly under one end of the lip that the thumb
+ * presses up against while the fingers pull down on the shelf, so the crimp is half pinched. One
+ * build in four of each size has one, on its own cycle (it falls on the flattest lip, so the
+ * crimp that reads worst from its top is the one with something under it for the thumb). The thumb's opposition does
+ * two things: it adds to the grip (the thumb is the hand's strongest digit, and locking it in is
+ * what makes the full crimp the most secure crimp grip: Eric Hörst, "Training for Climbing"),
+ * and, since it squeezes the hold rather than hanging off it, it keeps the fingers on as the
+ * pull swings out on an overhang, as a pinch does (GRIP: a pinch's steepLoss is a third of a
+ * crimp's). Climbing.com, "How to Climb Crimps": look for somewhere to use the thumb, pinching
+ * the edge when the hold allows. Crimps only: an edge or a ledge is held open-handed, a jug
+ * wrapped. Normalised so a line of mixed crimps grades as it always has (thumbFactors); the
+ * build with a catch climbs better than the other three.
+ */
+export const THUMB_LEVEL = 0;
+export const THUMB_GRIP = 1.08;
+export const THUMB_STEEP = 0.6;
+
+export function thumbOf(type: HoldType, size: HoldSize, variant: number): boolean {
+  return type === 'crimp' && size !== 'xl' && (variant + { s: 0, m: 1, l: 2, xl: 3 }[size]) % HOLD_VARIANTS === THUMB_LEVEL;
+}
+
+/** Whether a crimp has a thumb catch; null for other types (see thumbOf). */
+export function thumbCatch(hold: Hold): boolean | null {
+  return hold.type === 'crimp' && hold.size !== 'xl' ? (hold.thumb ?? thumbOf(hold.type, hold.size, holdVariant(hold))) : null;
+}
+
+/**
+ * The grip and steepLoss multipliers a crimp's thumb catch gives it (1, 1 for other holds),
+ * normalised as depthFactor is (a line of mixed crimps grades off its worst: the typical build
+ * sits a quarter of the way from the average down to a plain one), so a mixed set of a size
+ * climbs as it always has and the catch is what sets one build apart.
+ */
+export function thumbFactors(hold: Hold): { grip: number; steep: number } {
+  const has = thumbCatch(hold);
+  if (has === null || hold.grip !== undefined) return { grip: 1, steep: 1 };
+  const typical = (value: number) => (3 * ((value + HOLD_VARIANTS - 1) / HOLD_VARIANTS) + 1) / 4;
+  return has ? { grip: THUMB_GRIP / typical(THUMB_GRIP), steep: THUMB_STEEP / typical(THUMB_STEEP) } : { grip: 1 / typical(THUMB_GRIP), steep: 1 / typical(THUMB_STEEP) };
+}
+
+/**
  * How far a sloper's palm surface slopes away from level (degrees, on a vertical wall), from its
  * seed and size, on its own cycle (one build off its dish, so the steepest build is never also
  * the roundest). Pitch is what grades a sloper: it's held by friction alone, and friction
@@ -1064,17 +1104,18 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
   const overhang = Math.max(0, Math.sin(rad(hold.angle ?? angleAt(wall, hold.v))));
   const steep = overhang + areteYaw(hold, pullTo, wall);
   const incut = incutFactors(hold);
+  const thumb = thumbFactors(hold);
   const share = macroShare(hold);
   const macro = hold.size === 'xl' ? 1 - (1 - (MACRO_STEEP[hold.type] ?? 1)) * share : 1;
   const loss =
     hold.type === 'jug' && hold.grip === undefined
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
-      : spec.steepLoss * macro * incut.steep * pitchSteep(hold);
+      : spec.steepLoss * macro * incut.steep * thumb.steep * pitchSteep(hold);
   // A shallow jug's scoop and an open lip only open up as the pull swings out from the wall;
   // round an arête the hand turns to take it side-on.
   const sizeLoss = (jugDepthSteep(hold) + jugLipSteep(hold)) * overhang;
   const steepFactor = 1 - loss * steep - sizeLoss;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * thumb.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;
 }
 

@@ -60,6 +60,8 @@ export interface Hold {
   radius?: number;
   /** Sloper pitch override (degrees its palm surface slopes off level); otherwise read off the seed (see sloperPitch). */
   pitch?: number;
+  /** Crimp thumb catch override; otherwise read off the seed (see thumbCatch). */
+  thumb?: boolean;
 }
 
 export interface Panel {

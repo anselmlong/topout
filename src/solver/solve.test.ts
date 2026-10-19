@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchSpan, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -222,6 +222,29 @@ describe('solver', () => {
     expect(edgeRadius({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
+  it('a crimp with a thumb catch grades easier than a plain one of the same build, more so on an overhang', () => {
+    const withThumb = (holds: Hold[], thumb: boolean) => holds.map((h) => (h.type === 'crimp' ? { ...h, thumb, depth: 13, width: 10, radius: 4, incut: 0.5 } : h));
+    const gain = [0, 40].map((angle) => {
+      const plain = grade(wall(angle), withThumb(ladder('crimp', 45), false));
+      const caught = grade(wall(angle), withThumb(ladder('crimp', 45), true));
+      expect(caught).toBeLessThan(plain);
+      // Under a grade: the thumb helps, it doesn't make the crimp a jug.
+      expect(plain - caught).toBeLessThan(1);
+      return plain - caught;
+    });
+    // The thumb squeezes, so it keeps the fingers on as the pull swings out.
+    expect(gain[1]).toBeGreaterThan(gain[0]);
+    // One build in four of each size has one, never the deepest lip; only crimps.
+    for (const size of ['s', 'm', 'l'] as const) {
+      const builds = [0, 1, 2, 3].filter((v) => thumbOf('crimp', size, v));
+      expect(builds.length).toBe(1);
+      const incuts = [0, 1, 2, 3].map((v) => incutOf('crimp', size, v));
+      expect(builds[0]).not.toBe(incuts.indexOf(Math.max(...incuts)));
+    }
+    expect(thumbCatch({ id: 'e', type: 'edge', size: 's', u: 0, v: 0, rot: 0 })).toBeNull();
+    expect(thumbFactors({ id: 'e', type: 'edge', size: 's', u: 0, v: 0, rot: 0 })).toEqual({ grip: 1, steep: 1 });
+  });
+
   it('a sharp-rimmed pocket grades easier than a rolled one of the same depth, fingers and hood', () => {
     const withRim = (holds: Hold[], radius: number) => holds.map((h) => (h.type === 'pocket' ? { ...h, radius, depth: 14, fingers: 3, incut: 0.55 } : h));
     for (const angle of [0, 30]) {
@@ -428,7 +451,9 @@ describe('solver', () => {
   });
 
   it('big foot chips grade easier than tiny ones of the same incut', () => {
-    const feet = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, depth, incut: 0.45 } : h));
+    // The hand crimps pinned to their thumb-catch build: on the plain one (seed 0) the slab crimp
+    // line's crux is a hand move every chip size shares, so tiny and mid tie to 0.0001.
+    const feet = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, depth, incut: 0.45 } : h.type === 'crimp' ? { ...h, thumb: true } : h));
     // On a slab the feet carry the climb, so the chips' size shows in the grade.
     for (const [type, angle] of [['edge', -15], ['crimp', -10]] as const) {
       const tiny = grade(wall(angle), feet(ladder(type, 45), 11));

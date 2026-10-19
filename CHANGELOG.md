@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-10-19
+
+**Holds**
+- One crimp in four now has a thumb catch: a little nub under one end of the lip that the thumb
+  pinches from below. It holds a bit better than a plain crimp of the same shape, most of all on
+  overhangs, and the hold info says so.
+
 ## 2026-10-18
 
 **Grades**

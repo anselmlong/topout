@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWord, depthEffect, radiusEffect, radiusWord, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
-import { edgeDepth, edgeRadius, edgeWidth, footDepth, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWord, depthEffect, radiusEffect, radiusWord, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, thumbEffect, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
+import { edgeDepth, edgeRadius, edgeWidth, footDepth, thumbCatch, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -181,8 +181,8 @@ function edgeWord(hold: Hold, depth: number, width: number | null, radius: numbe
   const r = radius !== null ? radiusWord(hold.type, radius, hold.size) : null;
   const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
   const rest = w ? `${w} ${d ? lower(d) : HOLD_NAME[hold.type].toLowerCase()}` : d;
-  if (!r) return rest;
-  return `${r} ${rest ? lower(rest) : hold.size === 'xl' ? 'ledge' : HOLD_NAME[hold.type].toLowerCase()}`;
+  const words = r ? `${r} ${rest ? lower(rest) : hold.size === 'xl' ? 'ledge' : HOLD_NAME[hold.type].toLowerCase()}` : rest;
+  return thumbCatch(hold) ? `${words ?? HOLD_NAME[hold.type]} with a thumb catch` : words;
 }
 
 /** A pocket's rim, depth and finger count in words ("Shallow two-finger", "Sharp deep mono"). */
@@ -233,6 +233,7 @@ function Lip({ hold }: { hold: Hold }) {
   const effect =
     (fingers !== null && fingerEffect(fingers)) ||
     (span !== null && spanEffect(span)) ||
+    (thumbCatch(hold) && thumbEffect()) ||
     (flank !== null && pinchDepthEffect(flank, hold.size)) ||
     (depth !== null && depth < 12 && depthEffect(hold.type, depth, hold.size)) ||
     (width !== null && widthEffect(width)) ||

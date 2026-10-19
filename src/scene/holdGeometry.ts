@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, pinchDepthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, pinchDepthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, thumbOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -211,10 +211,11 @@ function radiusProfile(pts: [number, number][], rho: number): [number, number][]
  * melts into the wall instead of a cut-off end. Columns bunch up toward the
  * ends where the shape turns fastest. Returns the bolt square to the face.
  */
-function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null, length: number | null = null, radius: number | null = null) {
+function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null, length: number | null = null, radius: number | null = null, thumb = false) {
   // Enough rows down the profile that a sharp nose stays sharp.
   const M = radius !== null ? 26 : 14;
-  const NU = 18;
+  // More columns where a thumb catch has to read as its own knob.
+  const NU = thumb ? 28 : 18;
   // How far out of the wall: a crimp's or edge's shelf depth against its size's mean (model.ts
   // depthOf), so a shallow one reads as a thin strip and a deep one as a shelf; else a little play.
   const out = depth ?? 0.92 + 0.16 * k;
@@ -241,6 +242,11 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   const crest = (u: number) => Math.sin(Math.PI * (1.8 + 0.4 * k) * u + ph[2]);
   const lumps = pr.lumps ?? 0;
   const bend = (pr.bend ?? 0) * (pr.bendRange ? r.range(...pr.bendRange) : 1);
+  // A crimp's thumb catch (model.ts thumbOf): a knob swelling out of the belly under one end of
+  // the lip, hanging below it and nearly as far out as the nose, its underside a shelf the thumb
+  // presses up on. Clear of the bolt at mid-width; which end is this build's.
+  const thumbU = k < 0.5 ? 0.5 : -0.5;
+  const knob = (u: number, hy: number) => (thumb ? Math.exp(-(((u - thumbU) / 0.24) ** 4)) * smooth(0.55, 0.15, hy) : 0);
 
   const at = (u: number, p: THREE.Vector2, j = 1): [number, number, number] => {
     const t = Math.abs(u);
@@ -253,7 +259,11 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
     const lump = 1 + lumps * wave(u) * ho;
     const rise = lumps * 0.3 * (yMax - yMin) * crest(u) * smooth(0.35, 1, hy) * ho;
     const h = pr.tipHeight + (1 - pr.tipHeight) * cap;
-    return [(u * width) / 2, mid + (p.y - mid) * h - bend * scale * t * t + rise * cap, Math.max(0, p.x * cap * lump * j)];
+    const x = Math.max(0, p.x * cap * lump * j);
+    // The knob only adds: it drops the belly's bottom and swells it out, the rest carries on.
+    const kn = p.y < mid ? knob(u, hy) * cap : 0;
+    const z = Math.max(x, 0.85 * outMax * kn * Math.sin((Math.PI / 2) * Math.min(1, hy / 0.3)));
+    return [(u * width) / 2, mid + (p.y - mid) * h - bend * scale * t * t + rise * cap - 0.45 * (yMax - yMin) * Math.sqrt(kn) * kn * (1 - hy), z];
   };
 
   const pos: number[] = [];
@@ -291,6 +301,8 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
   return {
     ...flat,
     bolt: { at: new THREE.Vector3(0, by + n.y * 0.0006, bz + n.x * 0.0006), tilt: Math.atan2(n.y, n.x) },
+    // Where the thumb goes (local x, and the height under which the knob's underside is), for chalk.
+    thumb: thumb ? { x: (thumbU * width) / 2, halfWidth: 0.2 * width, below: mid } : null,
   };
 }
 
@@ -1315,8 +1327,12 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
   const profile = PROFILES[type];
   if (profile) {
     const mm = depthOf(type, size, v);
-    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!, size === 'xl' ? null : widthOf(type, size, v), radiusOf(type, size, v));
-    const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), profile.grip ?? spec.grip ?? TOP_GRIP);
+    const p = profileGeometry(profile, SIZE[size], k, r, incutOf(type, size, v), mm === null ? null : mm / meanDepth(type, size)!, size === 'xl' ? null : widthOf(type, size, v), radiusOf(type, size, v), thumbOf(type, size, v));
+    const top = profile.grip ?? spec.grip ?? TOP_GRIP;
+    // A thumb catch's underside takes chalk from the thumb pressing up on it.
+    const th = p.thumb;
+    const gripOf: GripFn = th ? (n, c) => Math.max(top(n, c), Math.abs(c.x - th.x) < th.halfWidth && c.y < th.below && c.z > 0.004 ? 0.85 * smooth(0.1, 0.6, -n.y) : 0) : top;
+    const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), gripOf);
     data.bolt = p.bolt.at;
     data.boltTilt = p.bolt.tilt;
     cache.set(key, data);

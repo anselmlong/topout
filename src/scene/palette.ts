@@ -180,6 +180,11 @@ export function radiusEffect(type: HoldType, mm: number, depth: number, size: Ho
   return word === 'Sharp' ? 'sharp lip: the pads bite the corner' : 'rounded lip: the pads roll off, a bit harder';
 }
 
+/** What a crimp's thumb catch does (model.ts thumbCatch): the thumb pinches the knob under the lip. */
+export function thumbEffect(): string {
+  return 'thumb catch: pinch it from below, holds better, even on steep ground';
+}
+
 /** A sloper's pitch in words (model.ts sloperPitch), or null for a middling one. */
 export function pitchWord(deg: number, size: HoldSize = 'm'): string | null {
   const name = size === 'xl' ? 'macro' : 'sloper';
