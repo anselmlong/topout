@@ -10,6 +10,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 - The climber's head stays up on its shoulders: stretched out from a long reach or a catch, it
   used to loll back behind them, the neck bent over backwards, for seconds at a time.
 
+**Grades**
+- Grades are now checked against crimps with a thumb catch, from a hold maker's grade guide, so
+  a crimp the thumb can help on grades as easy as climbers find it.
+
 **Holds**
 - One crimp in four now has a thumb catch: a little nub under one end of the lip that the thumb
   pinches from below. It holds a bit better than a plain crimp of the same shape, most of all on

@@ -44,6 +44,8 @@ export interface Anchor {
   width?: number;
   /** Every hand hold's lip radius (mm, how rounded its front corner is) if it's a crimp or an edge, or its rim radius if it's a pocket; default from its seed. */
   radius?: number;
+  /** Every hand hold's thumb catch if it's a crimp (true: the thumb has something to pull on beside or under the lip); default from its seed. */
+  thumb?: boolean;
   /** Every hand hold's pitch (degrees its top slopes off level) if it's a sloper; default from its seed. */
   pitch?: number;
   /** Every foot chip's shelf depth (mm, how far it stands out from the wall); default the typical chip. */
@@ -361,7 +363,7 @@ export const ANCHORS: Anchor[] = [
   // Full-pad crimps: "5 Medium Steep Wall Oval Crimps Set #2", 7/8" to 1" off the wall (22-25 mm),
   // incut for steep walls: V2+ on a 20° wall (V1+ on vertical). Two grades under the 10-14 mm
   // strips at the same angle.
-  { name: '20° deep incut crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.8, width: 11.7 },
+  { name: '20° deep incut crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.8, width: 11.7, thumb: true },
   // Crimps by lip length (model.ts EDGE_WIDTH, widthGrip; a47af35): until now no row set how long a
   // crimp's lip runs, so every crimp row graded off its seed's length, which can come out a two- or
   // three-finger build. Atomik Climbing Holds' grade guides give each set's width (found via search
@@ -589,6 +591,22 @@ export const ANCHORS: Anchor[] = [
   // deep (38 mm) that takes both hands, "could be used in a roof in the intermediate V3 range". A
   // macro slot with the roundest rim an xl pocket comes in (12 mm); a roof's grade read at 40°.
   { name: '40° rounded double-hander pockets', angle: 40, type: 'pocket', size: 'xl', spacing: 55, feet: true, expect: 3, fingers: 4, depth: 38, radius: 12 },
+  // Crimps by thumb catch (model.ts thumbOf, thumbFactors; ea80ee9): until now no row set whether a
+  // crimp gives the thumb anything, so the one build in four with a thumb catch every crimp size
+  // now comes in was graded off its seed. Neil Gresham (UKC, "Handholds and Grip Technique"): a
+  // thumb catch is a small incut the thumb pulls on alongside the edge, and missing it is one of
+  // the commonest gripping errors. Atomik Climbing Holds' grade guides (found via search on
+  // 2026-10-19; the site can't be fetched from this run) say which of their crimps have one:
+  // "5 Small Simple Crimps", 3-1/2" to 4" wide (9.5 cm) and 1" off the wall, "plenty of room for all
+  // four fingers and a comfortable thumb-catch", incut about 10°: V6+ on a 45° wall (V2 on vertical).
+  // Read at 40° (as the jug and pocket rows above), on the deepest small shelf for its 1" stand-off
+  // (the 1/2" Simple Crimps Set #1 above is 10-14 mm) and the Simple crimps' sharp lip.
+  { name: '40° simple crimps, thumb catch', angle: 40, type: 'crimp', size: 's', spacing: 60, feet: true, expect: 6, depth: 18, width: 9.5, incut: 0.2, radius: 1.5, thumb: true },
+  // Atomik went "big" with the "5 Medium Steep Wall Oval Crimps" Sets #1 and #2 ("room for all of
+  // your fingers, your thumb, and then there is room left over"), so the Set #2 row above now pins
+  // its thumb catch too. Set #1, "the most incut" of the two (the same 4-5/8" largest hold), is V2
+  // on a 20° wall ("you will get a V1 crimp that is very incut", V1 on vertical).
+  { name: '20° most-incut oval crimps', angle: 20, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 2, depth: 23, incut: 0.95, width: 11.7, thumb: true },
 ];
 
 const TOP = 400;
@@ -632,14 +650,14 @@ export function anchorRoute(a: Anchor) {
   const handTop = a.ledge ? a.ledge - 25 : top - 20 - a.spacing / 2;
   for (let v = 150 + a.spacing; v < handTop && a.rails; v += a.spacing)
     for (const u of [200 - a.rails, 200 + a.rails])
-      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}), ...(a.radius ? { radius: a.radius } : {}) });
+      holds.push({ id: `h${i++}`, type: a.type, size: a.size, u, v, rot: 0, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}), ...(a.radius ? { radius: a.radius } : {}), ...(a.thumb !== undefined ? { thumb: a.thumb } : {}) });
   for (let v = 150 + a.spacing; v < handTop && !a.rails; v += a.spacing, i++) {
     // Pinches are set as vertical fins; everything else incut-up.
     const u = a.column ? 200 : i % 2 ? 228 : 172;
     const rot = a.gaston ? (u < 200 ? -Math.PI / 2 : Math.PI / 2) : a.sidepull ? (u < 200 ? Math.PI / 2 : -Math.PI / 2) : a.undercling ? Math.PI : 0;
     // A typical build of the type throughout (neither a flat nor a deep incut one), unless
     // the problem is about incut.
-    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}), ...(a.radius ? { radius: a.radius } : {}) });
+    holds.push({ id: `h${i}`, type: a.type, size: a.size, u, v, rot, incut: a.incut ?? typicalIncut(a.type), ...(a.fingers ? { fingers: a.fingers } : {}), ...(a.span ? { span: a.span } : {}), ...(a.depth ? { depth: a.depth } : {}), ...(a.width ? { width: a.width } : {}), ...(a.pitch ? { pitch: a.pitch } : {}), ...(a.radius ? { radius: a.radius } : {}), ...(a.thumb !== undefined ? { thumb: a.thumb } : {}) });
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
