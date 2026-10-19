@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, PINCH_LENGTH, pinchDepthOf, pinchLengthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, thumbOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, footWidthOf, meanFootWidth, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, PINCH_LENGTH, pinchDepthOf, pinchLengthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, thumbOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -934,10 +934,12 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
  * Its depth (against its size's mean, model.ts footDepthOf) is how far the shelf stands out
  * from the wall, and its outline grows with it: a tiny chip is a low, narrow nub the rand barely catches, a big one a fat
  * block the front of the shoe sits on.
+ * Its width (against its size's mean, model.ts footWidthOf) stretches it across the wall: a narrow
+ * chip is a stubby nub one toe fits on, a wide one a little foot rail with room for both shoes.
  */
-function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45, depth = 1) {
+function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45, depth = 1, width = 1) {
   const N = 24;
-  const W = 0.028 * (0.92 + 0.16 * k) * (0.45 + 0.55 * depth);
+  const W = 0.028 * (0.92 + 0.16 * k) * (0.7 + 0.3 * depth) * width;
   const H = 0.021 * (1.04 - 0.08 * k) * (0.6 + 0.4 * depth);
   const Z = 0.017 * depth;
   // Screw hole: centre and countersink radius.
@@ -1319,9 +1321,10 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
     return data;
   }
   if (type === 'foot' || type === 'jib') {
-    const build = type === 'foot' ? footChipGeometry : jibGeometry;
     const mm = footDepthOf(size, v, type);
-    const p = build(SIZE[size], k, r, incutOf(type, size, v), mm === null ? 1 : mm / meanFootDepth(size, type)!);
+    const depth = mm === null ? 1 : mm / meanFootDepth(size, type)!;
+    const cm = footWidthOf(size, v);
+    const p = type === 'foot' ? footChipGeometry(SIZE[size], k, r, incutOf(type, size, v), depth, cm === null ? 1 : cm / meanFootWidth(size)!) : jibGeometry(SIZE[size], k, r, incutOf(type, size, v), depth);
     const data = finish(p.geometry, r, false, (_x, _y, _z, i) => p.shade(i), spec.grip!);
     data.screw = { at: p.screw, size: p.screwSize };
     cache.set(key, data);

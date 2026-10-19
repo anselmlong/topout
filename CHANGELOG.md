@@ -6,6 +6,13 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 
 ## 2026-10-20
 
+**Holds**
+- Foot chips come narrow or wide: a wide one is a little foot rail with room for both shoes, so
+  the climber can match feet or swap them on it; a narrow one takes only one toe. The two feet
+  share a chip's edge, so standing matched is a place to swap, not a free second foothold. On
+  steep walls it can save a foot from cutting loose. You can see the width, and the hold info
+  says "Wide chip".
+
 **Climber**
 - The climber holds still on a high step in a tight corner: with a foot up by the hip and nowhere
   to move the body, it used to shake back and forth on the spot, sometimes for seconds.

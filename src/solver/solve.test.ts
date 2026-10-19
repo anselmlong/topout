@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, footMatchable, footWidth, footWidthOf, FOOT_MATCH_WIDTH, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -526,6 +526,30 @@ describe('solver', () => {
       expect(depths.indexOf(Math.min(...depths))).not.toBe(incuts.indexOf(Math.min(...incuts)));
     }
     expect(footDepth(jib)).not.toBeNull();
+  });
+
+  it('wide foot chips take both feet; narrow ones never do', () => {
+    const feet = (holds: Hold[], width: number) => holds.map((h) => (h.type === 'foot' ? { ...h, width } : h));
+    const matched = (r: ReturnType<typeof solve>) => (r.ok ? r.moves.filter((m) => m.to.limbs[2] >= 0 && m.to.limbs[2] === m.to.limbs[3]).length : -1);
+    // On a 40° wall a foot that can't share a chip cuts loose; on a wide one both stay on.
+    const narrow = solve(wall(40), start, finishAt(380), feet(ladder('edge', 50), 4.5));
+    const wide = solve(wall(40), start, finishAt(380), feet(ladder('edge', 50), 9));
+    expect(matched(narrow)).toBe(0);
+    expect(matched(wide)).toBeGreaterThan(0);
+    if (!wide.ok || !narrow.ok) throw new Error('unsolved');
+    expect(wide.grade).toBeLessThan(narrow.grade - 0.2);
+    // On vertical the feet step chip to chip either way: two chips beat one shared.
+    expect(grade(wall(0), feet(ladder('edge', 50), 9))).toBeCloseTo(grade(wall(0), feet(ladder('edge', 50), 4.5)), 6);
+    const chip: Hold = { id: 'c', type: 'foot', size: 'm', u: 200, v: 100, rot: 0 };
+    expect(footMatchable({ ...chip, width: FOOT_MATCH_WIDTH })).toBe(true);
+    expect(footMatchable({ ...chip, width: FOOT_MATCH_WIDTH - 0.5 })).toBe(false);
+    // Width doesn't change how well one shoe stands on it.
+    expect(footQuality({ ...chip, width: 9 })).toBe(footQuality({ ...chip, width: 4.5 }));
+    // Four widths per size; one medium build in four is wide, and no small one; jibs have none.
+    for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => footWidthOf(size, v))).size).toBe(4);
+    expect([0, 1, 2, 3].filter((v) => footWidthOf('m', v)! >= FOOT_MATCH_WIDTH)).toHaveLength(1);
+    expect([0, 1, 2, 3].filter((v) => footWidthOf('s', v)! >= FOOT_MATCH_WIDTH)).toHaveLength(0);
+    expect(footWidth({ ...chip, type: 'jib' })).toBeNull();
   });
 
   it('a macro sloper or ledge grades easier than a medium one, and a sloper macro still rolls off steep', () => {

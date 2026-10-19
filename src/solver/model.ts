@@ -908,6 +908,48 @@ export function footDepthFactor(hold: Hold): number {
   return footDepthGrip(Math.max(4, Math.min(40, mm))) / mean;
 }
 
+/**
+ * How wide a foot chip is across the wall (cm, life size), from its seed and size, on its own
+ * cycle (as a crimp's length is, independent of its depth and its incut). A narrow chip takes
+ * the tip of one shoe; a wide one, a little foot rail, takes the toes of both side by side, so
+ * the climber can match feet on it, or swap one for the other, where on a narrow one the feet
+ * have to step through to the next foothold. Coaching material: Dave MacLeod on foot swaps
+ * (Gripped, "Correct Your Footwork Bad Habits": drop the outgoing foot to make room on the hold
+ * for the incoming one); Wikibooks, "Rock Climbing/Technique" (leave room on a foothold's inside
+ * corner for a foot change, but not on a small foothold, where there is none). Width doesn't change how well one shoe
+ * stands on it (depth and incut do). The medium list centres on the ~6 cm the chip has always
+ * been drawn at; one medium build in four and two large ones are wide enough for both feet.
+ */
+export const FOOT_WIDTH: Partial<Record<HoldSize, number[]>> = { s: [3.5, 4.5, 5.5, 7], m: [4.5, 5.5, 7, 9], l: [5.5, 7, 8.5, 10.5] };
+/** How wide a foot chip must be (cm) for both feet: two shoe toes squeezed side by side. */
+export const FOOT_MATCH_WIDTH = 8;
+
+/**
+ * Each foot's share of a foot chip's quality when both stand on it: two toes squeezed side by
+ * side each get the edge of the rand on half the chip, so between them they stand on it as one
+ * foot would, on a narrow base with no spread to balance over (The Self-Coached Climber, Hague &
+ * Hunter, on the base of support). A chip is a place to swap feet, or to keep both on where the
+ * other would cut loose; two chips still carry twice what one matched does. Tried 0.6 first:
+ * the matched chip carried more than one foot could, and the 40° jug dyno went V5.6 -> V5.4.
+ */
+export const CHIP_MATCH = 0.5;
+
+export function footWidthOf(size: HoldSize, variant: number): number | null {
+  const list = FOOT_WIDTH[size];
+  return list ? list[(3 * variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 1) % list.length] : null;
+}
+
+/** A foot chip's width across the wall (cm); null for other types. */
+export function footWidth(hold: Hold): number | null {
+  return hold.type === 'foot' ? (hold.width ?? footWidthOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean width foot chips of this size come in (cm), what the mesh is drawn at; null for none. */
+export function meanFootWidth(size: HoldSize): number | null {
+  const list = FOOT_WIDTH[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
 export const SMEAR_QUALITY = { slab: 0.62, vertical: 0.38 };
 
 /** Wall angle (degrees, + overhang) at height v. */
@@ -1295,10 +1337,11 @@ export function handMatchable(hold: Hold): boolean {
   return hold.size === 'xl';
 }
 
-/** Room for both feet on it? Only big holds; foot chips and jibs are one-toe affairs. */
+/** Room for both feet on it? Big holds and wide foot chips (FOOT_WIDTH); other chips and jibs are one-toe affairs. */
 export function footMatchable(hold: Hold): boolean {
   if (hold.id.startsWith('arete:')) return false;
   if (hold.type === 'volume') return true;
+  if (hold.type === 'foot') return (footWidth(hold) ?? 0) >= FOOT_MATCH_WIDTH;
   return (hold.type === 'jug' && hold.size !== 's') || (hold.type === 'edge' && isBig(hold.size)) || hold.size === 'xl';
 }
 

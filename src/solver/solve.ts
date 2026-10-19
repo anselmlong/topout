@@ -15,6 +15,7 @@ import {
   footQuality,
   footTechnique,
   footMatchable,
+  CHIP_MATCH,
   handGrip,
   handMatchable,
   shuffleCost,
@@ -480,6 +481,8 @@ class Context {
   /** Both feet's quality, plus the stemming bonus when they push on opposite faces of a corner. */
   feetQ(l: Limbs, p: Point[], stay?: number): [number, number] {
     const q: [number, number] = [this.footQ(l[2], p[2], this.hookOf(l, 2, p)), this.footQ(l[3], p[3], this.hookOf(l, 3, p))];
+    // Both shoes on one foot chip share its edge (model.ts CHIP_MATCH).
+    if (l[2] >= 0 && l[2] === l[3] && this.holds[l[2]].type === 'foot') (q[0] *= CHIP_MATCH), (q[1] *= CHIP_MATCH);
     // Flag: one foot on, the other off the holds but pressed against the wall as a
     // counterweight. Not dead weight: it gives a little support (less when steep).
     const on = [l[2], l[3]].filter((x) => x !== OFF).length;
