@@ -155,6 +155,12 @@ const SLACK_TIME = 0.5;
 const HIP_ROOM = 0.3;
 const ROOM_SPEED = 1.5;
 /**
+ * How long (s) the body is moved out of a foot's way before makeRoom checks it is getting
+ * anywhere, and the least share of the distance moved that the hip must have gained on the foot.
+ */
+const ROOM_TRY = 0.1;
+const ROOM_GAIN = 0.25;
+/**
  * Room (m) a hand or foot keeps off the wall's face, a volume's included, on its way between
  * holds, and the most (m) its arc is lifted out to keep it. The path is a straight line plus a
  * small lift, and between two holds on either side of a volume that line runs through it: on
@@ -226,6 +232,12 @@ export class Ragdoll {
   private velIn = Array.from({ length: JOINTS }, () => new THREE.Vector3());
   /** How fast (m/s) the body is moving out of each foot's way (makeRoom), picking up from rest. */
   private roomSpeed = [0, 0];
+  /** Per foot, while makeRoom keeps moving the body: how far (m) the hip was from the foot's way when it began, how far (m) it has moved it since, and over how many steps. */
+  private roomFrom = [0, 0];
+  private roomPushed = [0, 0];
+  private roomSteps = [0, 0];
+  /** The hold each foot is on or heading for that makeRoom gave up on (see makeRoom). */
+  private roomStuck: (THREE.Vector3 | null)[] = [null, null];
   /** How far (m) each foot is up on its toes (see TIPTOE): its shin's stick is that much longer. */
   tiptoe = [0, 0];
   private shins: Stick[] = [];
@@ -595,7 +607,10 @@ export class Ragdoll {
       const e = this.ends[end];
       const was = this.roomSpeed[end - 2];
       this.roomSpeed[end - 2] = 0;
-      if (e.mode === 'free' || e.release) continue;
+      if (e.mode === 'free' || e.release) {
+        this.roomStuck[end - 2] = null;
+        continue;
+      }
       // Measured to the nearest point on the rest of the foot's way, not just where it is, so
       // the hips start moving as the foot leaves: a high step's foot comes up at 4-6 m/s, far
       // quicker than they can, and on day 71 one swept past just over the hip to a hold beyond.
@@ -607,11 +622,31 @@ export class Ragdoll {
       const away = this.tmp.subVectors(pos[hip], now).addScaledVector(way, -k);
       const d = away.length();
       if (d >= HIP_ROOM || d < 1e-4) continue;
+      // A foot on its hold that the body can't get away from (the hands and the other foot hold
+      // it there) gets no more room until it heads for another hold: each move out was shoved
+      // straight back by the leg's bones, and with prev moved too, that came back as speed. On
+      // day 43's corner (fold 105) a high-stepped right foot 27 cm from its hip had the whole body
+      // buzzing 1 cm back and forth every step (60 Hz, the hips at 2 m/s) for 2.5 s. Judged over
+      // ROOM_TRY of moving it once the foot is on, so a body still getting out of the way keeps
+      // going. A foot on its way always gets room: the nearest point of its way moves with it, so
+      // the hip gaining on it says little, and stopping there let the leg shove the hip again
+      // (day 71, 3.8 m/s).
+      const n = end - 2;
+      const stuck = this.roomStuck[n];
+      if (stuck && (e.mode !== 'pinned' || stuck.distanceTo(e.to) > 0.01)) this.roomStuck[n] = null;
+      else if (stuck) continue;
+      if (was === 0 || e.mode !== 'pinned') [this.roomFrom[n], this.roomPushed[n], this.roomSteps[n]] = [d, 0, 0];
+      else if (this.roomSteps[n] * dt >= ROOM_TRY && d - this.roomFrom[n] < ROOM_GAIN * this.roomPushed[n]) {
+        this.roomStuck[n] = e.to.clone();
+        continue;
+      }
       // Picking up speed from rest like any weight shift (BODY_ACCEL): at the full ROOM_SPEED
       // from the first step, the hips and chest lurched out at 1.5 m/s as a high step began.
       const speed = Math.min(ROOM_SPEED, was + BODY_ACCEL * dt);
       const shift = Math.min(HIP_ROOM - d, speed * dt);
       this.roomSpeed[end - 2] = shift / dt;
+      this.roomPushed[n] += shift;
+      this.roomSteps[n]++;
       // Out from the wall, sitting back off it, as well as aside: straight away from the foot's
       // way pushed the hips along the wall or into it when the foot came up at their depth
       // (a high step's arc lifts it off the wall), where the bones held them, until the foot

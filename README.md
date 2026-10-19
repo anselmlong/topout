@@ -116,6 +116,10 @@ at no more than ~20 m/s² (`BODY_ACCEL`, `BODY_TURN`), so the hips ease into eac
 instead of lurching off at full speed when a move starts or a hand lands. A dyno's launch keeps
 its speed but is still only steered at ~20 m/s², so the hips fly up at the target instead of
 being yanked sideways after the pose.
+When a foot comes inside ~30 cm of its hip (a high step), the body eases out of its way; once
+the foot is on its hold and the hands and other foot leave the body nowhere to go, it stops
+trying until that foot moves on (`makeRoom` in `src/scene/ragdoll.ts`), instead of buzzing
+back and forth against the leg every frame.
 A hand or foot travelling between holds arcs out just far enough to pass over the wall's face, any
 volume and an arête's corner, at least 4 cm clear (`clearPath` in `src/scene/ragdoll.ts`), instead
 of cutting straight through a volume between two holds on either side of it.
