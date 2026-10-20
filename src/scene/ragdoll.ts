@@ -146,6 +146,10 @@ const BOW_LATEST = 0.7;
 const UP = new THREE.Vector3(0, 1, 0);
 /** Knees bent less than this far off the leg's line (m) have no bend to turn. */
 const KNEE_BENT = 0.03;
+/** A knee less than this far (m) off the leg's line has no side of its own to fold to (see foldKnee). */
+const KNEE_ON_LINE = 0.005;
+/** Fastest (m/s) foldKnee moves a knee off the line: a knee doesn't pop out in one step either. */
+const FOLD_SPEED = 2.5;
 /**
  * How fast (m/s) a stretched leg takes up its slack when its foot comes off. Stood at full
  * span (day 79: left hand on a pocket 2.1 m above the left foot), the bones stretch 5 cm at
@@ -182,6 +186,8 @@ const PATH_CLEAR = 0.04;
 const PATH_LIFT = 0.3;
 /** Hip to foot (m) with the leg straight: the thigh and shin. */
 const LEG_SPAN = 0.85;
+/** Hip to knee (m). */
+const THIGH = 0.43;
 /**
  * Reach (m) a standing foot gains going up on its toes, the heel lifting off its hold, and how
  * fast (m/s) it rises or settles. The solver lets a hand go up to 2.05 m from a foot (BODY.reach),
@@ -578,6 +584,7 @@ export class Ragdoll {
     });
     if (posture && this.tone > 0) this.makeRoom(dt);
     this.rise(dt);
+    if (posture && this.tone > 0) for (const [hip, knee, foot, end] of LEGS) this.foldKnee(hip, knee, foot, end, posture, dt);
     // 4. Constraints.
     for (let iter = 0; iter < 10; iter++) {
       for (const [a, b, len, rigid] of this.sticks) {
@@ -674,6 +681,46 @@ export class Ragdoll {
         prev[i].add(away);
       }
     }
+  }
+
+  /**
+   * A straight leg whose foot comes in toward its hip bends at the knee, the way the pose bends it
+   * or else out from the wall, never into it: the knee moves toward where the thigh and shin meet,
+   * at up to FOLD_SPEED (pos and prev, so it carries no swing out of it). With the knee on the hip-foot line the bones were
+   * a strut until it buckled, whichever way the solver's rounding tipped it, and they shoved the
+   * hip off the foot: on day 35's slab the left foot leaving a hold at full stretch (heel up)
+   * kicked that hip out from the wall at 5 m/s, the knee folding in across the body toward the
+   * wall, and it took half a second to swing back out.
+   */
+  private foldKnee(hip: number, knee: number, foot: number, end: number, posture: THREE.Vector3[], dt: number) {
+    const { pos, prev } = this;
+    const at = this.endTarget(this.ends[end]);
+    if (!at) return;
+    const axis = this.tmp.subVectors(at, pos[hip]);
+    const span = axis.length();
+    // Only while the foot comes in: a leg straightening out, or held straight, is left alone.
+    if (span < 1e-3 || span >= prev[foot].distanceTo(prev[hip])) return;
+    axis.divideScalar(span);
+    const out = this.tmp2.subVectors(pos[knee], pos[hip]);
+    out.addScaledVector(axis, -out.dot(axis));
+    const shin = this.shins[end - 2][2];
+    if (out.length() >= KNEE_BENT || span >= THIGH + shin) return;
+    const along = (span * span + THIGH * THIGH - shin * shin) / (2 * span);
+    const h = Math.sqrt(Math.max(0, THIGH * THIGH - along * along));
+    if (h <= out.length()) return;
+    // A knee already a little bent keeps its side (turnKnee swings it round); only one on the
+    // line itself is given one.
+    const side = this.tmp3.copy(out);
+    if (out.length() < KNEE_ON_LINE) {
+      side.subVectors(posture[knee], posture[hip]).addScaledVector(axis, -side.dot(axis));
+      const wall = this.surfaceGap(pos[knee]);
+      if (wall && (side.length() < KNEE_BENT || side.dot(wall.normal) < 0)) side.copy(wall.normal).addScaledVector(axis, -wall.normal.dot(axis));
+    }
+    if (side.length() < 1e-3) return;
+    const move = this.aim.copy(pos[hip]).addScaledVector(axis, along).addScaledVector(side.normalize(), h).sub(pos[knee]);
+    if (move.length() > FOLD_SPEED * dt) move.setLength(FOLD_SPEED * dt);
+    pos[knee].add(move);
+    prev[knee].add(move);
   }
 
   /**

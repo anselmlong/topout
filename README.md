@@ -135,6 +135,9 @@ hanging under the leg, and a knee turning to the far side of its leg goes round 
 into the wall. On an overhang a frog knee is aimed level or up across the leg, never down (the
 wall's "out" points down there), and a knee posed near the mat comes up, as on a sit start; only a
 drop knee and a bridged leg point the knee down (`kneeOff` in `src/scene/Climber.tsx`).
+A straight leg whose foot comes up toward the hip (stepping off a foothold at full stretch, heel up)
+bends at the knee the way the pose bends it, or else out from the wall, at up to ~2.5 m/s
+(`foldKnee`), instead of standing as a strut that buckles whichever way and shoves the hip off.
 Elbows on a hold turn the same way round the shoulder-hand line, at up to ~5 rad/s (`ELBOW_SWING`),
 and gravity doesn't sag them under the arm either: matched on a hold overhead, they stay out to the
 sides instead of collapsing down against the wall.
