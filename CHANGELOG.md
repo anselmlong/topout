@@ -18,6 +18,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   says "Wide chip".
 
 **Grades**
+- Grades are now checked against straight and oval crimps from a hold maker's grade guide, so a
+  straight rail and a curved oval are each graded against real holds of that shape. No grade
+  moved; the small ovals still grade about a grade too hard, which is noted for a later fix.
 - Three new reference problems check grades against real foot chips by width: a steep wall
   on two-inch classic feet and on one-toe nubs, and a vertical wall on the same nubs. All three
   already grade where they should, so no grade moved.
