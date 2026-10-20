@@ -14,6 +14,8 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   says "Wide chip".
 
 **Climber**
+- The climber's head stays on its shoulders through a dyno: as the arm hauled the body up to the
+  catch, the head used to fold right down onto the chest for most of a second.
 - The climber holds still on a high step in a tight corner: with a foot up by the hip and nowhere
   to move the body, it used to shake back and forth on the spot, sometimes for seconds.
 

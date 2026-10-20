@@ -96,6 +96,16 @@ const BODY_ACCEL = 6;
  * still stops on its pose instead of overshooting.
  */
 const BODY_TURN = 20;
+/**
+ * How far (rad) the neck bends off the line of the spine before the head stops: about 60°, the
+ * cervical spine's range nodding forward or tipping back (Swartz et al., "The range of motion of
+ * the cervical spine", J Hand Ther 2005). The head's bones (to the chest and both shoulders,
+ * nearly in a line) left it free to swing right round the shoulders, and its muscle (headAim)
+ * can't catch up with a torso that's being hauled: on day 95's dyno the arm yanked the chest up
+ * past the head at 6 m/s and the head folded down onto it, the neck bent up to 179° for 0.75 s
+ * (day 16's dyno: 148°).
+ */
+const NECK_BEND = Math.PI / 3;
 const BODY = [J.head, J.chest, J.pelvis, J.shoulderL, J.shoulderR, J.hipL, J.hipR, J.elbowL, J.elbowR, J.kneeL, J.kneeR];
 /** The joints in the middle of the limbs, which swing on their own once the torso moves. */
 const LIMB_JOINTS = [J.elbowL, J.elbowR, J.kneeL, J.kneeR];
@@ -271,6 +281,10 @@ export class Ragdoll {
     rigid(J.shoulderR, J.hipL);
     rigid(J.head, J.shoulderL);
     rigid(J.head, J.shoulderR);
+    // The neck bends only so far (NECK_BEND): the head keeps its distance from the hips.
+    const neck = d(J.head, J.chest);
+    const spine = d(J.chest, J.pelvis);
+    min(J.head, J.pelvis, Math.sqrt(neck * neck + spine * spine + 2 * neck * spine * Math.cos(NECK_BEND)));
     // Limbs.
     this.sticks.push([J.shoulderL, J.elbowL, 0.3, true], [J.elbowL, J.handL, 0.29, true]);
     this.sticks.push([J.shoulderR, J.elbowR, 0.3, true], [J.elbowR, J.handR, 0.29, true]);

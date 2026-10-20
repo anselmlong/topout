@@ -149,6 +149,8 @@ the eyes: it spots each hold before the move, watches a foot all the way onto it
 hold, and reads the crux while shaking out. The head is held up on the body's own shoulders
 (`headAim` in `src/scene/ragdoll.ts`), so when the body hangs higher than its pose (stretched
 out from a long catch) the neck stays upright instead of the head lolling back behind them.
+The neck bends no more than ~60° off the spine (`NECK_BEND`), so when a dyno's arm hauls the chest
+up faster than the head's muscle can follow, the head comes up with it instead of folding down onto it.
 
 ## Layout
 
