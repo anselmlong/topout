@@ -7,6 +7,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-20
 
 **Holds**
+- Pinches come square-sided or tapered: on a square fin the whole squeeze holds, while a tapered
+  wedge pushes the hand off as you squeeze it, so it's harder, and more so on an overhang. You
+  can see the shape (a blocky fin or a wedge), and the hold info says "Square" or "Tapered".
 - Crimps and edges come straight or curved: a straight rail only pulls well one way, while a
   curved lip turns as it runs, so the hand can slide to the part that faces the pull and it
   holds better as a sidepull or from off to the side. Straight down, the two are the same. You

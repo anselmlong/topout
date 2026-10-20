@@ -129,6 +129,15 @@ export function pinchDepthEffect(mm: number, size: HoldSize = 'm'): string | nul
   return mm < low ? 'low sides: first pads only, harder' : mm >= deep ? 'deep sides: the whole thumb on' : null;
 }
 
+/** A pinch's flank taper in words (model.ts pinchTaper), or null for a middling one. */
+export function taperWord(deg: number): string | null {
+  return deg >= 20 ? 'Tapered' : deg <= 5 ? 'Square' : null;
+}
+/** What a pinch's taper does: a wedge pushes the hand off as it's squeezed, square sides hold all of it. */
+export function taperEffect(deg: number): string | null {
+  return deg >= 20 ? 'tapered sides: the squeeze pushes the hand off' : deg <= 5 ? 'square sides: the whole squeeze holds' : null;
+}
+
 /** A crimp's or edge's shelf depth, or a pocket's depth, in words (model.ts edgeDepth), or null for a middling one. */
 export function depthWord(type: HoldType, mm: number, size: HoldSize = 'm'): string | null {
   if (type === 'pocket') return mm < 15 ? 'Shallow' : mm >= 26 ? 'Deep' : null;

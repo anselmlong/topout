@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { curveOf, curvePull, edgeCurve, thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, footMatchable, footWidth, footWidthOf, FOOT_MATCH_WIDTH, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { curveOf, curvePull, edgeCurve, thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, footMatchable, footWidth, footWidthOf, FOOT_MATCH_WIDTH, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchTaper, taperOf, taperGrip, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -160,6 +160,29 @@ describe('solver', () => {
     expect(Math.min(...[0, 1, 2, 3].map((v) => pinchLengthOf('s', v)!))).toBeLessThan(5);
     expect(pinchLength({ id: 'x', type: 'pinch', size: 'xl', u: 0, v: 0, rot: 0 })).toBeNull();
     expect(pinchLength({ id: 'c', type: 'crimp', size: 's', u: 0, v: 0, rot: 0, width: 5 })).toBeNull();
+  });
+
+  it('a square-sided pinch grades easier than a tapered one of the same span, depth and length, more so on an overhang', () => {
+    const withTaper = (holds: Hold[], taper: number) => holds.map((h) => (h.type === 'pinch' ? { ...h, taper, span: 5.5, depth: 30, width: 9, incut: 0.5, rot: Math.PI / 2 } : h));
+    const gap: number[] = [];
+    for (const angle of [0, 35]) {
+      const g = [3, 14, 25].map((deg) => grade(wall(angle), withTaper(ladder('pinch', 45), deg)));
+      expect(g[2]).toBeGreaterThan(g[1]);
+      expect(g[1]).toBeGreaterThan(g[0]);
+      gap.push(g[2] - g[0]);
+    }
+    expect(gap[0]).toBeGreaterThan(0.15);
+    // The pull swinging out from the wall slides the hand up a wedge's slope.
+    expect(gap[1]).toBeGreaterThan(gap[0]);
+    expect(taperGrip(0)).toBe(1);
+    // Every size comes in four tapers, the most tapered build never also the thinnest; other types have none.
+    for (const size of ['s', 'm', 'l', 'xl'] as const) {
+      const tapers = [0, 1, 2, 3].map((v) => taperOf(size, v)!);
+      expect(new Set(tapers).size).toBe(4);
+      const spans = [0, 1, 2, 3].map((v) => spanOf(size, v)!);
+      expect(spans[tapers.indexOf(Math.max(...tapers))]).toBeGreaterThan(Math.min(...spans));
+    }
+    expect(pinchTaper({ id: 'c', type: 'crimp', size: 'm', u: 0, v: 0, rot: 0, taper: 20 })).toBeNull();
   });
 
   it('a narrow pinch block grades easier than a wide one', () => {

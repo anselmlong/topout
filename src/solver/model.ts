@@ -390,6 +390,71 @@ export function pinchLengthFactor(hold: Hold): number {
 }
 
 /**
+ * How far a pinch's flanks lean in toward each other off square to the wall (degrees per flank:
+ * 0 parallel sides, the fin as wide at its crest as at its skirt, up to a wedge narrowing to a
+ * blade), from its seed and size, on its own cycle (three builds a step, as a crimp's length is,
+ * so the most tapered build is never also the thinnest). It's the wedge a pinch is squeezed on:
+ * the thumb and fingers press square into each flank, and on a tapered one part of that squeeze
+ * pushes the hand off the hold, outward, which only friction holds back (Coulomb: on a wedge of
+ * half-angle a the hand slides off once tan a passes the skin's friction, the same physics as a
+ * sloper's pitch), so the harder it's squeezed the more it spits the hand out, where parallel
+ * sides take the whole squeeze as grip. As the pull swings out from the wall on an overhang it
+ * pulls the hand straight up a wedge's slope, so a tapered pinch opens up there too. Coaching
+ * material: Climbing.com, "How to Climb Pinches" (squeeze the flanks and keep the hand from
+ * sliding off the hold's sides; flared pinches are much harder than square ones); Eric Hörst,
+ * "Training for Climbing" (pinch strength is thumb opposition, which a flared hold turns into a
+ * push off it). Atomik Climbing Holds sells blocky "Square" pinches and "Golfus" pinch blocks whose
+ * flanks slope away as different holds for the same reason (scripts/calibrate.ts). Pinch blocks
+ * run squarer: a block is cut as a box more often than a fin is.
+ */
+export const PINCH_TAPER: Partial<Record<HoldSize, number[]>> = { s: [3, 10, 17, 25], m: [3, 10, 17, 25], l: [2, 9, 16, 24], xl: [0, 6, 12, 20] };
+/** How much grip a flank's slope costs per unit of tan(taper): the share of the squeeze that pushes the hand off, gentler than Coulomb's as FINGER_GRIP is, since the feet still carry the body. */
+export const TAPER_SLIP = 0.4;
+/** What a flank's slope costs per unit of tan(taper) past its size's mean, per unit of overhang (sin of the wall angle). */
+export const TAPER_STEEP = 0.15;
+
+export function taperOf(size: HoldSize, variant: number): number | null {
+  const list = PINCH_TAPER[size];
+  return list ? list[(3 * variant + { s: 0, m: 1, l: 2, xl: 3 }[size]) % list.length] : null;
+}
+
+/** How far a pinch's flanks lean in (degrees per flank); null for other types. */
+export function pinchTaper(hold: Hold): number | null {
+  return hold.type === 'pinch' && PINCH_TAPER[hold.size] ? (hold.taper ?? taperOf(hold.size, holdVariant(hold))) : null;
+}
+
+/** The mean taper pinches of this size come in (degrees); null for none. */
+export function meanTaper(size: HoldSize): number | null {
+  const list = PINCH_TAPER[size];
+  return list ? list.reduce((a, n) => a + n, 0) / list.length : null;
+}
+
+/** A pinch's grip by flank taper (degrees): the share of the squeeze that stays grip (TAPER_SLIP). */
+export function taperGrip(deg: number): number {
+  return 1 - TAPER_SLIP * Math.tan(rad(Math.max(0, Math.min(40, deg))));
+}
+
+/** A pinch's grip multiplier for its taper against its size's typical build (1 otherwise). */
+export function taperFactor(hold: Hold): number {
+  const deg = pinchTaper(hold);
+  const list = PINCH_TAPER[hold.size];
+  if (deg === null || !list || hold.grip !== undefined) return 1;
+  const grips = list.map(taperGrip);
+  // A line of mixed pinches grades off its most tapered, so the typical build sits three quarters
+  // of the way from the average down to it: a mixed set of a size climbs about as it always has.
+  const mean = (grips.reduce((a, n) => a + n, 0) / grips.length + 3 * Math.min(...grips)) / 4;
+  return taperGrip(deg) / mean;
+}
+
+/** The grip a pinch's taper costs (or a square one saves) per unit of overhang, against its size's mean (0 otherwise). */
+export function taperSteep(hold: Hold): number {
+  const deg = pinchTaper(hold);
+  const mean = meanTaper(hold.size);
+  if (deg === null || mean === null || hold.grip !== undefined) return 0;
+  return TAPER_STEEP * (Math.tan(rad(Math.max(0, Math.min(40, deg)))) - Math.tan(rad(mean)));
+}
+
+/**
  * How deep a crimp's or an edge's shelf is (mm, life size: how much of the finger pads it
  * takes), from its seed and size, on its own cycle (two builds off the lip's, like a pinch's
  * span, so the shallowest build is never also the flattest). Depth is what grades an edge
@@ -1239,11 +1304,12 @@ export function handGrip(hold: Hold, pullTo: { u: number; v: number }, wall: Wal
     hold.type === 'jug' && hold.grip === undefined
       ? JUG_STEEP * Math.max(0, typicalIncut('jug') - holdIncut(hold))
       : spec.steepLoss * macro * incut.steep * thumb.steep * pitchSteep(hold);
-  // A shallow jug's scoop and an open lip only open up as the pull swings out from the wall;
+  // A shallow jug's scoop, an open lip and a pinch's tapered flanks only open up as the pull
+  // swings out from the wall;
   // round an arête the hand turns to take it side-on.
-  const sizeLoss = (jugDepthSteep(hold) + jugLipSteep(hold)) * overhang;
+  const sizeLoss = (jugDepthSteep(hold) + jugLipSteep(hold) + taperSteep(hold)) * overhang;
   const steepFactor = 1 - loss * steep - sizeLoss;
-  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * thumb.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * pinchLengthFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
+  const base = hold.grip ?? spec.grip * (SIZE_GRIP.xl + (sizeGrip(hold.type, hold.size) - SIZE_GRIP.xl) * share) * incut.grip * thumb.grip * fingerFactor(hold) * spanFactor(hold) * pinchDepthFactor(hold) * pinchLengthFactor(hold) * taperFactor(hold) * depthFactor(hold) * widthFactor(hold) * radiusFactor(hold) * pitchFactor(hold) * sloperWidthFactor(hold);
   return base * orient * steepFactor;
 }
 

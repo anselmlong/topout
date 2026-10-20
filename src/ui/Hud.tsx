@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWidthEffect, chipWord, curveEffect, curveWord, depthEffect, radiusEffect, radiusWord, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pinchLengthEffect, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, thumbEffect, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
-import { edgeCurve, edgeDepth, edgeRadius, edgeWidth, footDepth, footWidth, thumbCatch, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchLength, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWidthEffect, chipWord, curveEffect, curveWord, depthEffect, radiusEffect, radiusWord, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pinchLengthEffect, taperEffect, taperWord, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, thumbEffect, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
+import { edgeCurve, edgeDepth, edgeRadius, edgeWidth, footDepth, footWidth, thumbCatch, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchLength, pinchSpan, pinchTaper, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -198,15 +198,16 @@ function pocketWord(fingers: number, depth: number | null, radius: number | null
   return r ? `${r} ${lower(rest)}` : rest;
 }
 
-/** A pinch's flank depth and span in words ("Low thin pinch", "Deep pinch", "Low wide block"). */
-function pinchWord(span: number, depth: number | null, length: number | null, size: HoldSize): string | null {
+/** A pinch's taper, length, flank depth and span in words ("Low thin pinch", "Tapered deep pinch", "Square low wide block"). */
+function pinchWord(span: number, depth: number | null, length: number | null, taper: number | null, size: HoldSize): string | null {
   const w = spanWord(span, size);
   const d = depth !== null ? pinchDepthWord(depth, size) : null;
   const l = length !== null ? widthWord(length) : null;
-  if (!d && !l) return w;
+  const t = taper !== null ? taperWord(taper) : null;
   const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
   const noun = w ? lower(w) : size === 'xl' ? 'block' : 'pinch';
-  return d && l ? `${l} ${lower(d)} ${noun}` : `${l ?? d} ${noun}`;
+  const rest = !d && !l ? w : d && l ? `${l} ${lower(d)} ${noun}` : `${l ?? d} ${noun}`;
+  return t ? `${t} ${rest ? lower(rest) : noun}` : rest;
 }
 
 /** A sloper's pitch and width in words ("Steep narrow sloper", "Wide sloper"), or null for a middling one. */
@@ -233,6 +234,7 @@ function Lip({ hold }: { hold: Hold }) {
   const rail = footWidth(hold);
   const flank = pinchDepth(hold);
   const rib = pinchLength(hold);
+  const taper = pinchTaper(hold);
   const hand = jugWidth(hold);
   const scoop = jugDepth(hold);
   // A pocket's finger count outweighs its hood, a pinch's span its sculpting, an edge's depth
@@ -245,6 +247,7 @@ function Lip({ hold }: { hold: Hold }) {
     (rib !== null && pinchLengthEffect(rib)) ||
     (thumbCatch(hold) && thumbEffect()) ||
     (flank !== null && pinchDepthEffect(flank, hold.size)) ||
+    (taper !== null && taperEffect(taper)) ||
     (depth !== null && depth < 12 && depthEffect(hold.type, depth, hold.size)) ||
     (width !== null && widthEffect(width)) ||
     (depth !== null && depthEffect(hold.type, depth, hold.size)) ||
@@ -258,7 +261,7 @@ function Lip({ hold }: { hold: Hold }) {
     (hand !== null && jugWidthEffect(hand)) ||
     lipEffect(hold.type, rank);
   const prefix =
-    fingers !== null ? pocketWord(fingers, depth, radius, hold.size) : span !== null ? pinchWord(span, flank, rib, hold.size) : depth !== null ? edgeWord(hold, depth, width, radius) : pitch !== null ? sloperWord(pitch, wide, hold.size) : chip !== null ? chipWord(chip, hold.type, rail) : null;
+    fingers !== null ? pocketWord(fingers, depth, radius, hold.size) : span !== null ? pinchWord(span, flank, rib, taper, hold.size) : depth !== null ? edgeWord(hold, depth, width, radius) : pitch !== null ? sloperWord(pitch, wide, hold.size) : chip !== null ? chipWord(chip, hold.type, rail) : null;
   return (
     <span className="lip" title={effect}>
       <span className="lip-meter" aria-hidden="true">

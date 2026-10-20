@@ -64,6 +64,8 @@ export interface Hold {
   thumb?: boolean;
   /** Crimp or edge lip curve override (degrees the lip turns end to end); otherwise read off the seed (see edgeCurve). */
   curve?: number;
+  /** Pinch flank taper override (degrees each flank leans in off square to the wall); otherwise read off the seed (see pinchTaper). */
+  taper?: number;
 }
 
 export interface Panel {

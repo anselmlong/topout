@@ -12,7 +12,7 @@
 // nowhere else (see the hold material in Scene.tsx).
 import * as THREE from 'three';
 import { hash, rng } from '../gen/rng';
-import { depthOf, fingersOf, footDepthOf, footWidthOf, meanFootWidth, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, PINCH_LENGTH, pinchDepthOf, pinchLengthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, thumbOf, curveOf, widthOf } from '../solver/model';
+import { depthOf, fingersOf, footDepthOf, footWidthOf, meanFootWidth, incutOf, jugDepthOf, jugWidthOf, meanDepth, meanJugDepth, meanFootDepth, meanPinchDepth, meanPitch, meanRadius, meanSloperWidth, PINCH_LENGTH, pinchDepthOf, pinchLengthOf, pitchOf, radiusOf, sloperWidthOf, spanOf, taperOf, thumbOf, curveOf, widthOf } from '../solver/model';
 import type { HoldSize, HoldType } from '../solver/types';
 
 interface Shape {
@@ -828,7 +828,7 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
  * dimple for the thumb pad. The outline is a lozenge, fuller at the bottom.
  * Local frame and units as the other holds; `S` is the size scale.
  */
-function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null, depth = 1, length = 1) {
+function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null, depth = 1, length = 1, taper = 14) {
   const N = 40;
   // Half its width. Its span (model.ts spanOf, cm in life, drawn 20% large like the rest) is
   // what the thumb and fingers squeeze across, so a thin fin reads thin and a broad one broad.
@@ -865,15 +865,22 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
   // Height of the spine along the hold: proudest near the top, rolling off at the ends.
   const spineZ = (yn: number) => Z * (0.9 + 0.1 * yn) * (1 - 0.18 * yn * yn);
   // Rings: [t (outline → spine), lift (fraction of the spine's height)]. A steep
-  // skirt, then flat, wedge-like flanks up to a crest a few millimetres wide.
+  // skirt, then flat flanks leaning in at its taper (model.ts taperOf, drawn 1.25x so it
+  // reads from the floor) up to the crest's shoulder, which rolls over to the spine: a square
+  // build reads as a blocky fin with a broad top, a tapered one as a wedge up to a blade.
+  // A thin, tall fin can't lean that far in before its flanks meet: it stays a wedge to the
+  // crest instead of narrowing to a needle.
+  const slope = Math.min(1.2, (Math.tan((Math.min(40, taper) * 1.25 * Math.PI) / 180) * Z) / W);
+  const flankT = (lift: number) => 0.05 + slope * (lift - 0.22);
+  const shoulder = flankT(0.79);
   const rings: [number, number][] = [
     [0, 0],
     [0.05, 0.22],
-    [0.2, 0.41],
-    [0.4, 0.61],
-    [0.6, 0.79],
-    [0.8, 0.92],
-    [0.93, 0.98],
+    [flankT(0.41), 0.41],
+    [flankT(0.61), 0.61],
+    [shoulder, 0.79],
+    [shoulder + (1 - shoulder) * 0.5, 0.92],
+    [shoulder + (1 - shoulder) * 0.82, 0.98],
     [1, 1],
   ];
   const pos: number[] = [];
@@ -1320,7 +1327,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
       type === 'pocket'
         ? pocketGeometry(SIZE[size], k, r, incutOf(type, size, v), fingersOf(size, v), depthOf(type, size, v)! / meanDepth(type, size)!, radiusOf(type, size, v)! / meanRadius(type, size)!)
         : type === 'pinch'
-          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1), (pinchLengthOf(size, v) ?? 1) / Math.max(...(PINCH_LENGTH[size] ?? [1])))
+          ? pinchGeometry(SIZE[size], k, r, incutOf(type, size, v), macroSpan(size, spanOf(size, v)), (pinchDepthOf(size, v) ?? 1) / (meanPinchDepth(size) ?? 1), (pinchLengthOf(size, v) ?? 1) / Math.max(...(PINCH_LENGTH[size] ?? [1])), taperOf(size, v) ?? 14)
           : sloperGeometry(SIZE[size], k, r, incutOf(type, size, v), ((pitchOf(size, v) ?? 0) - (meanPitch(size) ?? 0)) / 12, size === 'xl' ? 0.9 + 0.2 * k : (sloperWidthOf(size, v)! / meanSloperWidth(size)!) ** 0.6);
     const data = finish(p.geometry, r, spec.bolt, (_x, _y, _z, i) => p.shade(i), p.grip);
     cache.set(key, data);
