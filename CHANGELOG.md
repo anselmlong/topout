@@ -29,6 +29,9 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   already grade where they should, so no grade moved.
 
 **Climber**
+- A dropped knee stays dropped while that foot stays on its hold: as the hands moved up one after
+  the other, the knee used to turn out and back in again every other move, swinging right round
+  the leg each time.
 - The climber's knee bends out from the wall when a straight leg steps up from a low foothold:
   it used to buckle in across the body toward the wall and kick that hip out sideways.
 - The climber's head stays on its shoulders through a dyno: as the arm hauled the body up to the

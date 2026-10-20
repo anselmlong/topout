@@ -575,6 +575,8 @@ interface Run {
   flagSwing: [number, number];
   /** Heel hook / drop knee per foot for the current move. */
   legs: [LegTechnique, LegTechnique];
+  /** Hold index under each foot for the current move (-1 = smearing or off), to tell a planted foot. */
+  feetOn: [number, number];
   /** Sidepull / gaston / undercling / press per hand for the current move. */
   arms: [ArmTechnique, ArmTechnique];
   /** Per foot, a heel or toe hook for the current move and the hold point it hooks. */
@@ -682,7 +684,7 @@ export function Climber({ day }: { day: Day }) {
       const c = f.limb < 0 ? null : f.limb < 2 ? f.to.hands[f.limb] : f.to.feet[f.limb - 2];
       return c ? toWorld(c, 0) : null;
     });
-    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], arms: [null, null], hooks: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, cut: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
+    return { sim, timeline, holds, gaze, t: 0, acc: 0, frame: -1, ended: false, finished: false, limp: false, arrivals: [], lastThud: 0, out: null, flagAway: [0, 0], flagSwing: [-1, 1], legs: [null, null], feetOn: [-1, -1], arms: [null, null], hooks: [null, null], rest: null, sink: 0, twist: 0, back: null, backOn: false, launch: null, cut: null, winding: -1, grip: [timeline.frames[0].holds[0] ?? -1, timeline.frames[0].holds[1] ?? -1] };
   };
 
   /** Which way the fingers point on the hold a hand is gripping. */
@@ -764,8 +766,15 @@ export function Climber({ day }: { day: Day }) {
         if (mantleable(hold, day.wall) && mantleStep(f.to.hands, shelf, foot)) return up ? 'mantle' : 'shelf';
         // Up by the hands on something too small or too slabby to hook, the foot is stood on.
         const t = footTechnique(day.wall, f.to.hands, foot);
+        // A dropped knee on a foot that stays where it is stays dropped: the climber turns it
+        // back out when that foot moves, not because the other hand went higher. footTechnique
+        // measures from the lower hand, so as the hands leapfrog a planted foot read as a drop
+        // knee on every other move and the knee swung ~170 deg round its leg and back each time
+        // (310 times over the 120 curated setter routes; day 46's sit start, both knees at once).
+        if (!t && r.legs[i] === 'drop-knee' && f.holds[2 + i] === r.feetOn[i]) return 'drop-knee';
         return (t === 'heel' || t === 'toe') && !canHook(day.wall, hold, f.to.hands, foot) ? null : t;
       }) as [LegTechnique, LegTechnique];
+      r.feetOn = [f.holds[2] ?? -1, f.holds[3] ?? -1];
       // A hooking foot turns its shoe over onto the hold: which way is out, along the wall.
       r.hooks = [0, 1].map((i) => {
         const kind = r.legs[i];
