@@ -13,6 +13,11 @@ Each entry is one line in plain words, grouped under the day and the area it tou
   steep walls it can save a foot from cutting loose. You can see the width, and the hold info
   says "Wide chip".
 
+**Grades**
+- Three new reference problems check grades against real foot chips by width: a steep wall
+  on two-inch classic feet and on one-toe nubs, and a vertical wall on the same nubs. All three
+  already grade where they should, so no grade moved.
+
 **Climber**
 - The climber's head stays on its shoulders through a dyno: as the arm hauled the body up to the
   catch, the head used to fold right down onto the chest for most of a second.

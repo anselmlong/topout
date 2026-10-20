@@ -50,6 +50,8 @@ export interface Anchor {
   pitch?: number;
   /** Every foot chip's shelf depth (mm, how far it stands out from the wall); default the typical chip. */
   footDepth?: number;
+  /** Every foot chip's width (cm across the wall; 8 or more takes both feet); default from its seed. */
+  footWidth?: number;
   /** The footholds are jibs (little screw-on stones) instead of foot chips. */
   jibs?: boolean;
   /** Every foothold's incut (0 a rounded nub .. 1 a sharp positive shelf); default the type's typical build. */
@@ -470,8 +472,8 @@ export const ANCHORS: Anchor[] = [
   // the site can't be fetched from this run), so each row pairs the feet with hand holds of the
   // same grade on the same wall, and pins how far the chips stand off the wall as their depth.
   // "5 Protons Steep Wall Feet", 2-1/2" x 2-3/4" and 1-1/2" off the wall (38 mm), are "V2 as
-  // footholds on vertical": a fat foot block under the vertical edges.
-  { name: 'vertical edges, big foot blocks', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 2, footDepth: 38 },
+  // footholds on vertical": a fat foot block under the vertical edges, 2-1/2" (6.4 cm) across.
+  { name: 'vertical edges, big foot blocks', angle: 0, type: 'edge', size: 'm', spacing: 50, feet: true, expect: 2, footDepth: 38, footWidth: 6.4 },
   // "10 Super Small Scaled Tech Feet", 3/4" off the wall (19 mm), sharp-edged: "V4 footholds on
   // vertical", under the vertical small crimps (Kilter crimp+, V4 at 0-15°, above).
   { name: 'vertical small crimps, tech feet', angle: 0, type: 'crimp', size: 's', spacing: 50, feet: true, expect: 4, footDepth: 19 },
@@ -492,6 +494,24 @@ export const ANCHORS: Anchor[] = [
   // the vertical neutral macro ledges (V1). Its "V3 to V5" on 45° is left out: the wall stops at
   // 40°, and the Kilter 40° jugs it would pair with already grade soft on foot chips.
   { name: 'vertical macro ledges, facet jibs', angle: 0, type: 'edge', size: 'xl', spacing: 55, feet: true, expect: 1, depth: 60, incut: 0.15, jibs: true, footDepth: 32, footIncut: 0.7 },
+  // Foot chips by width (model.ts FOOT_WIDTH, footMatchable; 1937f3d): until now no row set how
+  // wide a chip is, so every row stood on its seed's width, and the narrow nubs and the wide
+  // chips both feet fit on were unpinned. Atomik Climbing Holds' listings give each foot set's
+  // width (found via search on 2026-10-20; the site can't be fetched from this run). None is a
+  // foot rail: the widest Atomik feet (Protons above, Sandstone Steep Wall at 2-1/2", Hedrons
+  // at 2-3") stay under the 8 cm two shoes need, so matching on a chip is pinned by solve.test.ts.
+  // As the depth rows, each pairs the feet with hand holds of the grade they are set for.
+  // "20 Classic Feet Set #1", 2" wide on average (5.1 cm) and 7/8" off the wall (22 mm), "best used
+  // on overhanging terrain", for commercial climbing shoes (a reviewer climbing V5-7 sets them):
+  // under the Kilter 40° edges (V5).
+  { name: '40° edges, classic feet', angle: 40, type: 'edge', size: 'm', spacing: 60, feet: true, expect: 5, footDepth: 22, footWidth: 5.1 },
+  // "21 Classic Steep Wall Feet", 1-1/2" wide (3.8 cm, a one-toe nub) and 1-1/4" off the wall
+  // (32 mm), for intermediate climbers (a reviewer sets V4-V6 on them): under the Kilter 40°
+  // crimps (V6).
+  { name: '40° crimps, steep wall nubs', angle: 40, type: 'crimp', size: 'm', spacing: 60, feet: true, expect: 6, footDepth: 32, footWidth: 3.8 },
+  // The same narrow nubs under the vertical crimps (V3): a foot that small changes little on a
+  // vertical wall, where the weight sits on the feet and one toe is all a step needs.
+  { name: 'vertical crimps, steep wall nubs', angle: 0, type: 'crimp', size: 'm', spacing: 50, feet: true, expect: 3, footDepth: 32, footWidth: 3.8 },
   // Pinches by flank depth and incut (model.ts PINCH_DEPTH, pinchDepthFactor; INCUT_RANGE pinch):
   // until now no row set a pinch's depth or incut, so the low and deep pinches pinches now come
   // as (d80776d) were graded off their seeds. Atomik Climbing Holds' grade guides, which give how
@@ -677,7 +697,7 @@ export function anchorRoute(a: Anchor) {
   }
   if (a.feet)
     for (let v = 55, j = 0; v < (a.rails ? 140 : a.ledge ? a.ledge - 20 : top - 120); v += 38, j++)
-      holds.push({ id: `f${j}`, type: a.jibs ? 'jib' : 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: a.footIncut ?? typicalIncut(a.jibs ? 'jib' : 'foot'), ...(a.footDepth ? { depth: a.footDepth } : {}) });
+      holds.push({ id: `f${j}`, type: a.jibs ? 'jib' : 'foot', size: 'm', u: (a.feetU ?? 200) + (j % 2 ? 14 : -14), v, rot: 0, incut: a.footIncut ?? typicalIncut(a.jibs ? 'jib' : 'foot'), ...(a.footDepth ? { depth: a.footDepth } : {}), ...(a.footWidth ? { width: a.footWidth } : {}) });
   return { wall, holds, finish: anchorFinish(a) };
 }
 
