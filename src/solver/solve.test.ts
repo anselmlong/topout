@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveDifficulty, moveParts, solve } from './solve';
-import { thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, footMatchable, footWidth, footWidthOf, FOOT_MATCH_WIDTH, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
+import { curveOf, curvePull, edgeCurve, thumbCatch, thumbFactors, thumbOf, radiusFactor, radiusOf, edgeRadius, jugDepth, jugDepthOf, jugWidth, jugWidthOf, shuffleCost, PALM_ALONE, SMEAR_QUALITY, footDepth, footDepthOf, footMatchable, footWidth, footWidthOf, FOOT_MATCH_WIDTH, incutOf, backBridge, depthGrip, depthOf, edgeDepth, edgeWidth, widthOf, footQuality, flagFor, fingersOf, flankGrip, footTechnique, handGrip, handMatchable, handTechnique, hipTurn, JUG_BUCKET, JUG_INCUT, legPush, lipV, macroShare, palmFactor, palmOpposed, pinchDepth, pinchDepthOf, pinchLength, pinchLengthGrip, pinchLengthOf, pinchSpan, widthGrip, pitchOf, sloperPitch, sloperWidth, sloperWidthOf, pocketFingers, spanOf, toGrade, typicalIncut } from './model';
 import { contactList, isUnderside, lipContacts, volumeContacts } from './volumes';
 import { OFF, SMEAR, type Hold, type HoldType, type Move, type Point, type Volume, type Wall } from './types';
 
@@ -503,8 +503,8 @@ describe('solver', () => {
   });
 
   it('tall jibs grade easier than low ones of the same incut', () => {
-    // The hand holds' lips are pinned (a typical corner), so only the jibs differ.
-    const jibs = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, type: 'jib' as const, depth, incut: 0.45 } : { ...h, radius: 6 }));
+    // The hand holds' lips are pinned (a typical corner, a straight rail), so only the jibs differ.
+    const jibs = (holds: Hold[], depth: number) => holds.map((h) => (h.type === 'foot' ? { ...h, type: 'jib' as const, depth, incut: 0.45 } : { ...h, radius: 6, curve: 0 }));
     // On a slab the climber smears past a jib anyway; near vertical it stands on them.
     for (const [type, angle] of [['edge', -5], ['crimp', 10]] as const) {
       const low = grade(wall(angle), jibs(ladder(type, 45), 8));
@@ -601,6 +601,26 @@ describe('solver', () => {
     const sp: Hold = { id: 'e', type: 'edge', size: 'm', u: 175, v: 250, rot: Math.PI / 2 };
     const g = handGrip(sp, { u: 195, v: 170 }, wall(0));
     expect(g).toBeGreaterThan(0.5 * handGrip({ ...sp, rot: 0 }, { u: 195, v: 170 }, wall(0)));
+  });
+
+  it('a curved lip pulls better from the side than a straight one, and the same straight down', () => {
+    const turn = (curve: number) =>
+      ladder('edge', 45).map((h) => (h.type === 'edge' ? { ...h, curve, rot: (h.u < 200 ? 1 : -1) * (Math.PI / 2) } : h));
+    const straight = grade(wall(0), turn(4));
+    const curved = grade(wall(0), turn(46));
+    expect(straight).toBeGreaterThan(curved + 0.2);
+    // Pulled straight down its best pull, the curve gives nothing.
+    const e: Hold = { id: 'e', type: 'edge', size: 'm', u: 200, v: 250, rot: 0 };
+    const down = { u: 200, v: 150 };
+    expect(handGrip({ ...e, curve: 46 }, down, wall(0))).toBeCloseTo(handGrip({ ...e, curve: 4 }, down, wall(0)), 6);
+    // Side-on, the curved lip holds better.
+    const side = { u: 300, v: 250 };
+    expect(handGrip({ ...e, curve: 46 }, side, wall(0))).toBeGreaterThan(handGrip({ ...e, curve: 4 }, side, wall(0)));
+    expect(curvePull({ ...e, curve: 40 }, 1)).toBe(1);
+    // Every crimp and edge size's seeds cover four curves; other types have none.
+    for (const type of ['crimp', 'edge'] as const)
+      for (const size of ['s', 'm', 'l'] as const) expect(new Set([0, 1, 2, 3].map((v) => curveOf(type, size, v))).size).toBe(4);
+    expect(edgeCurve({ id: 'p', type: 'pinch', size: 'm', u: 0, v: 0, rot: 0 })).toBeNull();
   });
 
   it('stands into an undercling at the waist, but not one overhead', () => {

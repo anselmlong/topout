@@ -62,6 +62,8 @@ export interface Hold {
   pitch?: number;
   /** Crimp thumb catch override; otherwise read off the seed (see thumbCatch). */
   thumb?: boolean;
+  /** Crimp or edge lip curve override (degrees the lip turns end to end); otherwise read off the seed (see edgeCurve). */
+  curve?: number;
 }
 
 export interface Panel {

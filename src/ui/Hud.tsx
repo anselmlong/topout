@@ -3,8 +3,8 @@ import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
-import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWidthEffect, chipWord, depthEffect, radiusEffect, radiusWord, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pinchLengthEffect, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, thumbEffect, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
-import { edgeDepth, edgeRadius, edgeWidth, footDepth, footWidth, thumbCatch, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchLength, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
+import { HOLD_HINT, HOLD_NAME, MACRO_HINT, MACRO_NAME, NEUTRAL_HOLD, VOLUME_COLOR, chipEffect, chipWidthEffect, chipWord, curveEffect, curveWord, depthEffect, radiusEffect, radiusWord, jugDepthEffect, jugDepthWord, jugWidthEffect, jugWidthWord, depthWord, fingerEffect, pinchDepthEffect, pinchDepthWord, pinchLengthEffect, pitchEffect, pitchWord, sloperWidthEffect, sloperWidthWord, fingerWord, spanEffect, spanWord, thumbEffect, lipEffect, lipWord, routeColor, widthEffect, widthWord } from '../scene/palette';
+import { edgeCurve, edgeDepth, edgeRadius, edgeWidth, footDepth, footWidth, thumbCatch, holdVariant, incutRank, jugDepth, jugWidth, pinchDepth, pinchLength, pinchSpan, pocketFingers, sloperPitch, sloperWidth } from '../solver/model';
 import type { Hold, HoldSize, HoldType } from '../solver/types';
 import { isMuted, setMuted } from '../audio/sfx';
 import { strainColor } from '../scene/BetaOverlay';
@@ -181,7 +181,10 @@ function edgeWord(hold: Hold, depth: number, width: number | null, radius: numbe
   const r = radius !== null ? radiusWord(hold.type, radius, hold.size) : null;
   const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
   const rest = w ? `${w} ${d ? lower(d) : HOLD_NAME[hold.type].toLowerCase()}` : d;
-  const words = r ? `${r} ${rest ? lower(rest) : hold.size === 'xl' ? 'ledge' : HOLD_NAME[hold.type].toLowerCase()}` : rest;
+  const shaped = r ? `${r} ${rest ? lower(rest) : hold.size === 'xl' ? 'ledge' : HOLD_NAME[hold.type].toLowerCase()}` : rest;
+  const curve = edgeCurve(hold);
+  const c = curve !== null ? curveWord(curve) : null;
+  const words = c ? `${c} ${shaped ? lower(shaped) : hold.size === 'xl' ? 'ledge' : HOLD_NAME[hold.type].toLowerCase()}` : shaped;
   return thumbCatch(hold) ? `${words ?? HOLD_NAME[hold.type]} with a thumb catch` : words;
 }
 
@@ -223,6 +226,7 @@ function Lip({ hold }: { hold: Hold }) {
   const depth = edgeDepth(hold);
   const width = edgeWidth(hold);
   const radius = edgeRadius(hold);
+  const curve = edgeCurve(hold);
   const pitch = sloperPitch(hold);
   const wide = sloperWidth(hold);
   const chip = footDepth(hold);
@@ -245,6 +249,7 @@ function Lip({ hold }: { hold: Hold }) {
     (width !== null && widthEffect(width)) ||
     (depth !== null && depthEffect(hold.type, depth, hold.size)) ||
     (radius !== null && depth !== null && radiusEffect(hold.type, radius, depth, hold.size)) ||
+    (curve !== null && curveEffect(curve)) ||
     (pitch !== null && pitchEffect(pitch)) ||
     (wide !== null && sloperWidthEffect(wide)) ||
     (chip !== null && chipEffect(chip, hold.type)) ||

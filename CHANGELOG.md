@@ -7,6 +7,10 @@ Each entry is one line in plain words, grouped under the day and the area it tou
 ## 2026-10-20
 
 **Holds**
+- Crimps and edges come straight or curved: a straight rail only pulls well one way, while a
+  curved lip turns as it runs, so the hand can slide to the part that faces the pull and it
+  holds better as a sidepull or from off to the side. Straight down, the two are the same. You
+  can see the curl, and the hold info says "Curved" or "Straight".
 - Foot chips come narrow or wide: a wide one is a little foot rail with room for both shoes, so
   the climber can match feet or swap them on it; a narrow one takes only one toe. The two feet
   share a chip's edge, so standing matched is a place to swap, not a free second foothold. On

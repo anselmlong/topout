@@ -197,6 +197,15 @@ export function thumbEffect(): string {
   return 'thumb catch: pinch it from below, holds better, even on steep ground';
 }
 
+/** A crimp's or edge's lip curve in words (model.ts edgeCurve), or null for a middling one. */
+export function curveWord(deg: number): string | null {
+  return deg >= 30 ? 'Curved' : deg <= 5 ? 'Straight' : null;
+}
+/** What a lip's curve does: a crescent pulls from the side too, a straight rail only one way. */
+export function curveEffect(deg: number): string | null {
+  return deg >= 30 ? 'curved lip: pulls well from the side too' : deg <= 5 ? 'straight lip: only pulls one way' : null;
+}
+
 /** A sloper's pitch in words (model.ts sloperPitch), or null for a middling one. */
 export function pitchWord(deg: number, size: HoldSize = 'm'): string | null {
   const name = size === 'xl' ? 'macro' : 'sloper';

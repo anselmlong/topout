@@ -617,6 +617,52 @@ export function thumbFactors(hold: Hold): { grip: number; steep: number } {
 }
 
 /**
+ * How far a crimp's or edge's lip curves (degrees its facing turns from one end to the other),
+ * from its seed and size, on its own cycle (one build on from its radius's). A straight rail
+ * faces one way along its whole length, so it only pulls well one way; a crescent's lip turns
+ * as it runs, so wherever the pull comes from part of it faces that way, and the hand slides
+ * along to that part. Hold makers sell the two as different holds for that reason: Rock City
+ * Climbing Holds' crescents ("curved so that you can move along the edge and it will get more
+ * positive in relation to the position on the wall") against Atomik's "Straight Crimps"
+ * ("straight across", directional), and Atomik's "Omni Directional" line (a lip that wraps the
+ * hold, several grips on one shape). It doesn't make a straight pull any better: the middle of
+ * every lip faces down its best pull. Macro ledges curve less, being long bars.
+ * The lists run from about straight to the curl each size has always been drawn up to.
+ */
+export const EDGE_CURVE: Partial<Record<HoldType, Partial<Record<HoldSize, number[]>>>> = {
+  crimp: { s: [4, 14, 26, 40], m: [4, 16, 30, 46], l: [4, 16, 30, 46] },
+  edge: { s: [4, 14, 26, 40], m: [4, 16, 30, 46], l: [4, 16, 30, 46], xl: [2, 10, 20, 30] },
+};
+/**
+ * How much of a curved lip's turn the hand can use: it covers about half the lip, so sliding
+ * along to the part facing the pull takes off up to half of the half-turn (the rest of the
+ * hand still sits on the straighter middle).
+ */
+export const CURVE_USE = 0.5;
+
+export function curveOf(type: HoldType, size: HoldSize, variant: number): number | null {
+  const list = EDGE_CURVE[type]?.[size];
+  return list ? list[(3 * variant + { s: 0, m: 1, l: 2, xl: 3 }[size] + 3) % list.length] : null;
+}
+
+/** How far a crimp's or edge's lip curves end to end (degrees); null for other types. */
+export function edgeCurve(hold: Hold): number | null {
+  return hold.type === 'crimp' || hold.type === 'edge' ? (hold.curve ?? curveOf(hold.type, hold.size, holdVariant(hold))) : null;
+}
+
+/**
+ * The cosine of a pull's angle off a hold's best pull, `c`, as a curved lip takes it: the hand
+ * finds the part of the lip facing up to CURVE_USE of its half-turn closer to the pull (c
+ * unchanged for a straight pull or a hold with no lip to curve).
+ */
+export function curvePull(hold: Hold, c: number): number {
+  const curve = edgeCurve(hold);
+  if (curve === null || hold.tol !== undefined) return c;
+  const off = Math.acos(Math.max(-1, Math.min(1, c)));
+  return Math.cos(Math.max(0, off - (CURVE_USE * ((Math.max(0, Math.min(90, curve)) * Math.PI) / 180)) / 2));
+}
+
+/**
  * How far a sloper's palm surface slopes away from level (degrees, on a vertical wall), from its
  * seed and size, on its own cycle (one build off its dish, so the steepest build is never also
  * the roundest). Pitch is what grades a sloper: it's held by friction alone, and friction
@@ -1142,7 +1188,7 @@ function pullParts(hold: Hold, pullTo: { u: number; v: number }) {
   // holds, one overhead with the feet far below it still doesn't.
   if (best.v > 0) dv += best.v * UNDERCLING_RISE;
   const len = Math.hypot(du, dv) || 1;
-  const c = (du * best.u + dv * best.v) / len;
+  const c = curvePull(hold, (du * best.u + dv * best.v) / len);
   const t = hold.tol ?? GRIP[hold.type].tolerance;
   const pull = Math.max(0, Math.min(1, (c + t) / (1 + t))) * (1 - (1 - UNDERCLING) * Math.max(0, best.v));
   // Gaston: a hold whose edge faces away from the body, out to the side, isn't dead.
