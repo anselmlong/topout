@@ -122,6 +122,12 @@ export function HelpModal() {
           cm, every day.
         </p>
       </details>
+      <p className="fine">
+        Enjoying the wall?{' '}
+        <a href="https://ko-fi.com/anselmlong" target="_blank" rel="noopener">
+          ☕ Support me on Ko-fi
+        </a>
+      </p>
       <div className="sticky-cta">
         <button className="btn primary wide" onClick={close}>
           Start setting
