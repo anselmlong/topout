@@ -124,7 +124,7 @@ export function HelpModal() {
       </details>
       <p className="fine">
         Enjoying the wall?{' '}
-        <a href="https://ko-fi.com/anselmlong" target="_blank" rel="noopener">
+        <a href="https://ko-fi.com/anselmlong" target="_blank" rel="noopener" style={{ color: 'inherit' }}>
           ☕ Support me on Ko-fi
         </a>
       </p>
