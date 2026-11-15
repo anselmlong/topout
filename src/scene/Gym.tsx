@@ -140,7 +140,7 @@ function HoldBatch({ kind, holds, side }: { kind: Kind; holds: Section['holds'];
   }, [holds, side]);
   return (
     <instancedMesh ref={ref} args={[geometry, undefined, holds.length]} raycast={none}>
-      <meshStandardMaterial vertexColors flatShading roughness={0.85} />
+      <meshStandardMaterial vertexColors roughness={0.85} />
     </instancedMesh>
   );
 }

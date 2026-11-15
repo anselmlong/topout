@@ -212,10 +212,9 @@ function radiusProfile(pts: [number, number][], rho: number): [number, number][]
  * ends where the shape turns fastest. Returns the bolt square to the face.
  */
 function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, depth: number | null = null, length: number | null = null, radius: number | null = null, thumb = false, curve: number | null = null) {
-  // Enough rows down the profile that a sharp nose stays sharp.
-  const M = radius !== null ? 26 : 14;
-  // More columns where a thumb catch has to read as its own knob.
-  const NU = thumb ? 28 : 18;
+  // Enough rows down the profile that it curves smoothly and a sharp nose stays sharp.
+  const M = 32;
+  const NU = 48;
   // How far out of the wall: a crimp's or edge's shelf depth against its size's mean (model.ts
   // depthOf), so a shallow one reads as a thin strip and a deep one as a shelf; else a little play.
   const out = depth ?? 0.92 + 0.16 * k;
@@ -327,7 +326,7 @@ function profileGeometry(pr: Profile, scale: number, k: number, r: ReturnType<ty
  * Local frame and units as the other holds; `S` is the size scale.
  */
 function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, fingers = 2, depth = 1, rim = 1) {
-  const N = 28;
+  const N = 64;
   // The body widens to frame a long slot.
   const W = (0.056 + 0.0065 * fingers) * (0.94 + 0.1 * k);
   const H = 0.056 * (1.04 - 0.08 * k);
@@ -363,7 +362,7 @@ function pocketGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   // How far the rolled rim spreads round the hole and how far it curls down into it.
   const roll = Math.max(0.25, Math.min(2, rim));
   const RIM = 1 + 0.45 * roll;
-  for (const t of [0, 0.18, 0.4, 0.62, 0.82]) {
+  for (const t of [0, 0.06, 0.13, 0.21, 0.3, 0.4, 0.5, 0.6, 0.69, 0.77, 0.84]) {
     rings.push({
       at: (c, s, j) => {
         const [ox, oy] = outline(c, s, j);
@@ -495,7 +494,7 @@ const SLOPEY_JUG: JugForm = { W: 0.084, H: 0.056, ends: 0.78, droop: 0.7, hy: 0.
  * Local frame and units as the other holds; `S` is the size scale.
  */
 function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugForm = BUCKET, wide = 1) {
-  const N = 36;
+  const N = 80;
   // Its width (model.ts jugWidthOf, against its family's mean): a narrow build for one hand,
   // a wide one with room to match.
   const W = form.W * wide;
@@ -535,7 +534,7 @@ function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugF
   type Ring = { at: (c: number, s: number, j: number) => [number, number, number]; shade: number; jitter: number };
   const rings: Ring[] = [];
   const RIM = 0.011;
-  for (const t of [0, 0.14, 0.32, 0.52, 0.72, 0.88]) {
+  for (const t of [0, 0.05, 0.1, 0.16, 0.23, 0.31, 0.39, 0.47, 0.55, 0.63, 0.71, 0.78, 0.85, 0.91, 0.96]) {
     rings.push({
       at: (c, s, j) => {
         const [ox, oy] = outline(c, s, j);
@@ -633,7 +632,7 @@ function jugGeometry(S: number, k: number, r: ReturnType<typeof rng>, form: JugF
  * bolt goes through the apron below the horn. `S` is the size scale.
  */
 function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>, wide = 1) {
-  const N = 24;
+  const N = 56;
   const W = 0.05 * wide;
   const H = 0.047;
   // Spine: from the middle of the base out of the wall, curling up toward the tip.
@@ -685,7 +684,7 @@ function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>, wide = 1)
       }
       const t = ts[i - 2];
       const p = ringAt(t, c, s);
-      const jz = r.range(0.985, 1.015);
+      const jz = r.range(0.996, 1.004);
       pos.push(p.x, p.y, p.z * jz);
       // The underside of the horn sits in its own shadow.
       shade.push(1 - 0.12 * Math.max(0, -s) * (1 - t));
@@ -737,7 +736,7 @@ function hornGeometry(S: number, k: number, r: ReturnType<typeof rng>, wide = 1)
  * Local frame and units as the other holds; `S` is the size scale.
  */
 function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.15, pitch = 0, wide = 1) {
-  const N = 32;
+  const N = 72;
   // Its width (model.ts sloperWidthOf, here against its size's mean) is how much of the hand
   // it takes: a narrow dome for three fingers, or a wide one the palm spreads across. Drawn
   // a little under life-size spread (0.8-1.2), so it stays inside its placement radius (rules.ts).
@@ -766,7 +765,7 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
   ];
   // Rings: [t (outline → crest), lift (fraction of Z)]. A thin flared skirt,
   // a shoulder, then a broad, nearly flat top.
-  const rings: [number, number][] = [
+  const rings = denser([
     [0, 0],
     [0.05, 0.14],
     [0.13, 0.38],
@@ -775,7 +774,7 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
     [0.57, 0.94],
     [0.75, 0.985],
     [0.9, 1],
-  ];
+  ]);
   const pos: number[] = [];
   const shade: number[] = [];
   const index: number[] = [];
@@ -788,7 +787,7 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
       const l = lift ** (s < 0 ? 1 - 0.4 * -s : 1 + 0.35 * s);
       // A faint dish across the upper ramp, where the palm sits.
       const palm = dish * Math.max(0, s) * Math.sin(Math.PI * t) ** 2;
-      const jz = t > 0 && t < 0.9 ? r.range(0.985, 1.015) : 1;
+      const jz = t > 0 && t < 0.9 ? r.range(0.997, 1.003) : 1;
       pos.push(ox + (cx - ox) * t, oy + (cy - oy) * t, Z * (l - palm) * jz);
       // The skirt sits in the shadow of the dome.
       shade.push(t === 0 ? 0.86 : 1);
@@ -829,7 +828,7 @@ function sloperGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut =
  * Local frame and units as the other holds; `S` is the size scale.
  */
 function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.5, span: number | null = null, depth = 1, length = 1, taper = 14) {
-  const N = 40;
+  const N = 88;
   // Half its width. Its span (model.ts spanOf, cm in life, drawn 20% large like the rest) is
   // what the thumb and fingers squeeze across, so a thin fin reads thin and a broad one broad.
   const W = span === null ? 0.031 * (0.9 + 0.2 * k) : (span * 0.006) / S;
@@ -873,7 +872,7 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
   const slope = Math.min(1.2, (Math.tan((Math.min(40, taper) * 1.25 * Math.PI) / 180) * Z) / W);
   const flankT = (lift: number) => 0.05 + slope * (lift - 0.22);
   const shoulder = flankT(0.79);
-  const rings: [number, number][] = [
+  const rings = denser([
     [0, 0],
     [0.05, 0.22],
     [flankT(0.41), 0.41],
@@ -882,7 +881,7 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
     [shoulder + (1 - shoulder) * 0.5, 0.92],
     [shoulder + (1 - shoulder) * 0.82, 0.98],
     [1, 1],
-  ];
+  ]);
   const pos: number[] = [];
   const shade: number[] = [];
   const index: number[] = [];
@@ -905,7 +904,7 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
       if (side === fingers) dent = ribDepth * (0.5 + 0.5 * Math.cos(2 * Math.PI * ribs * yr + ribPhase)) * (1 - yr * yr);
       else dent = 0.16 * Math.exp(-(((yr - thumbY) / 0.28) ** 2));
       dent *= flank;
-      const jz = t > 0 && t < 1 ? r.range(0.985, 1.015) : 1;
+      const jz = t > 0 && t < 1 ? r.range(0.997, 1.003) : 1;
       pos.push(x, y, spineZ(yr) * lift * (1 - dent) * jz);
       // The skirt sits in shadow, and the ribs' troughs and the thumb dimple read a touch darker.
       shade.push(t === 0 ? 0.86 : 1 - 1.4 * dent);
@@ -951,7 +950,7 @@ function pinchGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 
  * chip is a stubby nub one toe fits on, a wide one a little foot rail with room for both shoes.
  */
 function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.45, depth = 1, width = 1) {
-  const N = 24;
+  const N = 40;
   const W = 0.028 * (0.92 + 0.16 * k) * (0.7 + 0.3 * depth) * width;
   const H = 0.021 * (1.04 - 0.08 * k) * (0.6 + 0.4 * depth);
   const Z = 0.017 * depth;
@@ -1001,7 +1000,7 @@ function footChipGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut
       // ...over its own shadow: the deeper the shelf, the darker under the lip.
       const under = t > 0 && t < 0.1 ? 1 - 0.5 * incut * Math.max(0, s) ** 3 : 1;
       // Hand-poured, so the skirt is a little uneven; the crown stays smooth.
-      const jz = t > 0 && t < 0.3 ? r.range(0.95, 1.05) : 1;
+      const jz = t > 0 && t < 0.3 ? r.range(0.985, 1.015) : 1;
       // The tilt fades out toward the middle, so the screw seats level.
       pos.push(x, y, ringZ(lift, s * (1 - t)) * jz);
       shade.push(sh * under);
@@ -1134,21 +1133,80 @@ function jibGeometry(S: number, k: number, r: ReturnType<typeof rng>, incut = 0.
   shade.push(1);
   for (let j = 0; j < N; j++) index.push(back, base + ((j + 1) % N), base + j);
   return {
-    ...indexedToFlat(pos, shade, index, S),
+    // Knapped stone: every facet a crisp edge.
+    ...indexedToFlat(pos, shade, index, S, 12),
     screw: new THREE.Vector3(0, 0.0015 * S, screwZ * S),
     screwSize: S * 0.8,
   };
 }
 
-function indexedToFlat(pos: number[], shade: number[], index: number[], S: number) {
+/**
+ * Indexed mesh → one vertex per triangle corner (so chalk and grain can be per face), with
+ * smooth normals that keep creases: each corner averages the faces round its vertex that
+ * turn less than `crease` (degrees) from its own face, so a dome or a belly shades round
+ * while a lip, a pocket's rim or a jib's facet stays a crisp edge. Faces flat on the wall
+ * never smooth into the hold.
+ */
+function indexedToFlat(pos: number[], shade: number[], index: number[], S: number, crease = 42) {
+  const P = (i: number) => new THREE.Vector3(pos[3 * i] * S, pos[3 * i + 1] * S, pos[3 * i + 2] * S);
+  const faces = index.length / 3;
+  // Area-weighted face normals, and the faces round each vertex.
+  const fn: THREE.Vector3[] = [];
+  const around: number[][] = Array.from({ length: pos.length / 3 }, () => []);
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+  for (let f = 0; f < faces; f++) {
+    const [a, b, c] = [index[3 * f], index[3 * f + 1], index[3 * f + 2]];
+    const pa = P(a);
+    fn.push(ab.subVectors(P(b), pa).clone().cross(ac.subVectors(P(c), pa)));
+    for (const v of [a, b, c]) around[v].push(f);
+  }
+  const cos = Math.cos((crease * Math.PI) / 180);
+  const unit = fn.map((n) => n.clone().normalize());
+  const position: number[] = [];
+  const normal: number[] = [];
+  const shadeOf: number[] = [];
+  const n = new THREE.Vector3();
+  for (let f = 0; f < faces; f++) {
+    const own = unit[f];
+    const back = own.z < -0.9;
+    for (let j = 0; j < 3; j++) {
+      const v = index[3 * f + j];
+      n.set(0, 0, 0);
+      if (back) n.copy(own);
+      else for (const g of around[v]) if (unit[g].z > -0.9 && unit[g].dot(own) >= cos) n.add(fn[g]);
+      if (n.lengthSq() < 1e-20) n.copy(own);
+      n.normalize();
+      position.push(pos[3 * v] * S, pos[3 * v + 1] * S, pos[3 * v + 2] * S);
+      normal.push(n.x, n.y, n.z);
+      shadeOf.push(shade[v]);
+    }
+  }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos.map((v) => v * S), 3));
-  g.setAttribute('shade', new THREE.Float32BufferAttribute(shade, 1));
-  g.setIndex(index);
-  const flat = g.toNonIndexed();
-  const shadeOf = flat.attributes.shade.array as Float32Array;
-  flat.deleteAttribute('shade');
-  return { geometry: flat, shade: (i: number) => shadeOf[i] };
+  g.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3));
+  return { geometry: g, shade: (i: number) => shadeOf[i] };
+}
+
+/**
+ * A builder's hand-tuned rings ([t, lift] from the outline in to the crest) with `k` more
+ * rings between each pair, eased through a Catmull-Rom so the profile stays a smooth curve
+ * instead of stepping straight from one ring to the next.
+ */
+function denser(rings: [number, number][], k = 2): [number, number][] {
+  const out: [number, number][] = [];
+  const at = (i: number) => rings[Math.max(0, Math.min(rings.length - 1, i))];
+  for (let i = 0; i + 1 < rings.length; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    for (let s = 0; s <= k; s++) {
+      const t = s / (k + 1);
+      const cr = (a: number, b: number, c: number, d: number) =>
+        0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+      out.push([cr(p0[0], p1[0], p2[0], p3[0]), Math.max(0, Math.min(1.02, cr(p0[1], p1[1], p2[1], p3[1])))]);
+    }
+  }
+  out.push(rings[rings.length - 1]);
+  return out;
 }
 
 const SHAPES: Record<HoldType, Shape> = {
@@ -1269,7 +1327,7 @@ function macroMesh(type: HoldType, variant: number): HoldMeshData {
   const tex = new Float32Array(grip.count);
   for (let i = 0; i < grip.count; i++) tex[i] = grip.getX(i) > 0.3 ? 1 : 0;
   g.setAttribute('tex', new THREE.BufferAttribute(tex, 1));
-  g.computeVertexNormals();
+  // g.scale already turned the smooth normals by the inverse stretch; keep them.
   g.computeBoundingBox();
   // The bolt rides the stretched surface; a normal under a non-uniform scale turns by the inverse.
   const t = base.boltTilt ?? 0;
@@ -1376,6 +1434,7 @@ function baseMesh(type: HoldType, size: HoldSize, variant: number): HoldMeshData
     p.z = Math.max(0, p.z);
     pos.setXYZ(i, p.x * spec.scale[0] * s, p.y * spec.scale[1] * s, p.z * spec.scale[2] * s);
   }
+  g.deleteAttribute('normal');
   // Grip tests see centres in unit-shape space, like `shape` and `shade`.
   const grip = spec.grip ?? TOP_GRIP;
   const unit = new THREE.Vector3();
@@ -1403,7 +1462,8 @@ function finish(
   const n = new THREE.Vector3();
   const centre = new THREE.Vector3();
   for (let f = 0; f + 2 < pos.count; f += 3) {
-    const grain = r.range(0.9, 1.05);
+    // Faint per-face grain: the shader's grit carries the texture now.
+    const grain = r.range(0.97, 1.02);
     let s = 1;
     for (let j = 0; j < 3; j++) s = Math.min(s, shade(pos.getX(f + j), pos.getY(f + j), pos.getZ(f + j), f + j));
     for (let j = 0; j < 3; j++) colors.set([grain * s, grain * s, grain * s], (f + j) * 3);
@@ -1424,7 +1484,8 @@ function finish(
   g.setAttribute('grip', new THREE.BufferAttribute(grip, 1));
   // Textured all over (macros mark their smooth faces; see macroMesh).
   g.setAttribute('tex', new THREE.BufferAttribute(new Float32Array(pos.count).fill(1), 1));
-  g.computeVertexNormals();
+  // Builders hand over smooth, creased normals (indexedToFlat); keep them.
+  if (!g.attributes.normal) g.computeVertexNormals();
   g.computeBoundingBox();
   const bb = g.boundingBox!;
   let bolt: THREE.Vector3 | null = null;

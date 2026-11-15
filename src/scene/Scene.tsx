@@ -589,7 +589,6 @@ function HoldMesh({
         <meshStandardMaterial
           vertexColors
           color={color}
-          flatShading
           roughness={(dark ? 0.45 : 0.85) + chalk * 0.02}
           onBeforeCompile={addChalk}
           transparent={dragging}
@@ -708,6 +707,29 @@ if (uRubber > 0.0) {
 }
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.92, 0.89), clamp(vGrip * uChalk, 0.0, 0.85));`,
       )
+      .replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+{
+  // The cast-in grit as a bump, not just a colour: grains ~2.5 mm across and finer sand
+  // between them, a fraction of a millimetre high, so the texture catches the light. Each
+  // octave fades out once a pixel spans several of its grains (no shimmer at a distance),
+  // and a macro's smooth faces stay smooth. Bump mapping from screen-space derivatives
+  // (Mikkelsen, "Bump Mapping Unparametrized Surfaces on the GPU").
+  vec3 g1 = vHoldPos * 420.0;
+  vec3 g2 = vHoldPos * 1300.0;
+  float f1 = 1.0 - smoothstep(0.3, 1.0, length(fwidth(g1)));
+  float f2 = 1.0 - smoothstep(0.3, 1.0, length(fwidth(g2)));
+  float h = (0.00035 * gritNoise(g1) * f1 + 0.00012 * gritNoise(g2) * f2) * vTex;
+  vec3 dpx = dFdx(-vViewPosition);
+  vec3 dpy = dFdy(-vViewPosition);
+  vec3 r1 = cross(dpy, normal);
+  vec3 r2 = cross(normal, dpx);
+  float det = dot(dpx, r1);
+  vec3 grad = sign(det) * (dFdx(h) * r1 + dFdy(h) * r2);
+  normal = normalize(abs(det) * normal - grad);
+}`,
+      )
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.42, roughnessFactor, vTex);');
   };
 }
@@ -771,7 +793,7 @@ function GhostHold({ wall, frames }: { wall: Wall; frames: PanelFrame[] }) {
   return (
     <group position={t.position} quaternion={t.quaternion}>
       <mesh geometry={holdGeometry(armed!.type, armed!.size, seed)} raycast={() => null}>
-        <meshStandardMaterial color={color} transparent opacity={0.6} flatShading depthWrite={false} />
+        <meshStandardMaterial color={color} transparent opacity={0.6} depthWrite={false} />
       </mesh>
       <PullArrow dir={bestPull(0)} color={color} />
     </group>

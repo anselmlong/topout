@@ -4,6 +4,13 @@ What changed in Topout, newest first. Dates are Singapore time (UTC+8).
 Each entry is one line in plain words, grouped under the day and the area it touched:
 **Climber**, **Grades**, **Holds**, **Walls**, **Game**.
 
+## 2026-11-15
+
+**Holds**
+- Holds are modelled in finer detail: smooth, rounded bodies that keep crisp lips, rims and
+  edges, and a gritty cast surface that catches the light up close. Jibs stay sharp-faceted like
+  knapped stone. Only the looks change, so no grades move.
+
 ## 2026-10-20
 
 **Holds**
