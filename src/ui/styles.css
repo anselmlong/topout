@@ -4,7 +4,8 @@
   --surface-solid: #f7f5f0;
   --ink: #2a2926;
   --ink-2: #57544d;
-  --ink-3: #8a867c;
+  /* 4.6:1 on the card surface: the fine print and labels stay readable (AA). */
+  --ink-3: #726e66;
   --line: rgba(60, 55, 45, 0.14);
   --accent: #33373c;
   --accent-ink: #f4f1ea;
@@ -692,9 +693,8 @@ button {
 .tip {
   margin: 0 0 14px;
   padding: 8px 10px;
-  border-left: 3px solid var(--near);
-  border-radius: 4px;
-  background: rgba(179, 151, 75, 0.1);
+  border-radius: 6px;
+  background: rgba(179, 151, 75, 0.14);
   color: var(--ink-2);
   font-size: 13px;
   line-height: 1.4;
@@ -818,7 +818,7 @@ button {
   font-size: 11px;
   opacity: 1;
   box-shadow: 0 1px 4px rgba(40, 35, 25, 0.3);
-  animation: grade-slide 0.6s cubic-bezier(0.3, 0.9, 0.3, 1.15) 0.15s both;
+  animation: grade-slide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
 }
 /* Off the end of the scale: pinned to the edge with a flat side pointing out. */
 .grade-scale .mark.below {
@@ -1162,8 +1162,50 @@ button {
   border-color: var(--accent);
   color: var(--accent-ink);
 }
+.more-toggle {
+  /* Padding widens the tap target; the negative margin keeps the label row's height. */
+  margin: -8px -6px;
+  padding: 8px 6px;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+.more-toggle:hover {
+  text-decoration-color: currentColor;
+}
+.more-toggle .caret {
+  margin-left: 4px;
+  font-size: 10px;
+}
+.more-walls {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.chips-group {
+  margin-bottom: 5px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.field-hint {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+/* Two even rows (V0–V5, V6–V10) instead of a stray V9 V10 wrapping alone. */
+.chips.grades {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
 .chips.grades .chip {
-  padding: 0 9px;
+  padding: 0;
 }
 .field input[type='range'] {
   width: 100%;

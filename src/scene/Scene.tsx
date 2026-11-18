@@ -26,7 +26,7 @@ export function Scene() {
   if (!day) return null;
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       dpr={[1, 2]}
       camera={{ fov: 30, near: 0.1, far: 60 }}
       gl={{ antialias: true }}

@@ -45,6 +45,32 @@ export const STYLE_LABEL: Record<WallStyle, string> = {
   nose: 'Nose',
 };
 
+/** One line on what each wall is, for climbers who don't know the gym word. */
+export const STYLE_HINT: Record<WallStyle, string> = {
+  slab: 'Less than vertical: balance and footwork on small holds.',
+  vertical: 'Straight up and down. Feet and hands share the work.',
+  overhang: 'Leans out over you, so the arms work harder.',
+  steep: 'Properly overhanging: big moves, body tension, kinder holds.',
+  headwall: 'A vertical start that breaks into a steep top section.',
+  kicker: 'A short vertical kicker under a long overhang, board style.',
+  corner: 'Two faces meeting in an inside corner. Stem between them.',
+  arete: 'An outside edge you can grab and squeeze as a hold.',
+  bulge: 'A steep bulge low down that rolls into a vertical top.',
+  cave: 'Out through a near-roof, then over a lip onto a short headwall.',
+  prow: 'An overhanging arête: squeeze, slap and heel-hook the nose.',
+  dihedral: 'An overhanging inside corner. Bridging keeps it easier than it looks.',
+  scoop: 'A curved wave: a slabby toe that bends into a steep top.',
+  rollover: 'An overhang that rolls over a rounded lip onto a slab.',
+  belly: 'A slabby start, a steep bulge mid-height, then easier again.',
+  overlap: 'A slab with a short roof band to reach over and mantle.',
+  ledge: 'A near-vertical wall with a shelf across it to mantle onto.',
+  roof: 'Out along a near-flat ceiling, then pull over the lip.',
+  highball: 'The tall wall: more moves, so rests and pump count.',
+  leaningcorner: 'An inside corner that tips into an overhang higher up.',
+  leaningarete: 'A vertical edge that leans out into a steep prow.',
+  nose: 'A sit start under a steep nose that stands up into an arête.',
+};
+
 function makeWall(r: Rng, style: WallStyle, seed: number): Wall {
   const width = r.pick([360, 380, 400]);
   // Real gym bouldering walls run ~4.3–5 m; steep ones a bit shorter along the surface.

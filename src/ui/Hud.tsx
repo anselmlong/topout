@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
+import { STYLE_HINT, STYLE_LABEL, TWIST_LABEL, wallStyleOf } from '../gen/day';
 import { MAX_TESTS, SQUARE, TOLERANCE, TRAY_SEEDS, holds as nHolds, nextTraySeed, swapSeeds } from '../game/rules';
 import { gradeTone } from '../game/tips';
 import { isSpotId } from '../game/spots';
@@ -120,7 +120,7 @@ export function Brief() {
         </button>
       </h1>
       <dl className="facts">
-        <div className="wall-fact">
+        <div className="wall-fact" title={STYLE_HINT[style]}>
           <dt>Wall</dt>
           <dd>
             {STYLE_LABEL[style]} <span className="mono dim">{angles}</span>

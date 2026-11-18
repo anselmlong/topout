@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { MAX_TESTS, bestTest, holds as nHolds, type TestRun } from '../game/rules';
-import { ALL_STYLES, ANGLE_RANGE, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
+import { ANGLE_RANGE, STYLE_HINT, STYLE_LABEL, TWIST_LABEL, dateOf, dayNumber, type WallStyle } from '../gen/day';
 import { parsePractice, practiceParam, randomSeed, type PracticeConfig } from '../game/practice';
 import { EXAMPLES } from '../game/examples';
 import { GRADE_GUIDE, guideRange } from '../game/guide';
@@ -464,6 +464,15 @@ const TWIST_OPTIONS: { value: Twist | null; label: string }[] = [
   { value: 'no-smear', label: TWIST_LABEL['no-smear'] },
 ];
 
+// The walls every climber has a word for. The rest sit behind "More walls", grouped by shape.
+const COMMON_WALLS: WallStyle[] = ['slab', 'vertical', 'overhang', 'steep', 'roof'];
+const MORE_WALLS: { label: string; styles: WallStyle[] }[] = [
+  { label: 'Corners and arêtes', styles: ['corner', 'dihedral', 'leaningcorner', 'arete', 'prow', 'leaningarete', 'nose'] },
+  { label: 'Changes angle', styles: ['headwall', 'kicker', 'bulge', 'belly', 'scoop', 'rollover', 'cave'] },
+  { label: 'Features', styles: ['overlap', 'ledge', 'highball'] },
+];
+const MORE_COUNT = MORE_WALLS.reduce((n, g) => n + g.styles.length, 0);
+
 function defaultConfig(): PracticeConfig {
   return parsePractice(new URLSearchParams(location.search).get('practice')) ?? {
     style: 'overhang',
@@ -478,7 +487,14 @@ export function PracticeModal() {
   const open = useGame((s) => s.modal === 'practice');
   const setModal = useGame((s) => s.setModal);
   const [c, setC] = useState(defaultConfig);
+  const [more, setMore] = useState(() => !COMMON_WALLS.includes(c.style));
   if (!open) return null;
+  const hiddenPick = !more && !COMMON_WALLS.includes(c.style);
+  const wallChip = (st: WallStyle) => (
+    <button key={st} className={`chip ${c.style === st ? 'on' : ''}`} aria-pressed={c.style === st} onClick={() => pickStyle(st)}>
+      {STYLE_LABEL[st]}
+    </button>
+  );
 
   const [lo, hi] = ANGLE_RANGE[c.style];
   const pickStyle = (style: WallStyle) => {
@@ -498,22 +514,38 @@ export function PracticeModal() {
       <h2>Build any wall and set on it. Unlimited tests, no stats.</h2>
 
       <div className="field">
-        <span className="field-label">Wall</span>
+        <span className="field-label">
+          Wall
+          <button className="more-toggle" aria-expanded={more} aria-controls="more-walls" onClick={() => setMore(!more)}>
+            {more ? 'Fewer walls' : `More walls (${MORE_COUNT})`}
+            <span className="caret" aria-hidden="true">
+              {more ? '▴' : '▾'}
+            </span>
+          </button>
+        </span>
         <div className="chips">
-          {ALL_STYLES.map((st) => (
-            <button key={st} className={`chip ${c.style === st ? 'on' : ''}`} onClick={() => pickStyle(st)}>
-              {STYLE_LABEL[st]}
-            </button>
-          ))}
+          {COMMON_WALLS.map(wallChip)}
+          {hiddenPick && wallChip(c.style)}
         </div>
+        {more && (
+          <div id="more-walls" className="more-walls">
+            {MORE_WALLS.map((g) => (
+              <div key={g.label} role="group" aria-label={g.label}>
+                <div className="chips-group">{g.label}</div>
+                <div className="chips">{g.styles.map(wallChip)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="field-hint">{STYLE_HINT[c.style]}</p>
       </div>
 
       <label className="field">
         <span className="field-label">
           {c.style === 'headwall' || c.style === 'kicker' ? 'Top panel angle' : 'Angle'}
           <span className="mono">
-            {c.angle > 0 ? '+' : ''}
-            {c.angle}°
+            {c.angle > 0 ? '+' : c.angle < 0 ? '−' : ''}
+            {Math.abs(c.angle)}°
           </span>
         </span>
         <input
@@ -529,7 +561,7 @@ export function PracticeModal() {
         <span className="field-label">Target grade</span>
         <div className="chips grades">
           {GRADES.map((g) => (
-            <button key={g} className={`chip mono ${c.grade === g ? 'on' : ''}`} onClick={() => setC({ ...c, grade: g })}>
+            <button key={g} className={`chip mono ${c.grade === g ? 'on' : ''}`} aria-pressed={c.grade === g} onClick={() => setC({ ...c, grade: g })}>
               V{g}
             </button>
           ))}
@@ -540,7 +572,7 @@ export function PracticeModal() {
         <span className="field-label">Twist</span>
         <div className="chips">
           {TWIST_OPTIONS.map((t) => (
-            <button key={t.label} className={`chip ${c.twist === t.value ? 'on' : ''}`} onClick={() => setC({ ...c, twist: t.value })}>
+            <button key={t.label} className={`chip ${c.twist === t.value ? 'on' : ''}`} aria-pressed={c.twist === t.value} onClick={() => setC({ ...c, twist: t.value })}>
               {t.label}
             </button>
           ))}
