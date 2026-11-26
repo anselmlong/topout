@@ -16,6 +16,14 @@ import { useGame } from '../state/store';
 import { HoldIcon } from './Hud';
 
 function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
   if (!open) return null;
   return (
     <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -357,12 +365,14 @@ export function ResultModal() {
   );
 }
 
-function useCountdown() {
+function useCountdown(active: boolean) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
+    if (!active) return;
+    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [active]);
   const next = new Date(now);
   next.setHours(24, 0, 0, 0);
   const ms = next.getTime() - now.getTime();
@@ -375,7 +385,7 @@ function useCountdown() {
 export function StatsModal() {
   const s = useGame();
   const open = s.modal === 'stats';
-  const countdown = useCountdown();
+  const countdown = useCountdown(open);
   if (!open || !s.day) return null;
   const day = s.day;
   const stats = loadStats();
@@ -542,7 +552,9 @@ export function PracticeModal() {
 
       <label className="field">
         <span className="field-label">
-          {c.style === 'headwall' || c.style === 'kicker' ? 'Top panel angle' : 'Angle'}
+          {COMMON_WALLS.includes(c.style) || c.style === 'corner' || c.style === 'dihedral' || c.style === 'arete' || c.style === 'highball'
+            ? 'Angle'
+            : 'Panel angle'}
           <span className="mono">
             {c.angle > 0 ? '+' : c.angle < 0 ? '−' : ''}
             {Math.abs(c.angle)}°

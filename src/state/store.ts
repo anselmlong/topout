@@ -497,7 +497,14 @@ export const useGame = create<GameState>((set, get) => {
       const holds = s.placed.map((h) => ({ ...h }));
       const volumes = s.volumes.map((v) => ({ ...v }));
       const spots = { ...s.spots };
-      const result = await solveInWorker(withSpots(s.day!, spots), holds, volumes);
+      let result;
+      try {
+        result = await solveInWorker(withSpots(s.day!, spots), holds, volumes);
+      } catch {
+        set({ phase: 'setting' });
+        get().showToast('The climber couldn’t read the wall. Try testing again.');
+        return;
+      }
       if (!result.ok && result.reason === 'too-complex') {
         // Our limitation, not the player's: don't spend a test on it.
         set({ phase: 'setting' });
@@ -534,7 +541,14 @@ export const useGame = create<GameState>((set, get) => {
       const spots = s.viewing ? s.viewingSpots : best ? best.spots : s.spots;
       if (spots && !spotsFilled(s.day, spots)) return get().showToast('Put a hold on every taped spot first.');
       set({ phase: 'solving' });
-      const result = await solveInWorker(withSpots(s.day, spots), holds, volumes);
+      let result;
+      try {
+        result = await solveInWorker(withSpots(s.day, spots), holds, volumes);
+      } catch {
+        set({ phase: 'setting' });
+        get().showToast('The climber couldn’t read the wall. Try again.');
+        return;
+      }
       set({
         phase: 'climbing',
         lastTest: null,
@@ -562,7 +576,7 @@ export const useGame = create<GameState>((set, get) => {
       const best = bestTest(s.tests, s.day.targetGrade)!;
       // Only today's puzzle counts toward stats and streaks; ?day= replays don't.
       if (s.day.number === dayNumber(new Date()))
-        recordResult(s.day.number, best.verdict, best.verdict === 'fail' ? null : best.holdCount - s.day.par);
+        recordResult(s.day.number, best.verdict, best.verdict === 'fail' || s.day.par <= 0 ? null : best.holdCount - s.day.par);
       set({ done: true, phase: 'setting', modal: 'stats', playback: null });
       persist();
     },
